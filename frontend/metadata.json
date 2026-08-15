@@ -1,0 +1,6 @@
+{
+  "name": "MessConnect",
+  "description": "Hostel mess management app with student meal planning, QR attendance check-in, admin overview dashboard, student directory, and monthly reports.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
