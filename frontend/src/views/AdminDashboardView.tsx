@@ -135,6 +135,13 @@ const INITIAL_INVENTORY_CATALOG: InventoryCatalogItem[] = [
   { id: 'inv-cat-11', name: 'Coffee Powder', unit: 'kg' },
   { id: 'inv-cat-12', name: 'Commercial LPG Cylinders', unit: 'cylinders' },
   { id: 'inv-cat-13', name: 'Sugar', unit: 'kg' },
+  { id: 'inv-cat-14', name: 'Fresh Beef (Meat)', unit: 'kg' },
+  { id: 'inv-cat-15', name: 'Green Beans & Vegetables', unit: 'kg' },
+  { id: 'inv-cat-16', name: 'Butter (Milma / Amul)', unit: 'kg' },
+  { id: 'inv-cat-17', name: 'Banana (Nendran / Robusta)', unit: 'kg' },
+  { id: 'inv-cat-18', name: 'Brinjal & Eggplant', unit: 'kg' },
+  { id: 'inv-cat-19', name: 'Fresh Bread Loaves', unit: 'packs' },
+  { id: 'inv-cat-20', name: 'Basmati Rice (Biryani Grade)', unit: 'kg' },
 ];
 
 interface MasterStudentDetail {
@@ -334,6 +341,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   const [newInvName, setNewInvName] = useState('');
   const [newInvUnit, setNewInvUnit] = useState('kg');
   const [invSearch, setInvSearch] = useState('');
+  const [showClosingSuggestions, setShowClosingSuggestions] = useState(false);
 
   // Student Data Filter State
   const [studentSearch, setStudentSearch] = useState('');
@@ -3076,37 +3084,111 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                   </span>
                 </div>
 
-                {/* Form to add closing stock item */}
-                <form onSubmit={handleAddClosingStockItem} className="bg-[#f8fafc] p-3 rounded-xl border border-[#cbd5e1] grid grid-cols-1 md:grid-cols-4 gap-2">
-                  <input
-                    type="text"
-                    value={newClosingName}
-                    onChange={(e) => setNewClosingName(e.target.value)}
-                    placeholder="Item Name (e.g. Rice)"
-                    className="p-2 bg-white border border-[#cbd5e1] rounded-lg text-xs font-medium focus:outline-none focus:border-[#2563eb]"
-                  />
-                  <input
-                    type="number"
-                    value={newClosingQty}
-                    onChange={(e) => setNewClosingQty(e.target.value)}
-                    placeholder="Physical Qty"
-                    className="p-2 bg-white border border-[#cbd5e1] rounded-lg text-xs font-medium focus:outline-none focus:border-[#2563eb]"
-                  />
-                  <input
-                    type="number"
-                    value={newClosingWac}
-                    onChange={(e) => setNewClosingWac(e.target.value)}
-                    placeholder="WAC Price (₹)"
-                    className="p-2 bg-white border border-[#cbd5e1] rounded-lg text-xs font-medium focus:outline-none focus:border-[#2563eb]"
-                  />
-                  <button
-                    type="submit"
-                    className="py-2 bg-[#2563eb] text-white font-bold text-xs rounded-lg hover:bg-[#1d4ed8] cursor-pointer flex items-center justify-center gap-1"
-                  >
-                    <span className="material-symbols-outlined text-[16px]">add</span>
-                    Add Closing Item
-                  </button>
-                </form>
+                {/* Form to add closing stock item with Live Item Suggestions Dropdown */}
+                {(() => {
+                  const closingInputLower = newClosingName.trim().toLowerCase();
+                  // Match items starting with input first, then containing input
+                  const matches = closingInputLower
+                    ? inventoryCatalog.filter(i => i.name.toLowerCase().startsWith(closingInputLower))
+                    : [];
+                  const fallbackMatches = closingInputLower && matches.length === 0
+                    ? inventoryCatalog.filter(i => i.name.toLowerCase().includes(closingInputLower))
+                    : [];
+                  const closingSuggestions = [...matches, ...fallbackMatches].slice(0, 6);
+
+                  const defaultWacRatesMap: Record<string, number> = {
+                    'inv-cat-1': 40, 'inv-cat-2': 42, 'inv-cat-3': 52, 'inv-cat-4': 6,
+                    'inv-cat-5': 190, 'inv-cat-6': 170, 'inv-cat-7': 30, 'inv-cat-8': 120,
+                    'inv-cat-9': 317, 'inv-cat-10': 350, 'inv-cat-11': 420, 'inv-cat-12': 1850,
+                    'inv-cat-13': 42, 'inv-cat-14': 360, 'inv-cat-15': 65, 'inv-cat-16': 480,
+                    'inv-cat-17': 45, 'inv-cat-18': 40, 'inv-cat-19': 35, 'inv-cat-20': 110,
+                  };
+
+                  return (
+                    <form onSubmit={handleAddClosingStockItem} className="bg-[#f8fafc] p-3 rounded-xl border border-[#cbd5e1] grid grid-cols-1 md:grid-cols-4 gap-2 relative">
+                      
+                      {/* Item Name Input with Floating Suggestions Dropdown */}
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={newClosingName}
+                          onChange={(e) => {
+                            setNewClosingName(e.target.value);
+                            setShowClosingSuggestions(true);
+                          }}
+                          onFocus={() => setShowClosingSuggestions(true)}
+                          placeholder="Item Name (e.g. Rice, Beef...)"
+                          className="w-full p-2 bg-white border border-[#cbd5e1] rounded-lg text-xs font-bold text-[#0f172a] focus:outline-none focus:border-[#2563eb]"
+                        />
+
+                        {/* Floating Dropdown Suggestion Menu */}
+                        {showClosingSuggestions && closingSuggestions.length > 0 && (
+                          <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border-2 border-[#2563eb] rounded-xl shadow-2xl z-50 overflow-hidden divide-y divide-[#e2e8f0] animate-fade-in">
+                            <div className="bg-[#2563eb] px-3 py-1.5 text-white text-[10px] font-black uppercase tracking-wider flex justify-between items-center">
+                              <span>Select Stock Item Suggestion</span>
+                              <span>{closingSuggestions.length} Matches</span>
+                            </div>
+                            <div className="max-h-48 overflow-y-auto">
+                              {closingSuggestions.map((item) => {
+                                const wacPrice = defaultWacRatesMap[item.id] || 50;
+                                return (
+                                  <div
+                                    key={item.id}
+                                    onClick={() => {
+                                      setNewClosingName(item.name);
+                                      setNewClosingWac(wacPrice.toString());
+                                      setShowClosingSuggestions(false);
+                                    }}
+                                    className="px-3 py-2 hover:bg-[#2563eb]/10 cursor-pointer transition-colors flex items-center justify-between group"
+                                  >
+                                    <div className="flex items-center gap-2">
+                                      <span className="material-symbols-outlined text-[16px] text-[#2563eb] group-hover:scale-110 transition-transform">
+                                        inventory_2
+                                      </span>
+                                      <span className="font-extrabold text-xs text-[#0f172a] group-hover:text-[#2563eb]">
+                                        {item.name}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-[10px] font-mono font-semibold text-[#64748b] bg-[#f1f5f9] px-1.5 py-0.5 rounded">
+                                        {item.unit}
+                                      </span>
+                                      <span className="text-[11px] font-mono font-black text-[#16a34a]">
+                                        ₹{wacPrice}
+                                      </span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <input
+                        type="number"
+                        value={newClosingQty}
+                        onChange={(e) => setNewClosingQty(e.target.value)}
+                        placeholder="Physical Qty"
+                        className="p-2 bg-white border border-[#cbd5e1] rounded-lg text-xs font-bold text-[#0f172a] focus:outline-none focus:border-[#2563eb]"
+                      />
+                      <input
+                        type="number"
+                        value={newClosingWac}
+                        onChange={(e) => setNewClosingWac(e.target.value)}
+                        placeholder="WAC Price (₹)"
+                        className="p-2 bg-white border border-[#cbd5e1] rounded-lg text-xs font-bold text-[#0f172a] focus:outline-none focus:border-[#2563eb]"
+                      />
+                      <button
+                        type="submit"
+                        className="py-2 bg-[#2563eb] text-white font-bold text-xs rounded-lg hover:bg-[#1d4ed8] cursor-pointer flex items-center justify-center gap-1 shadow-xs"
+                      >
+                        <span className="material-symbols-outlined text-[16px]">add</span>
+                        Add Closing Item
+                      </button>
+                    </form>
+                  );
+                })()}
 
                 <div className="overflow-x-auto border border-[#e2e8f0] rounded-xl">
                   <table className="w-full text-left text-xs">
