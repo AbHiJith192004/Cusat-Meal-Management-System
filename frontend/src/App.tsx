@@ -14,7 +14,6 @@ import { StudentQrView } from './views/StudentQrView';
 import { AdminDashboardView } from './views/AdminDashboardView';
 import { AdminScannerView } from './views/AdminScannerView';
 import { StudentDirectoryView } from './views/StudentDirectoryView';
-import { MonthlyReportsView } from './views/MonthlyReportsView';
 import { ProfileView } from './views/ProfileView';
 import { AlertsView } from './views/AlertsView';
 import { authApi, studentApi, getAuthToken } from './services/api';
@@ -247,17 +246,19 @@ export function App() {
               <AdminDashboardView initialModuleTab="ledger" onNavigate={handleTabChange} />
             )}
             {currentTab === 'admin-students' && (
-              <StudentDirectoryView students={students} onAddStudent={handleAddStudent} />
+              <AdminDashboardView initialModuleTab="student-data" onNavigate={handleTabChange} />
             )}
             {currentTab === 'admin-scanner' && (
               <AdminScannerView scanLogs={scanLogs} onAddScanLog={handleAddScanLog} />
             )}
-            {currentTab === 'admin-reports' && <MonthlyReportsView />}
             {currentTab === 'admin-billing' && (
               <AdminDashboardView initialModuleTab="billing" onNavigate={handleTabChange} />
             )}
             {currentTab === 'admin-payments' && (
               <AdminDashboardView initialModuleTab="payments" onNavigate={handleTabChange} />
+            )}
+            {currentTab === 'admin-stocks' && (
+              <AdminDashboardView initialModuleTab="stocks" onNavigate={handleTabChange} />
             )}
             {currentTab === 'alerts' && (
               <AlertsView alerts={alerts} onMarkAllRead={handleMarkAllAlertsRead} />

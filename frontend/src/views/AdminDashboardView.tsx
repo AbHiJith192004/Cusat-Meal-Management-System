@@ -8,7 +8,7 @@ interface AdminDashboardViewProps {
   initialModuleTab?: AdminModuleTab;
 }
 
-type AdminModuleTab = 'daily-summary' | 'weekly-menu' | 'ledger' | 'student-data' | 'billing' | 'payments';
+type AdminModuleTab = 'daily-summary' | 'weekly-menu' | 'ledger' | 'student-data' | 'billing' | 'payments' | 'stocks';
 type LedgerSubTab = 'food-purchases' | 'operational-expenses' | 'admin-expenses' | 'inventory';
 
 interface DrillDownState {
@@ -595,6 +595,61 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   const [paymentCategoryFilter, setPaymentCategoryFilter] = useState<'ALL' | 'Inmate' | 'Lakeside' | 'Outmess'>('ALL');
   const [paymentStatusFilter, setPaymentStatusFilter] = useState<'ALL' | 'PAID' | 'PENDING'>('ALL');
 
+  // 7. Stocks Module State & Data Structure
+  const currentMonthNameStr = new Date().toLocaleString('en-US', { month: 'long' });
+  const currentYearNumStr = new Date().getFullYear().toString();
+
+  const [stocksMonth, setStocksMonth] = useState(currentMonthNameStr);
+  const [stocksYear, setStocksYear] = useState(currentYearNumStr);
+  const [stocksSearchPrefix, setStocksSearchPrefix] = useState('');
+
+  // Physical Closing Stock Qty Map keyed by `${month}-${year}-${itemId}`
+  const [physicalClosingStockMap, setPhysicalClosingStockMap] = useState<Record<string, number>>({
+    'August-2026-inv-cat-1': 80,
+    'August-2026-inv-cat-2': 45,
+    'August-2026-inv-cat-3': 30,
+    'August-2026-inv-cat-4': 50,
+    'August-2026-inv-cat-5': 10,
+    'August-2026-inv-cat-6': 15,
+    'August-2026-inv-cat-7': 35,
+    'August-2026-inv-cat-8': 25,
+    'August-2026-inv-cat-9': 8,
+    'July-2026-inv-cat-1': 100,
+    'July-2026-inv-cat-2': 50,
+    'July-2026-inv-cat-3': 40,
+    'July-2026-inv-cat-4': 60,
+    'July-2026-inv-cat-5': 12,
+    'July-2026-inv-cat-6': 20,
+    'July-2026-inv-cat-7': 50,
+  });
+
+  const handleUpdatePhysicalClosingStock = (itemId: string, val: number) => {
+    const key = `${stocksMonth}-${stocksYear}-${itemId}`;
+    setPhysicalClosingStockMap(prev => ({
+      ...prev,
+      [key]: Math.max(0, isNaN(val) ? 0 : val),
+    }));
+  };
+
+  // Student Category Overrides for Monthly Billing Table (Inmate / Lakeside / Outmess)
+  const [studentCategoryOverrideMap, setStudentCategoryOverrideMap] = useState<Record<string, 'Inmate' | 'Lakeside' | 'Outmess'>>({
+    'MESS-2026-089': 'Inmate',
+    'MESS-2026-104': 'Lakeside',
+    'MESS-2026-112': 'Inmate',
+    'MESS-2026-145': 'Outmess',
+    'MESS-2026-178': 'Inmate',
+    'MESS-2026-192': 'Lakeside',
+    'MESS-2026-210': 'Inmate',
+    'MESS-2026-230': 'Inmate',
+  });
+
+  const handleUpdateStudentCategoryInBilling = (messId: string, newCategory: 'Inmate' | 'Lakeside' | 'Outmess') => {
+    setStudentCategoryOverrideMap(prev => ({
+      ...prev,
+      [messId]: newCategory,
+    }));
+  };
+
   const handleSavePaymentRow = (id: string, newStatus: 'PAID' | 'PENDING', newUtr: string) => {
     setStudentPaymentRecords(prev =>
       prev.map(r => r.id === id ? { ...r, status: newStatus, utrRef: newUtr.trim() } : r)
@@ -602,9 +657,46 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     alert('Student payment status & UTR reference saved successfully!');
   };
 
+  const checkIsBillLocked = (monthStr: string, yearStr: string, isPublished: boolean): { isLocked: boolean; lockDateFormatted: string } => {
+    if (!isPublished) return { isLocked: false, lockDateFormatted: '' };
+
+    const MONTH_NAMES = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+
+    const monthIdx = MONTH_NAMES.indexOf(monthStr);
+    const yearNum = parseInt(yearStr, 10);
+    if (monthIdx === -1 || isNaN(yearNum)) return { isLocked: false, lockDateFormatted: '' };
+
+    // Lock date is 10th of following month (monthIdx + 1)
+    const lockDate = new Date(yearNum, monthIdx + 1, 10, 23, 59, 59);
+    const currentDate = new Date();
+
+    const isLocked = currentDate > lockDate;
+    const lockDateFormatted = lockDate.toLocaleDateString('en-IN', {
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric'
+    });
+
+    return { isLocked, lockDateFormatted };
+  };
+
   const handleTogglePublishBill = () => {
     const key = `${billingMonth}-${billingYear}`;
-    const nextVal = !isBillPublishedMap[key];
+    const currentlyPublished = !!isBillPublishedMap[key];
+
+    if (currentlyPublished) {
+      const { isLocked, lockDateFormatted } = checkIsBillLocked(billingMonth, billingYear, currentlyPublished);
+      if (isLocked) {
+        return alert(
+          `🔒 Lock Rule Enforced:\n\nPublished bills for previous months cannot be unpublished after the 10th of the following month.\n\nLock date for ${billingMonth} ${billingYear} was ${lockDateFormatted}. This billing record is permanently frozen.`
+        );
+      }
+    }
+
+    const nextVal = !currentlyPublished;
     setIsBillPublishedMap({ ...isBillPublishedMap, [key]: nextVal });
     alert(`Bill status for ${billingMonth} ${billingYear} is now ${nextVal ? 'PUBLISHED 🟢' : 'DRAFT / UNPUBLISHED 🟠'}`);
   };
@@ -3220,149 +3312,353 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 </div>
               </div>
 
+              {/* ------------------------------------------------------------- */}
+              {/* INDIVIDUAL MONTHLY STUDENT BILLING TABLE & EXCEL EXPORT        */}
+              {/* ------------------------------------------------------------- */}
+              {(() => {
+                // Days in calendar month
+                const getDaysInMonth = (mName: string, yStr: string): number => {
+                  const mIdx = [
+                    'January', 'February', 'March', 'April', 'May', 'June',
+                    'July', 'August', 'September', 'October', 'November', 'December'
+                  ].indexOf(mName);
+                  const yNum = parseInt(yStr, 10) || 2026;
+                  if (mIdx === -1) return 30;
+                  return new Date(yNum, mIdx + 1, 0).getDate();
+                };
+
+                const totalDaysInMonth = getDaysInMonth(billingMonth, billingYear);
+                const officialHolidaysCount = 1; // 1 official holiday day in current cycle
+                const messOpenedDays = Math.max(0, totalDaysInMonth - officialHolidaysCount);
+                const perDayRate = Math.round(messDailyRate || 85);
+
+                // Build individual student billing records
+                const studentBillingData = masterStudents.map((st, idx) => {
+                  const category = studentCategoryOverrideMap[st.messId] || (st.category === 'Day Scholar' ? 'Outmess' : st.category === 'Lakeside' ? 'Lakeside' : 'Inmate');
+                  
+                  // Mess cut is ONLY when entire day (Breakfast + Lunch + Dinner) was skipped
+                  const demoMessCutDaysMap: Record<string, number> = {
+                    'MESS-2026-089': 4, // Rahul V Nair (4 full-day skips)
+                    'MESS-2026-104': 2, // Ananya Sharma
+                    'MESS-2026-112': 5, // Muhammed Shafi
+                    'MESS-2026-145': 3, // Sneha P K
+                    'MESS-2026-178': 1, // Vivek M
+                    'MESS-2026-192': 0, // Archana S
+                    'MESS-2026-210': 4, // Arjun K S
+                    'MESS-2026-230': 2, // Lakshmi R
+                  };
+                  const messCutDays = demoMessCutDaysMap[st.messId] ?? 2;
+                  const effectiveDays = Math.max(0, messOpenedDays - messCutDays);
+                  
+                  // Fine calculation (₹30 per missed confirmed meal)
+                  const demoFineMap: Record<string, number> = {
+                    'MESS-2026-089': 60,
+                    'MESS-2026-104': 0,
+                    'MESS-2026-112': 150,
+                    'MESS-2026-145': 90,
+                    'MESS-2026-178': 30,
+                    'MESS-2026-192': 0,
+                    'MESS-2026-210': 60,
+                    'MESS-2026-230': 0,
+                  };
+                  const fineAmount = demoFineMap[st.messId] ?? st.fines ?? 0;
+
+                  const foodBillAmount = effectiveDays * perDayRate;
+                  const totalBillAmount = foodBillAmount + fineAmount;
+
+                  return {
+                    slNo: idx + 1,
+                    id: st.messId,
+                    name: st.name,
+                    department: st.department,
+                    category,
+                    totalDays: totalDaysInMonth,
+                    messOpened: messOpenedDays,
+                    messCut: messCutDays,
+                    effectiveDays,
+                    perDay: perDayRate,
+                    fine: fineAmount,
+                    totalBill: totalBillAmount,
+                  };
+                });
+
+                const handleExportStudentBillingExcel = () => {
+                  let csv = `CUSAT Mess Individual Monthly Student Billing - ${billingMonth} ${billingYear}\n`;
+                  csv += `Sl No,ID,Name,Department,Category,Total Days,Mess Opened,Mess Cut,Effective Days,Per Day (INR),Fine (INR),Total Bill (INR)\n`;
+                  
+                  studentBillingData.forEach(r => {
+                    csv += `${r.slNo},"${r.id}","${r.name}","${r.department}","${r.category}",${r.totalDays},${r.messOpened},${r.messCut},${r.effectiveDays},${r.perDay},${r.fine},${r.totalBill}\n`;
+                  });
+
+                  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.setAttribute('download', `CUSAT_Individual_Student_Billing_${billingMonth}_${billingYear}.csv`);
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                };
+
+                return (
+                  <div className="bg-white rounded-2xl border border-[#e2e8f0] shadow-xs overflow-hidden space-y-4 p-5">
+                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-[#e2e8f0] pb-4">
+                      <div>
+                        <h3 className="text-xl font-extrabold text-[#0f172a] flex items-center gap-2">
+                          <span className="material-symbols-outlined text-[#2563eb]">groups</span>
+                          Individual Monthly Student Billing ({billingMonth} {billingYear})
+                        </h3>
+                        <p className="text-xs font-medium text-[#64748b] mt-0.5">
+                          Calculated as: <span className="font-mono text-[#0f172a] font-bold">(Effective Days × Per Day Rate) + Fine</span>. Mess cut is granted ONLY when all 3 meals are skipped on a day.
+                        </p>
+                      </div>
+
+                      <button
+                        onClick={handleExportStudentBillingExcel}
+                        className="px-4 py-2 bg-[#16a34a] hover:bg-[#15803d] text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">table_chart</span>
+                        <span>Export Student Billing Excel</span>
+                      </button>
+                    </div>
+
+                    <div className="overflow-x-auto border border-[#e2e8f0] rounded-xl">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-[#f8fafc] text-[#475569] font-extrabold uppercase border-b border-[#e2e8f0]">
+                          <tr>
+                            <th className="py-3.5 px-3 text-center">Sl No</th>
+                            <th className="py-3.5 px-3">ID</th>
+                            <th className="py-3.5 px-4">Name</th>
+                            <th className="py-3.5 px-3">Department</th>
+                            <th className="py-3.5 px-3 text-center">Category</th>
+                            <th className="py-3.5 px-3 text-center">Total Days</th>
+                            <th className="py-3.5 px-3 text-center">Mess Opened</th>
+                            <th className="py-3.5 px-3 text-center text-[#dc2626]">Mess Cut</th>
+                            <th className="py-3.5 px-3 text-center text-[#16a34a]">Effective Days</th>
+                            <th className="py-3.5 px-3 text-right">Per Day (₹)</th>
+                            <th className="py-3.5 px-3 text-right text-[#dc2626]">Fine (₹)</th>
+                            <th className="py-3.5 px-4 text-right bg-[#2563eb]/5 text-[#2563eb]">Total Bill (₹)</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-[#e2e8f0]">
+                          {studentBillingData.map((r) => (
+                            <tr key={r.id} className="hover:bg-[#f8fafc] transition-colors">
+                              <td className="py-3 px-3 text-center font-mono font-bold text-[#64748b]">{r.slNo}</td>
+                              <td className="py-3 px-3 font-mono font-bold text-[#2563eb]">{r.id}</td>
+                              <td className="py-3 px-4 font-extrabold text-[#0f172a]">{r.name}</td>
+                              <td className="py-3 px-3 font-medium text-[#475569]">{r.department}</td>
+                              
+                              {/* Read-Only Category Badge (Editable only in Student Data Tab) */}
+                              <td className="py-3 px-3 text-center">
+                                <span className="px-2.5 py-1 bg-[#f1f5f9] text-[#0f172a] font-bold text-xs rounded-lg border border-[#cbd5e1] inline-block">
+                                  {r.category}
+                                </span>
+                              </td>
+
+                              <td className="py-3 px-3 text-center font-mono font-semibold text-[#334155]">{r.totalDays}</td>
+                              <td className="py-3 px-3 text-center font-mono font-semibold text-[#334155]">{r.messOpened}</td>
+                              <td className="py-3 px-3 text-center font-mono font-bold text-[#dc2626] bg-[#dc2626]/5">{r.messCut}</td>
+                              <td className="py-3 px-3 text-center font-mono font-bold text-[#16a34a] bg-[#16a34a]/5">{r.effectiveDays}</td>
+                              <td className="py-3 px-3 text-right font-mono font-bold text-[#2563eb]">₹{r.perDay}</td>
+                              <td className="py-3 px-3 text-right font-mono font-bold text-[#dc2626]">₹{r.fine}</td>
+                              <td className="py-3 px-4 text-right font-mono font-black text-sm text-[#2563eb] bg-[#2563eb]/5">
+                                ₹{r.totalBill.toLocaleString()}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot className="bg-[#f8fafc] font-black text-xs border-t-2 border-[#cbd5e1] text-[#0f172a]">
+                          <tr>
+                            <td colSpan={5} className="py-4 px-4 uppercase tracking-wider">MONTHLY STUDENT BILLING TOTALS:</td>
+                            <td className="py-4 px-3 text-center font-mono">-</td>
+                            <td className="py-4 px-3 text-center font-mono">{messOpenedDays}</td>
+                            <td className="py-4 px-3 text-center font-mono text-[#dc2626]">
+                              {studentBillingData.reduce((acc, r) => acc + r.messCut, 0)} cuts
+                            </td>
+                            <td className="py-4 px-3 text-center font-mono text-[#16a34a]">
+                              {studentBillingData.reduce((acc, r) => acc + r.effectiveDays, 0)} days
+                            </td>
+                            <td className="py-4 px-3 text-right font-mono text-[#2563eb]">₹{perDayRate}</td>
+                            <td className="py-4 px-3 text-right font-mono text-[#dc2626]">
+                              ₹{studentBillingData.reduce((acc, r) => acc + r.fine, 0).toLocaleString()}
+                            </td>
+                            <td className="py-4 px-4 text-right font-mono text-sm text-[#2563eb] bg-[#2563eb]/10">
+                              ₹{studentBillingData.reduce((acc, r) => acc + r.totalBill, 0).toLocaleString()}
+                            </td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  </div>
+                );
+              })()}
+
             </div>
           </section>
         )}
         {/* ------------------------------------------------------------- */}
         {/* MODULE 6: PAYMENTS                                            */}
         {/* ------------------------------------------------------------- */}
-        {activeModuleTab === 'payments' && (
-          <section className="space-y-6 animate-fade-in">
-            
-            {/* Controls Toolbar */}
-            <div className="bg-white p-5 rounded-2xl border border-[#e2e8f0] shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h2 className="text-[22px] font-extrabold text-[#0f172a] flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[#2563eb]">payments</span>
-                    Student Monthly Payments & Status
-                  </h2>
-                  {isBillPublishedMap[`${billingMonth}-${billingYear}`] ? (
-                    <span className="px-3 py-1 bg-[#16a34a]/10 text-[#16a34a] border border-[#16a34a]/30 text-xs font-black rounded-full flex items-center gap-1">
-                      🟢 Bill Published
+        {/* ------------------------------------------------------------- */}
+        {/* MODULE 6: PAYMENTS                                            */}
+        {/* ------------------------------------------------------------- */}
+        {activeModuleTab === 'payments' && (() => {
+          const currentKey = `${billingMonth}-${billingYear}`;
+          const isPublished = !!isBillPublishedMap[currentKey];
+          const { isLocked, lockDateFormatted } = checkIsBillLocked(billingMonth, billingYear, isPublished);
+
+          return (
+            <section className="space-y-6 animate-fade-in">
+              
+              {/* Controls Toolbar */}
+              <div className="bg-white p-5 rounded-2xl border border-[#e2e8f0] shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-[22px] font-extrabold text-[#0f172a] flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[#2563eb]">payments</span>
+                      Student Monthly Payments & Status
+                    </h2>
+                    {isLocked ? (
+                      <span className="px-3 py-1 bg-[#64748b]/10 text-[#475569] border border-[#64748b]/30 text-xs font-black rounded-full flex items-center gap-1">
+                        🔒 Published & Frozen
+                      </span>
+                    ) : isPublished ? (
+                      <span className="px-3 py-1 bg-[#16a34a]/10 text-[#16a34a] border border-[#16a34a]/30 text-xs font-black rounded-full flex items-center gap-1">
+                        🟢 Bill Published
+                      </span>
+                    ) : (
+                      <span className="px-3 py-1 bg-[#ea580c]/10 text-[#ea580c] border border-[#ea580c]/30 text-xs font-black rounded-full flex items-center gap-1">
+                        🟠 Draft / Not Published
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs font-medium text-[#64748b] mt-0.5">
+                    Track student payment completion, verify UTR reference numbers, toggle bill publication, and export billing spreadsheets.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                  {/* Billing Period Selectors */}
+                  <div>
+                    <label className="block text-[10px] font-extrabold uppercase text-[#64748b] mb-1">Billing Month</label>
+                    <select
+                      value={billingMonth}
+                      onChange={(e) => setBillingMonth(e.target.value)}
+                      className="px-3.5 py-2 bg-[#f8fafc] border border-[#cbd5e1] rounded-xl text-xs font-bold text-[#0f172a] focus:outline-none focus:border-[#2563eb] cursor-pointer"
+                    >
+                      {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map(m => (
+                        <option key={m} value={m}>{m}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-extrabold uppercase text-[#64748b] mb-1">Billing Year</label>
+                    <select
+                      value={billingYear}
+                      onChange={(e) => setBillingYear(e.target.value)}
+                      className="px-3.5 py-2 bg-[#f8fafc] border border-[#cbd5e1] rounded-xl text-xs font-bold text-[#0f172a] focus:outline-none focus:border-[#2563eb] cursor-pointer"
+                    >
+                      {['2026', '2025', '2024'].map(y => (
+                        <option key={y} value={y}>{y}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Publish Toggle Button */}
+                  <div className="flex items-end gap-2">
+                    {isLocked ? (
+                      <button
+                        onClick={handleTogglePublishBill}
+                        title={`🔒 Unpublishing locked: Bill for ${billingMonth} ${billingYear} was frozen on ${lockDateFormatted}`}
+                        className="px-3.5 py-2 bg-[#64748b]/15 text-[#475569] border border-[#64748b]/30 font-extrabold text-xs rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5 opacity-85"
+                      >
+                        <span className="material-symbols-outlined text-[18px]">lock</span>
+                        <span>Bill Locked 🔒</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={handleTogglePublishBill}
+                        className={`px-3.5 py-2 font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5 ${
+                          isPublished
+                            ? 'bg-[#16a34a] hover:bg-[#15803d] text-white'
+                            : 'bg-[#ea580c] hover:bg-[#c2410c] text-white'
+                        }`}
+                      >
+                        <span className="material-symbols-outlined text-[18px]">
+                          {isPublished ? 'published_with_changes' : 'unpublished'}
+                        </span>
+                        <span>
+                          {isPublished ? 'Unpublish Bill' : 'Publish Bill to Students'}
+                        </span>
+                      </button>
+                    )}
+
+                    <button
+                      onClick={handleExportBillingExcel}
+                      className="px-3.5 py-2 bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">table_chart</span>
+                      <span>Export Excel</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Overview Summary Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {/* Total Students */}
+                <div className="bg-white p-4 rounded-2xl border border-[#e2e8f0] shadow-xs flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#2563eb]/10 text-[#2563eb] flex items-center justify-center font-bold">
+                    <span className="material-symbols-outlined">groups</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-extrabold uppercase text-[#64748b] block">Total Eligible Students</span>
+                    <span className="text-xl font-black text-[#0f172a]">
+                      {studentPaymentRecords.filter(r => r.month === billingMonth && r.year === billingYear).length}
                     </span>
-                  ) : (
-                    <span className="px-3 py-1 bg-[#ea580c]/10 text-[#ea580c] border border-[#ea580c]/30 text-xs font-black rounded-full flex items-center gap-1">
-                      🟠 Draft / Not Published
+                  </div>
+                </div>
+
+                {/* Total Paid */}
+                <div className="bg-white p-4 rounded-2xl border border-[#e2e8f0] shadow-xs flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#16a34a]/10 text-[#16a34a] flex items-center justify-center font-bold">
+                    <span className="material-symbols-outlined">check_circle</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-extrabold uppercase text-[#64748b] block">Paid Students</span>
+                    <span className="text-xl font-black text-[#16a34a]">
+                      {studentPaymentRecords.filter(r => r.month === billingMonth && r.year === billingYear && r.status === 'PAID').length}
                     </span>
-                  )}
-                </div>
-                <p className="text-xs font-medium text-[#64748b] mt-0.5">
-                  Track student payment completion, verify UTR reference numbers, toggle bill publication, and export billing spreadsheets.
-                </p>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-                {/* Billing Period Selectors */}
-                <div>
-                  <label className="block text-[10px] font-extrabold uppercase text-[#64748b] mb-1">Billing Month</label>
-                  <select
-                    value={billingMonth}
-                    onChange={(e) => setBillingMonth(e.target.value)}
-                    className="px-3.5 py-2 bg-[#f8fafc] border border-[#cbd5e1] rounded-xl text-xs font-bold text-[#0f172a] focus:outline-none focus:border-[#2563eb] cursor-pointer"
-                  >
-                    {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map(m => (
-                      <option key={m} value={m}>{m}</option>
-                    ))}
-                  </select>
+                  </div>
                 </div>
 
-                <div>
-                  <label className="block text-[10px] font-extrabold uppercase text-[#64748b] mb-1">Billing Year</label>
-                  <select
-                    value={billingYear}
-                    onChange={(e) => setBillingYear(e.target.value)}
-                    className="px-3.5 py-2 bg-[#f8fafc] border border-[#cbd5e1] rounded-xl text-xs font-bold text-[#0f172a] focus:outline-none focus:border-[#2563eb] cursor-pointer"
-                  >
-                    {['2026', '2025', '2024'].map(y => (
-                      <option key={y} value={y}>{y}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Publish Toggle Button */}
-                <div className="flex items-end gap-2">
-                  <button
-                    onClick={handleTogglePublishBill}
-                    className={`px-3.5 py-2 font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5 ${
-                      isBillPublishedMap[`${billingMonth}-${billingYear}`]
-                        ? 'bg-[#16a34a] hover:bg-[#15803d] text-white'
-                        : 'bg-[#ea580c] hover:bg-[#c2410c] text-white'
-                    }`}
-                  >
-                    <span className="material-symbols-outlined text-[18px]">
-                      {isBillPublishedMap[`${billingMonth}-${billingYear}`] ? 'published_with_changes' : 'unpublished'}
+                {/* Total Pending */}
+                <div className="bg-white p-4 rounded-2xl border border-[#e2e8f0] shadow-xs flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#ea580c]/10 text-[#ea580c] flex items-center justify-center font-bold">
+                    <span className="material-symbols-outlined">pending_actions</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-extrabold uppercase text-[#64748b] block">Pending Students</span>
+                    <span className="text-xl font-black text-[#ea580c]">
+                      {studentPaymentRecords.filter(r => r.month === billingMonth && r.year === billingYear && r.status === 'PENDING').length}
                     </span>
-                    <span>
-                      {isBillPublishedMap[`${billingMonth}-${billingYear}`] ? 'Unpublish Bill' : 'Publish Bill to Students'}
+                  </div>
+                </div>
+
+                {/* Bill Status */}
+                <div className="bg-white p-4 rounded-2xl border border-[#e2e8f0] shadow-xs flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#64748b]/10 text-[#0f172a] flex items-center justify-center font-bold">
+                    <span className="material-symbols-outlined">campaign</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-extrabold uppercase text-[#64748b] block">Bill Status</span>
+                    <span className="text-xs font-black text-[#0f172a]">
+                      {isLocked ? '🔒 LOCKED' : isPublished ? '🟢 PUBLISHED' : '🟠 DRAFT'}
                     </span>
-                  </button>
-
-                  <button
-                    onClick={handleExportBillingExcel}
-                    className="px-3.5 py-2 bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
-                  >
-                    <span className="material-symbols-outlined text-[18px]">table_chart</span>
-                    <span>Export Excel</span>
-                  </button>
+                  </div>
                 </div>
               </div>
-            </div>
-
-            {/* Overview Summary Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {/* Total Students */}
-              <div className="bg-white p-4 rounded-2xl border border-[#e2e8f0] shadow-xs flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#2563eb]/10 text-[#2563eb] flex items-center justify-center font-bold">
-                  <span className="material-symbols-outlined">groups</span>
-                </div>
-                <div>
-                  <span className="text-[10px] font-extrabold uppercase text-[#64748b] block">Total Eligible Students</span>
-                  <span className="text-xl font-black text-[#0f172a]">
-                    {studentPaymentRecords.filter(r => r.month === billingMonth && r.year === billingYear).length}
-                  </span>
-                </div>
-              </div>
-
-              {/* Total Paid */}
-              <div className="bg-white p-4 rounded-2xl border border-[#e2e8f0] shadow-xs flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#16a34a]/10 text-[#16a34a] flex items-center justify-center font-bold">
-                  <span className="material-symbols-outlined">check_circle</span>
-                </div>
-                <div>
-                  <span className="text-[10px] font-extrabold uppercase text-[#64748b] block">Paid Students</span>
-                  <span className="text-xl font-black text-[#16a34a]">
-                    {studentPaymentRecords.filter(r => r.month === billingMonth && r.year === billingYear && r.status === 'PAID').length}
-                  </span>
-                </div>
-              </div>
-
-              {/* Total Pending */}
-              <div className="bg-white p-4 rounded-2xl border border-[#e2e8f0] shadow-xs flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#ea580c]/10 text-[#ea580c] flex items-center justify-center font-bold">
-                  <span className="material-symbols-outlined">pending_actions</span>
-                </div>
-                <div>
-                  <span className="text-[10px] font-extrabold uppercase text-[#64748b] block">Pending Students</span>
-                  <span className="text-xl font-black text-[#ea580c]">
-                    {studentPaymentRecords.filter(r => r.month === billingMonth && r.year === billingYear && r.status === 'PENDING').length}
-                  </span>
-                </div>
-              </div>
-
-              {/* Bill Status */}
-              <div className="bg-white p-4 rounded-2xl border border-[#e2e8f0] shadow-xs flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#64748b]/10 text-[#0f172a] flex items-center justify-center font-bold">
-                  <span className="material-symbols-outlined">campaign</span>
-                </div>
-                <div>
-                  <span className="text-[10px] font-extrabold uppercase text-[#64748b] block">Bill Status</span>
-                  <span className="text-sm font-black text-[#0f172a]">
-                    {isBillPublishedMap[`${billingMonth}-${billingYear}`] ? '🟢 PUBLISHED' : '🟠 DRAFT'}
-                  </span>
-                </div>
-              </div>
-            </div>
 
             {/* Search & Filter Toolbar */}
             <div className="bg-white p-4 rounded-2xl border border-[#e2e8f0] shadow-xs flex flex-col md:flex-row items-center justify-between gap-3">
@@ -3513,7 +3809,370 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             </div>
 
           </section>
-        )}
+          );
+        })()}
+
+        {/* ------------------------------------------------------------- */}
+        {/* MODULE 7: STOCKS (Weighted Average Cost Inventory)             */}
+        {/* ------------------------------------------------------------- */}
+        {activeModuleTab === 'stocks' && (() => {
+          const MONTH_NAMES = [
+            'January', 'February', 'March', 'April', 'May', 'June',
+            'July', 'August', 'September', 'October', 'November', 'December'
+          ];
+
+          // Determine Read-Only Status
+          const stocksKey = `${stocksMonth}-${stocksYear}`;
+          const isStocksPublished = !!isBillPublishedMap[stocksKey];
+          const { isLocked: isStocksLocked } = checkIsBillLocked(stocksMonth, stocksYear, isStocksPublished);
+          const isStocksReadOnly = isStocksPublished || isStocksLocked;
+
+          // Helper to parse numerical quantity from strings like "200 kg", "80 L", "300 pcs"
+          const parseQty = (qStr: string): number => {
+            if (!qStr) return 0;
+            const match = qStr.match(/^([\d.]+)/);
+            return match ? parseFloat(match[1]) : 0;
+          };
+
+          // Determine previous month & year
+          const mIdx = MONTH_NAMES.indexOf(stocksMonth);
+          const yearNum = parseInt(stocksYear, 10);
+          let prevMonthName = 'December';
+          let prevYearNum = yearNum - 1;
+          if (mIdx > 0) {
+            prevMonthName = MONTH_NAMES[mIdx - 1];
+            prevYearNum = yearNum;
+          }
+          const prevYearStr = prevYearNum.toString();
+
+          // Default Base Stock & Cost per unit mappings
+          const defaultOpeningQtyMap: Record<string, number> = {
+            'inv-cat-1': 100, // Ponni Rice
+            'inv-cat-2': 50,  // Atta
+            'inv-cat-3': 40,  // Milk
+            'inv-cat-4': 150, // Eggs
+            'inv-cat-5': 10,  // Chicken
+            'inv-cat-6': 20,  // Oil
+            'inv-cat-7': 60,  // Onions & Potatoes
+            'inv-cat-8': 30,  // Toor Dal
+            'inv-cat-9': 10,  // Spices Mix
+            'inv-cat-10': 8,  // Tea
+            'inv-cat-11': 5,  // Coffee
+            'inv-cat-12': 4,  // LPG Cylinders
+            'inv-cat-13': 25, // Sugar
+          };
+
+          const defaultWacMap: Record<string, number> = {
+            'inv-cat-1': 49,
+            'inv-cat-2': 42,
+            'inv-cat-3': 52,
+            'inv-cat-4': 6,
+            'inv-cat-5': 190,
+            'inv-cat-6': 130,
+            'inv-cat-7': 30,
+            'inv-cat-8': 120,
+            'inv-cat-9': 260,
+            'inv-cat-10': 350,
+            'inv-cat-11': 420,
+            'inv-cat-12': 1850,
+            'inv-cat-13': 42,
+          };
+
+          // Prefix Search Filter
+          const searchPrefixLower = stocksSearchPrefix.trim().toLowerCase();
+          let filteredItems = inventoryCatalog;
+          if (searchPrefixLower) {
+            const prefixMatches = inventoryCatalog.filter(i => i.name.toLowerCase().startsWith(searchPrefixLower));
+            filteredItems = prefixMatches.length > 0
+              ? prefixMatches
+              : inventoryCatalog.filter(i => i.name.toLowerCase().includes(searchPrefixLower));
+          }
+
+          // Build row data for each item
+          let grandTotalOpeningValue = 0;
+          let grandTotalPurchaseCost = 0;
+          let grandTotalClosingValue = 0;
+          let grandTotalConsumedCost = 0;
+
+          const stockRows = filteredItems.map(item => {
+            const currentKey = `${stocksMonth}-${stocksYear}-${item.id}`;
+            const prevKey = `${prevMonthName}-${prevYearStr}-${item.id}`;
+
+            // Opening Qty & WAC from previous month
+            const defaultOpQty = defaultOpeningQtyMap[item.id] ?? 20;
+            const openingQty = physicalClosingStockMap[prevKey] !== undefined
+              ? physicalClosingStockMap[prevKey]
+              : defaultOpQty;
+
+            const baseWac = defaultWacMap[item.id] ?? 50;
+            const openingValue = openingQty * baseWac;
+
+            // Monthly Purchases from foodPurchases log
+            const monthPurchases = foodPurchases.filter(p => p.month === stocksMonth && p.year === stocksYear && (
+              p.item.toLowerCase().includes(item.name.toLowerCase().split(' ')[0]) ||
+              item.name.toLowerCase().includes(p.item.toLowerCase().split(' ')[0])
+            ));
+
+            const purchaseQty = monthPurchases.reduce((acc, p) => acc + parseQty(p.qty), 0);
+            const purchaseCost = monthPurchases.reduce((acc, p) => acc + (p.amount || 0), 0);
+
+            // WAC Calculation = (Opening Value + Purchase Cost) / (Opening Qty + Purchase Qty)
+            const totalQty = openingQty + purchaseQty;
+            const totalCost = openingValue + purchaseCost;
+            const wac = totalQty > 0 ? totalCost / totalQty : baseWac;
+
+            // Physical Closing Qty (Admin entered or default)
+            const defaultClosingQty = Math.max(0, Math.round(totalQty * 0.25));
+            const physicalClosingQty = physicalClosingStockMap[currentKey] !== undefined
+              ? physicalClosingStockMap[currentKey]
+              : defaultClosingQty;
+
+            // Consumed Qty, Closing Value, Consumed Cost
+            const consumedQty = Math.max(0, openingQty + purchaseQty - physicalClosingQty);
+            const closingValue = physicalClosingQty * wac;
+            const consumedCost = consumedQty * wac;
+
+            grandTotalOpeningValue += openingValue;
+            grandTotalPurchaseCost += purchaseCost;
+            grandTotalClosingValue += closingValue;
+            grandTotalConsumedCost += consumedCost;
+
+            return {
+              item,
+              openingQty,
+              openingValue,
+              purchaseQty,
+              purchaseCost,
+              wac,
+              physicalClosingQty,
+              consumedQty,
+              closingValue,
+              consumedCost,
+            };
+          });
+
+          return (
+            <section className="space-y-6 animate-fade-in">
+              
+              {/* Controls Toolbar */}
+              <div className="bg-white p-5 rounded-2xl border border-[#e2e8f0] shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="text-[22px] font-extrabold text-[#0f172a] flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[#2563eb]">inventory_2</span>
+                      Stocks & Weighted Average Cost (WAC) Ledger
+                    </h2>
+                    {isStocksReadOnly ? (
+                      <span className="px-3 py-1 bg-[#64748b]/10 text-[#475569] border border-[#64748b]/30 text-xs font-black rounded-full flex items-center gap-1">
+                        🔒 Read-Only (Bill {isStocksLocked ? 'Locked' : 'Published'})
+                      </span>
+                    ) : (
+                      <span className="px-3 py-1 bg-[#16a34a]/10 text-[#16a34a] border border-[#16a34a]/30 text-xs font-black rounded-full flex items-center gap-1">
+                        ✏️ Editable Stock Log
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs font-medium text-[#64748b] mt-0.5">
+                    Opening & Purchase stock auto-calculated. Admins log Physical Closing Qty; WAC & Consumed Costs update automatically.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                  {/* Period Dropdowns: Month & Year (Default = Current Month) */}
+                  <div>
+                    <label className="block text-[10px] font-extrabold uppercase text-[#64748b] mb-1">Stock Month</label>
+                    <select
+                      value={stocksMonth}
+                      onChange={(e) => setStocksMonth(e.target.value)}
+                      className="px-3.5 py-2 bg-[#f8fafc] border border-[#cbd5e1] rounded-xl text-xs font-bold text-[#0f172a] focus:outline-none focus:border-[#2563eb] cursor-pointer"
+                    >
+                      {MONTH_NAMES.map(m => (
+                        <option key={m} value={m}>{m}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-extrabold uppercase text-[#64748b] mb-1">Stock Year</label>
+                    <select
+                      value={stocksYear}
+                      onChange={(e) => setStocksYear(e.target.value)}
+                      className="px-3.5 py-2 bg-[#f8fafc] border border-[#cbd5e1] rounded-xl text-xs font-bold text-[#0f172a] focus:outline-none focus:border-[#2563eb] cursor-pointer"
+                    >
+                      {['2026', '2025', '2024'].map(y => (
+                        <option key={y} value={y}>{y}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* Read-Only Alert Banner if Published / Locked */}
+              {isStocksReadOnly && (
+                <div className="p-4 bg-[#64748b]/10 border border-[#64748b]/30 rounded-2xl flex items-center justify-between gap-3 text-xs font-bold text-[#334155]">
+                  <div className="flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[20px] text-[#64748b]">lock</span>
+                    <span>
+                      <strong>Read-Only Mode:</strong> The billing record for {stocksMonth} {stocksYear} is {isStocksLocked ? 'permanently locked' : 'published'}. Physical stock quantities are frozen and cannot be edited.
+                    </span>
+                  </div>
+                  <span className="px-2.5 py-0.5 bg-[#64748b] text-white text-[10px] font-black rounded-md uppercase tracking-wider">
+                    FROZEN
+                  </span>
+                </div>
+              )}
+
+              {/* Top Summary Metric Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-white p-4 rounded-2xl border border-[#e2e8f0] shadow-xs">
+                  <span className="text-[10px] font-extrabold uppercase text-[#64748b] block mb-1">Total Opening Stock</span>
+                  <span className="text-xl font-black text-[#0f172a]">₹{grandTotalOpeningValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                  <span className="text-[10px] font-medium text-[#64748b] block mt-0.5">Carried from previous month</span>
+                </div>
+
+                <div className="bg-white p-4 rounded-2xl border border-[#e2e8f0] shadow-xs">
+                  <span className="text-[10px] font-extrabold uppercase text-[#64748b] block mb-1">Monthly Purchases</span>
+                  <span className="text-xl font-black text-[#2563eb]">₹{grandTotalPurchaseCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                  <span className="text-[10px] font-medium text-[#64748b] block mt-0.5">Food purchases logged in Ledger</span>
+                </div>
+
+                <div className="bg-white p-4 rounded-2xl border border-[#e2e8f0] shadow-xs">
+                  <span className="text-[10px] font-extrabold uppercase text-[#64748b] block mb-1">Total Closing Stock</span>
+                  <span className="text-xl font-black text-[#16a34a]">₹{grandTotalClosingValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                  <span className="text-[10px] font-medium text-[#64748b] block mt-0.5">Physical closing stock value</span>
+                </div>
+
+                <div className="bg-white p-4 rounded-2xl border border-[#e2e8f0] shadow-xs">
+                  <span className="text-[10px] font-extrabold uppercase text-[#64748b] block mb-1">Total Consumed Cost</span>
+                  <span className="text-xl font-black text-[#dc2626]">₹{grandTotalConsumedCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                  <span className="text-[10px] font-medium text-[#64748b] block mt-0.5">Actual food expenditure</span>
+                </div>
+              </div>
+
+              {/* Prefix Search Bar & Table Controls */}
+              <div className="bg-white p-4 rounded-2xl border border-[#e2e8f0] shadow-xs flex flex-col md:flex-row items-center justify-between gap-3">
+                <div className="relative w-full md:w-80">
+                  <span className="material-symbols-outlined absolute left-3 top-2.5 text-[#64748b] text-[18px]">search</span>
+                  <input
+                    type="text"
+                    value={stocksSearchPrefix}
+                    onChange={(e) => setStocksSearchPrefix(e.target.value)}
+                    placeholder="Search item name (e.g. B, Be, Rice)..."
+                    className="w-full pl-9 pr-4 py-2 bg-[#f8fafc] border border-[#cbd5e1] rounded-xl text-xs font-semibold text-[#0f172a] focus:outline-none focus:border-[#2563eb]"
+                  />
+                  {stocksSearchPrefix && (
+                    <button
+                      onClick={() => setStocksSearchPrefix('')}
+                      className="absolute right-3 top-2.5 text-[#64748b] hover:text-[#0f172a] text-xs font-bold cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1 bg-[#2563eb]/10 text-[#2563eb] text-xs font-bold rounded-lg border border-[#2563eb]/20">
+                    Showing {stockRows.length} catalog items
+                  </span>
+                  <span className="px-3 py-1 bg-[#16a34a]/10 text-[#16a34a] text-xs font-bold rounded-lg border border-[#16a34a]/20">
+                    Balance Check: Opening + Purchase = Closing + Consumed
+                  </span>
+                </div>
+              </div>
+
+              {/* Stocks WAC Ledger Table */}
+              <div className="bg-white rounded-2xl border border-[#e2e8f0] shadow-sm overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-[#f8fafc] text-[#475569] font-extrabold uppercase border-b border-[#e2e8f0]">
+                      <tr>
+                        <th className="py-3.5 px-4">Item Name</th>
+                        <th className="py-3.5 px-3">Unit</th>
+                        <th className="py-3.5 px-3 text-right">Opening Qty</th>
+                        <th className="py-3.5 px-3 text-right">Purchase Qty</th>
+                        <th className="py-3.5 px-3 text-right">Purchase Cost (₹)</th>
+                        <th className="py-3.5 px-3 text-right">WAC (₹/unit)</th>
+                        <th className="py-3.5 px-4 text-center bg-[#2563eb]/5 border-x border-[#2563eb]/20">
+                          Physical Closing Qty {isStocksReadOnly ? '🔒' : '✏️'}
+                        </th>
+                        <th className="py-3.5 px-3 text-right">Consumed Qty</th>
+                        <th className="py-3.5 px-3 text-right">Closing Value (₹)</th>
+                        <th className="py-3.5 px-4 text-right bg-[#dc2626]/5 text-[#dc2626]">Consumed Cost (₹)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#e2e8f0]">
+                      {stockRows.length === 0 ? (
+                        <tr>
+                          <td colSpan={10} className="py-8 text-center text-[#64748b] font-medium">
+                            No inventory items matching search prefix "{stocksSearchPrefix}".
+                          </td>
+                        </tr>
+                      ) : (
+                        stockRows.map(({ item, openingQty, purchaseQty, purchaseCost, wac, physicalClosingQty, consumedQty, closingValue, consumedCost }) => (
+                          <tr key={item.id} className="hover:bg-[#f8fafc] transition-colors">
+                            <td className="py-3 px-4 font-bold text-[#0f172a]">{item.name}</td>
+                            <td className="py-3 px-3 font-mono text-[#64748b]">{item.unit}</td>
+                            <td className="py-3 px-3 text-right font-mono text-[#334155]">{openingQty}</td>
+                            <td className="py-3 px-3 text-right font-mono font-semibold text-[#2563eb]">{purchaseQty}</td>
+                            <td className="py-3 px-3 text-right font-mono text-[#334155]">₹{purchaseCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                            <td className="py-3 px-3 text-right font-mono font-extrabold text-[#2563eb]">
+                              ₹{wac.toFixed(2)}
+                            </td>
+
+                            {/* Physical Closing Qty - Editable by Admin (or Read-Only if Published/Locked) */}
+                            <td className="py-2.5 px-4 text-center bg-[#2563eb]/5 border-x border-[#2563eb]/20">
+                              {isStocksReadOnly ? (
+                                <span className="font-mono font-black text-sm text-[#0f172a]">
+                                  {physicalClosingQty} {item.unit}
+                                </span>
+                              ) : (
+                                <div className="flex items-center justify-center gap-1">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    step="any"
+                                    value={physicalClosingQty}
+                                    onChange={(e) => handleUpdatePhysicalClosingStock(item.id, parseFloat(e.target.value))}
+                                    className="w-20 px-2 py-1 bg-white border border-[#2563eb] rounded-lg text-center font-mono font-bold text-xs text-[#0f172a] focus:outline-none focus:ring-2 focus:ring-[#2563eb]/30"
+                                  />
+                                  <span className="text-[10px] text-[#64748b] font-medium">{item.unit}</span>
+                                </div>
+                              )}
+                            </td>
+
+                            <td className="py-3 px-3 text-right font-mono font-semibold text-[#475569]">{consumedQty}</td>
+                            <td className="py-3 px-3 text-right font-mono font-bold text-[#16a34a]">
+                              ₹{closingValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                            </td>
+                            <td className="py-3 px-4 text-right font-mono font-black text-sm text-[#dc2626] bg-[#dc2626]/5">
+                              ₹{consumedCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                    <tfoot className="bg-[#f8fafc] font-black text-xs border-t-2 border-[#cbd5e1] text-[#0f172a]">
+                      <tr>
+                        <td colSpan={2} className="py-4 px-4 uppercase tracking-wider">TOTAL MONETARY BALANCE:</td>
+                        <td className="py-4 px-3 text-right font-mono">₹{grandTotalOpeningValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                        <td className="py-4 px-3 text-right font-mono text-[#2563eb]">-</td>
+                        <td className="py-4 px-3 text-right font-mono text-[#2563eb]">₹{grandTotalPurchaseCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                        <td className="py-4 px-3 text-right font-mono text-[#2563eb]">-</td>
+                        <td className="py-4 px-4 text-center bg-[#2563eb]/5 border-x border-[#2563eb]/20 text-[#2563eb]">TOTALS</td>
+                        <td className="py-4 px-3 text-right font-mono">-</td>
+                        <td className="py-4 px-3 text-right font-mono text-[#16a34a]">₹{grandTotalClosingValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                        <td className="py-4 px-4 text-right font-mono text-sm text-[#dc2626] bg-[#dc2626]/10">
+                          ₹{grandTotalConsumedCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+
+            </section>
+          );
+        })()}
 
       </div>
 

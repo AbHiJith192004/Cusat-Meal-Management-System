@@ -14,9 +14,9 @@ export type ActiveTab =
   | 'admin-logs'
   | 'admin-students'
   | 'admin-scanner'
-  | 'admin-reports'
   | 'admin-billing'
   | 'admin-payments'
+  | 'admin-stocks'
   | 'admin-settings';
 
 export interface MealOption {

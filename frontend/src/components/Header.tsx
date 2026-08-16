@@ -137,17 +137,6 @@ export const Header: React.FC<HeaderProps> = ({
                 Ledger
               </button>
               <button
-                onClick={() => setCurrentTab('admin-reports')}
-                className={`px-3 py-1.5 rounded-lg font-medium text-sm transition-colors cursor-pointer flex items-center gap-1.5 ${
-                  currentTab === 'admin-reports'
-                    ? 'bg-[#2563eb] text-white font-semibold shadow-xs'
-                    : 'text-[#434655] hover:bg-[#2563eb]/10 hover:text-[#004ac6]'
-                }`}
-              >
-                <span className="material-symbols-outlined text-[18px]">assessment</span>
-                Reports
-              </button>
-              <button
                 onClick={() => setCurrentTab('admin-billing')}
                 className={`px-3 py-1.5 rounded-lg font-medium text-sm transition-colors cursor-pointer flex items-center gap-1.5 ${
                   currentTab === 'admin-billing'
@@ -168,6 +157,17 @@ export const Header: React.FC<HeaderProps> = ({
               >
                 <span className="material-symbols-outlined text-[18px]">payments</span>
                 Payments
+              </button>
+              <button
+                onClick={() => setCurrentTab('admin-stocks')}
+                className={`px-3 py-1.5 rounded-lg font-medium text-sm transition-colors cursor-pointer flex items-center gap-1.5 ${
+                  currentTab === 'admin-stocks'
+                    ? 'bg-[#2563eb] text-white font-semibold shadow-xs'
+                    : 'text-[#434655] hover:bg-[#2563eb]/10 hover:text-[#004ac6]'
+                }`}
+              >
+                <span className="material-symbols-outlined text-[18px]">inventory_2</span>
+                Stocks
               </button>
             </>
           )}
