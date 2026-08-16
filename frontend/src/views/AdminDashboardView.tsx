@@ -585,11 +585,21 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     },
   ]);
 
-  const [isBillPublishedMap, setIsBillPublishedMap] = useState<Record<string, boolean>>({
-    'August-2026': true,
-    'July-2026': true,
-    'June-2026': false,
+  const [isBillPublishedMap, setIsBillPublishedMap] = useState<Record<string, boolean>>(() => {
+    const saved = localStorage.getItem('cusat_published_bills_v2');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
+    return {
+      'August-2026': true,
+      'July-2026': true,
+      'June-2026': false,
+    };
   });
+
+  useEffect(() => {
+    localStorage.setItem('cusat_published_bills_v2', JSON.stringify(isBillPublishedMap));
+  }, [isBillPublishedMap]);
 
   const [paymentSearchQuery, setPaymentSearchQuery] = useState('');
   const [paymentCategoryFilter, setPaymentCategoryFilter] = useState<'ALL' | 'Inmate' | 'Lakeside' | 'Outmess'>('ALL');
@@ -624,6 +634,12 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   });
 
   const handleUpdatePhysicalClosingStock = (itemId: string, val: number) => {
+    const monthKey = `${stocksMonth}-${stocksYear}`;
+    if (isBillPublishedMap[monthKey]) {
+      return alert(
+        `🔒 Read-Only Mode — Bill Published:\n\nThe billing record for ${stocksMonth} ${stocksYear} is published. Physical stock quantities are frozen and cannot be edited.`
+      );
+    }
     const key = `${stocksMonth}-${stocksYear}-${itemId}`;
     setPhysicalClosingStockMap(prev => ({
       ...prev,
@@ -659,28 +675,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
   const checkIsBillLocked = (monthStr: string, yearStr: string, isPublished: boolean): { isLocked: boolean; lockDateFormatted: string } => {
     if (!isPublished) return { isLocked: false, lockDateFormatted: '' };
-
-    const MONTH_NAMES = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
-    ];
-
-    const monthIdx = MONTH_NAMES.indexOf(monthStr);
-    const yearNum = parseInt(yearStr, 10);
-    if (monthIdx === -1 || isNaN(yearNum)) return { isLocked: false, lockDateFormatted: '' };
-
-    // Lock date is 10th of following month (monthIdx + 1)
-    const lockDate = new Date(yearNum, monthIdx + 1, 10, 23, 59, 59);
-    const currentDate = new Date();
-
-    const isLocked = currentDate > lockDate;
-    const lockDateFormatted = lockDate.toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric'
-    });
-
-    return { isLocked, lockDateFormatted };
+    return { isLocked: true, lockDateFormatted: 'Permanent Publication' };
   };
 
   const handleTogglePublishBill = () => {
@@ -688,17 +683,14 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     const currentlyPublished = !!isBillPublishedMap[key];
 
     if (currentlyPublished) {
-      const { isLocked, lockDateFormatted } = checkIsBillLocked(billingMonth, billingYear, currentlyPublished);
-      if (isLocked) {
-        return alert(
-          `🔒 Lock Rule Enforced:\n\nPublished bills for previous months cannot be unpublished after the 10th of the following month.\n\nLock date for ${billingMonth} ${billingYear} was ${lockDateFormatted}. This billing record is permanently frozen.`
-        );
-      }
+      return alert(
+        `🔒 Permanent Publication Rule:\n\nOnce a monthly bill is published, it becomes permanently published and finalized.\n\nThe bill for ${billingMonth} ${billingYear} cannot be unpublished or reverted.`
+      );
     }
 
-    const nextVal = !currentlyPublished;
-    setIsBillPublishedMap({ ...isBillPublishedMap, [key]: nextVal });
-    alert(`Bill status for ${billingMonth} ${billingYear} is now ${nextVal ? 'PUBLISHED 🟢' : 'DRAFT / UNPUBLISHED 🟠'}`);
+    const updatedMap = { ...isBillPublishedMap, [key]: true };
+    setIsBillPublishedMap(updatedMap);
+    alert(`✅ Bill for ${billingMonth} ${billingYear} has been permanently PUBLISHED to students!\n\nFinancial records and Stocks for ${billingMonth} ${billingYear} are now permanently locked and frozen in Read-Only mode.`);
   };
 
   const handleExportBillingExcel = () => {
@@ -3565,38 +3557,30 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                     </select>
                   </div>
 
-                  {/* Publish Toggle Button */}
+                  {/* Publish / Finalized Button */}
                   <div className="flex items-end gap-2">
-                    {isLocked ? (
-                      <button
-                        onClick={handleTogglePublishBill}
-                        title={`🔒 Unpublishing locked: Bill for ${billingMonth} ${billingYear} was frozen on ${lockDateFormatted}`}
-                        className="px-3.5 py-2 bg-[#64748b]/15 text-[#475569] border border-[#64748b]/30 font-extrabold text-xs rounded-xl shadow-xs cursor-pointer flex items-center gap-1.5 opacity-85"
+                    {isPublished ? (
+                      <div
+                        onClick={() => alert(`🔒 Permanent Publication: Bill for ${billingMonth} ${billingYear} is published and finalized. Unpublishing is disabled.`)}
+                        title={`Bill for ${billingMonth} ${billingYear} is permanently published`}
+                        className="px-3.5 py-2 bg-[#16a34a]/15 text-[#15803d] border border-[#16a34a]/30 font-extrabold text-xs rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer"
                       >
-                        <span className="material-symbols-outlined text-[18px]">lock</span>
-                        <span>Bill Locked 🔒</span>
-                      </button>
+                        <span className="material-symbols-outlined text-[18px]">verified</span>
+                        <span>✓ Bill Published & Finalized 🔒</span>
+                      </div>
                     ) : (
                       <button
                         onClick={handleTogglePublishBill}
-                        className={`px-3.5 py-2 font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5 ${
-                          isPublished
-                            ? 'bg-[#16a34a] hover:bg-[#15803d] text-white'
-                            : 'bg-[#ea580c] hover:bg-[#c2410c] text-white'
-                        }`}
+                        className="px-3.5 py-2 bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
                       >
-                        <span className="material-symbols-outlined text-[18px]">
-                          {isPublished ? 'published_with_changes' : 'unpublished'}
-                        </span>
-                        <span>
-                          {isPublished ? 'Unpublish Bill' : 'Publish Bill to Students'}
-                        </span>
+                        <span className="material-symbols-outlined text-[18px]">campaign</span>
+                        <span>Publish Bill to Students</span>
                       </button>
                     )}
 
                     <button
                       onClick={handleExportBillingExcel}
-                      className="px-3.5 py-2 bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                      className="px-3.5 py-2 bg-[#0f172a] hover:bg-[#1e293b] text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
                     >
                       <span className="material-symbols-outlined text-[18px]">table_chart</span>
                       <span>Export Excel</span>
@@ -4007,16 +3991,21 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 </div>
               </div>
 
-              {/* Read-Only Alert Banner if Published / Locked */}
+              {/* Read-Only Alert Banner if Published */}
               {isStocksReadOnly && (
                 <div className="p-4 bg-[#64748b]/10 border border-[#64748b]/30 rounded-2xl flex items-center justify-between gap-3 text-xs font-bold text-[#334155]">
-                  <div className="flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[20px] text-[#64748b]">lock</span>
-                    <span>
-                      <strong>Read-Only Mode:</strong> The billing record for {stocksMonth} {stocksYear} is {isStocksLocked ? 'permanently locked' : 'published'}. Physical stock quantities are frozen and cannot be edited.
-                    </span>
+                  <div className="flex items-center gap-2.5">
+                    <span className="material-symbols-outlined text-[24px] text-[#64748b]">lock</span>
+                    <div>
+                      <h4 className="font-extrabold text-[#0f172a] text-sm flex items-center gap-1.5">
+                        🔒 Read-Only Mode — Bill Published
+                      </h4>
+                      <p className="text-[#475569] font-medium mt-0.5">
+                        The billing record for <span className="font-bold text-[#0f172a]">{stocksMonth} {stocksYear}</span> is published. Physical stock quantities are frozen and cannot be edited.
+                      </p>
+                    </div>
                   </div>
-                  <span className="px-2.5 py-0.5 bg-[#64748b] text-white text-[10px] font-black rounded-md uppercase tracking-wider">
+                  <span className="px-3 py-1 bg-[#64748b] text-white text-[10px] font-black rounded-lg uppercase tracking-wider">
                     FROZEN
                   </span>
                 </div>

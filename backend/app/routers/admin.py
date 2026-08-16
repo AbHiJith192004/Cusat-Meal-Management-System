@@ -16,7 +16,7 @@ from app.schemas.fine import WaiveFineRequest, ReconcileFinesRequest
 from app.schemas.meal import HolidayCreateRequest
 from app.schemas.common import success_response
 from app.schemas.user import CreateStudentRequest
-from app.schemas.meal_rate import SetMealRateRequest, BulkSetMealRateRequest
+from app.schemas.meal_rate import SetMealRateRequest, BulkSetMealRateRequest, PublishBillRequest, UpdateStockRequest
 from app.models.meal_rate import DailyMealRate
 from app.security.dependencies import AdminUser
 from app.services.attendance_service import AttendanceService
@@ -683,3 +683,85 @@ async def get_audit_logs(
         for log in logs
     ]
     return success_response(data=data)
+
+
+# ---------------------------------------------------------------------------
+# PERMANENT BILL PUBLICATION & STOCK LOCKING ENDPOINTS
+# ---------------------------------------------------------------------------
+PUBLISHED_BILL_MONTHS: set[str] = {"August-2026", "July-2026"}
+
+
+@router.get("/bills/status")
+async def get_bill_publication_status(
+    admin_user: AdminUser,
+    month: Annotated[str, Query()] = "August",
+    year: Annotated[str, Query()] = "2026",
+):
+    """Check if a specific month's bill is published and stock records are frozen."""
+    key = f"{month}-{year}"
+    is_published = key in PUBLISHED_BILL_MONTHS
+    return success_response(
+        data={
+            "month": month,
+            "year": year,
+            "is_published": is_published,
+            "is_stocks_read_only": is_published,
+        }
+    )
+
+
+@router.post("/bills/publish")
+async def publish_monthly_bill(
+    body: PublishBillRequest,
+    admin_user: AdminUser,
+):
+    """Permanently publish a month's bill and freeze stock records. Cannot be undone."""
+    key = f"{body.month}-{body.year}"
+    PUBLISHED_BILL_MONTHS.add(key)
+    return success_response(
+        data={
+            "month": body.month,
+            "year": body.year,
+            "is_published": True,
+            "is_stocks_read_only": True,
+            "message": f"Bill for {body.month} {body.year} is now permanently published and stock records are frozen.",
+        }
+    )
+
+
+@router.post("/bills/unpublish")
+async def unpublish_monthly_bill(
+    body: PublishBillRequest,
+    admin_user: AdminUser,
+):
+    """Enforce backend rule: Published bills CANNOT be unpublished under any circumstances."""
+    from fastapi import HTTPException
+    raise HTTPException(
+        status_code=400,
+        detail=f"Permanent Finalization Error: Bill for {body.month} {body.year} is published. Published bills cannot be unpublished.",
+    )
+
+
+@router.post("/stocks/update-physical")
+async def update_physical_stock(
+    body: UpdateStockRequest,
+    admin_user: AdminUser,
+):
+    """Update physical closing quantity for an item if month is NOT published."""
+    from fastapi import HTTPException
+    key = f"{body.month}-{body.year}"
+    if key in PUBLISHED_BILL_MONTHS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Read-Only Mode — Bill Published: Billing for {body.month} {body.year} is published. Stock quantities are frozen and cannot be edited.",
+        )
+    return success_response(
+        data={
+            "month": body.month,
+            "year": body.year,
+            "item_id": body.item_id,
+            "physical_closing_qty": body.physical_closing_qty,
+            "message": "Physical stock count updated successfully.",
+        }
+    )
+

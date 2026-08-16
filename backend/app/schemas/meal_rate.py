@@ -33,3 +33,16 @@ class BulkSetMealRateRequest(BaseModel):
     lunch_rate: Decimal = Field(default=Decimal("50.00"), ge=0)
     dinner_rate: Decimal = Field(default=Decimal("40.00"), ge=0)
     notes: Optional[str] = Field(default="Regular Day")
+
+
+class PublishBillRequest(BaseModel):
+    month: str
+    year: str
+
+
+class UpdateStockRequest(BaseModel):
+    month: str
+    year: str
+    item_id: str
+    physical_closing_qty: float = Field(ge=0)
+
