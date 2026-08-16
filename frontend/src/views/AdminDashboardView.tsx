@@ -612,6 +612,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   const [stocksMonth, setStocksMonth] = useState(currentMonthNameStr);
   const [stocksYear, setStocksYear] = useState(currentYearNumStr);
   const [stocksSearchPrefix, setStocksSearchPrefix] = useState('');
+  const [billingStockSearchPrefix, setBillingStockSearchPrefix] = useState('');
 
   // Physical Closing Stock Qty Map keyed by `${month}-${year}-${itemId}`
   const [physicalClosingStockMap, setPhysicalClosingStockMap] = useState<Record<string, number>>({
@@ -4292,40 +4293,166 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               </div>
             )}
 
-            {billingModal.type === 'STOCK' && (
-              <div className="space-y-4 text-xs">
-                <p className="text-[#64748b]">
-                  Update inventory valuation for <span className="font-bold text-[#0f172a]">{billingMonth} {billingYear}</span>:
-                </p>
-                <div className="space-y-3">
-                  <div>
-                    <label className="block text-xs font-bold text-[#475569] mb-1">Opening Stock Valuation (₹)</label>
-                    <input
-                      type="number"
-                      value={billingOpeningStock}
-                      onChange={(e) => {
-                        const val = parseFloat(e.target.value || '0');
-                        setOpeningStockMap({ ...openingStockMap, [billingKey]: val });
-                      }}
-                      className="w-full p-2.5 bg-[#f8fafc] border border-[#cbd5e1] rounded-xl font-mono text-sm font-bold"
-                    />
+            {billingModal.type === 'STOCK' && (() => {
+              const isModalMonthPublished = !!isBillPublishedMap[`${billingMonth}-${billingYear}`];
+              const searchLower = billingStockSearchPrefix.trim().toLowerCase();
+              
+              // Filter catalog items with prefix match first, then substring match
+              let modalFilteredItems = inventoryCatalog;
+              if (searchLower) {
+                const prefixMatches = inventoryCatalog.filter(i => i.name.toLowerCase().startsWith(searchLower));
+                modalFilteredItems = prefixMatches.length > 0
+                  ? prefixMatches
+                  : inventoryCatalog.filter(i => i.name.toLowerCase().includes(searchLower));
+              }
+
+              // Suggestion items list (up to 5 live suggestions)
+              const suggestionsList = searchLower
+                ? inventoryCatalog.filter(i => i.name.toLowerCase().includes(searchLower)).slice(0, 5)
+                : [];
+
+              const defaultOpMap: Record<string, number> = {
+                'inv-cat-1': 100, 'inv-cat-2': 50, 'inv-cat-3': 40, 'inv-cat-4': 150,
+                'inv-cat-5': 10, 'inv-cat-6': 20, 'inv-cat-7': 60, 'inv-cat-8': 30,
+              };
+              const defaultWacRates: Record<string, number> = {
+                'inv-cat-1': 49, 'inv-cat-2': 42, 'inv-cat-3': 52, 'inv-cat-4': 6,
+                'inv-cat-5': 190, 'inv-cat-6': 130, 'inv-cat-7': 30, 'inv-cat-8': 120,
+              };
+
+              return (
+                <div className="space-y-4 text-xs">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-[#64748b]">
+                      Inventory & Closing Stock Valuation breakdown for <span className="font-bold text-[#0f172a]">{billingMonth} {billingYear}</span>:
+                    </p>
+                    {isModalMonthPublished && (
+                      <span className="px-2.5 py-0.5 bg-[#64748b]/10 text-[#475569] border border-[#64748b]/30 font-extrabold text-[11px] rounded-full">
+                        🔒 Read-Only (Bill Published)
+                      </span>
+                    )}
                   </div>
 
-                  <div>
-                    <label className="block text-xs font-bold text-[#475569] mb-1">Closing Stock Valuation (₹)</label>
-                    <input
-                      type="number"
-                      value={billingClosingStock}
-                      onChange={(e) => {
-                        const val = parseFloat(e.target.value || '0');
-                        setClosingStockMap({ ...closingStockMap, [billingKey]: val });
-                      }}
-                      className="w-full p-2.5 bg-[#f8fafc] border border-[#cbd5e1] rounded-xl font-mono text-sm font-bold"
-                    />
+                  {/* Prefix Search Bar with Live Suggestions */}
+                  <div className="space-y-2">
+                    <label className="block text-xs font-extrabold text-[#0f172a]">
+                      Search Stock Item Suggestions
+                    </label>
+                    <div className="relative">
+                      <span className="material-symbols-outlined absolute left-3 top-2.5 text-[#94a3b8] text-[18px]">
+                        search
+                      </span>
+                      <input
+                        type="text"
+                        value={billingStockSearchPrefix}
+                        onChange={(e) => setBillingStockSearchPrefix(e.target.value)}
+                        placeholder='Type prefix e.g. "B" for Beans/Butter, "Be" for Beef, "P" for Ponni Rice...'
+                        className="w-full pl-9 pr-8 py-2 bg-[#f8fafc] border border-[#cbd5e1] rounded-xl text-xs font-bold text-[#0f172a] focus:outline-none focus:border-[#2563eb]"
+                      />
+                      {billingStockSearchPrefix && (
+                        <button
+                          onClick={() => setBillingStockSearchPrefix('')}
+                          className="absolute right-2.5 top-2 text-[#64748b] hover:text-[#0f172a]"
+                        >
+                          <span className="material-symbols-outlined text-[16px]">cancel</span>
+                        </button>
+                      )}
+                    </div>
+
+                    {/* Live Suggestion Pills */}
+                    {suggestionsList.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#64748b]">Suggestions:</span>
+                        {suggestionsList.map((sug) => (
+                          <button
+                            key={sug.id}
+                            type="button"
+                            onClick={() => setBillingStockSearchPrefix(sug.name)}
+                            className="px-2.5 py-1 bg-[#2563eb]/10 hover:bg-[#2563eb] text-[#2563eb] hover:text-white border border-[#2563eb]/30 text-[11px] font-extrabold rounded-lg transition-colors cursor-pointer flex items-center gap-1"
+                          >
+                            <span>{sug.name}</span>
+                            <span className="text-[9px] opacity-75">({sug.unit})</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Stock Valuation Table */}
+                  <div className="overflow-x-auto border border-[#e2e8f0] rounded-xl max-h-56">
+                    <table className="w-full text-left text-xs">
+                      <thead className="bg-[#f8fafc] text-[#475569] font-extrabold uppercase border-b border-[#e2e8f0] sticky top-0">
+                        <tr>
+                          <th className="py-2.5 px-3">Item Name</th>
+                          <th className="py-2.5 px-3">Unit</th>
+                          <th className="py-2.5 px-3 text-center">Physical Closing Qty</th>
+                          <th className="py-2.5 px-3 text-right">Closing Valuation (₹)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[#e2e8f0]">
+                        {modalFilteredItems.length === 0 ? (
+                          <tr>
+                            <td colSpan={4} className="py-6 text-center text-[#64748b] font-medium">
+                              No stock items matching "{billingStockSearchPrefix}"
+                            </td>
+                          </tr>
+                        ) : (
+                          modalFilteredItems.map((item) => {
+                            const stockKey = `${billingMonth}-${billingYear}-${item.id}`;
+                            const defaultQty = defaultOpMap[item.id] ?? 20;
+                            const physicalClosingQty = physicalClosingStockMap[stockKey] !== undefined
+                              ? physicalClosingStockMap[stockKey]
+                              : defaultQty;
+                            const wacRate = defaultWacRates[item.id] ?? 50;
+                            const itemClosingValue = physicalClosingQty * wacRate;
+
+                            return (
+                              <tr key={item.id} className="hover:bg-[#f8fafc]">
+                                <td className="py-2.5 px-3 font-bold text-[#0f172a]">{item.name}</td>
+                                <td className="py-2.5 px-3 font-mono text-[#64748b]">{item.unit}</td>
+                                <td className="py-2.5 px-3 text-center">
+                                  {isModalMonthPublished ? (
+                                    <span className="font-mono font-bold text-[#0f172a] bg-[#64748b]/10 px-2 py-0.5 rounded border border-[#64748b]/20">
+                                      {physicalClosingQty} 🔒
+                                    </span>
+                                  ) : (
+                                    <input
+                                      type="number"
+                                      value={physicalClosingQty}
+                                      onChange={(e) => {
+                                        const val = parseFloat(e.target.value || '0');
+                                        handleUpdatePhysicalClosingStock(item.id, val);
+                                      }}
+                                      className="w-20 px-2 py-1 bg-white border border-[#cbd5e1] rounded font-mono font-bold text-center text-[#0f172a] focus:outline-none focus:border-[#2563eb]"
+                                    />
+                                  )}
+                                </td>
+                                <td className="py-2.5 px-3 text-right font-mono font-bold text-[#2563eb]">
+                                  ₹{itemClosingValue.toLocaleString()}
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Summary Inputs Sync */}
+                  <div className="grid grid-cols-2 gap-3 pt-1">
+                    <div className="p-3 bg-[#f8fafc] rounded-xl border border-[#e2e8f0]">
+                      <span className="text-[11px] font-extrabold uppercase text-[#64748b] block mb-1">Opening Stock Valuation</span>
+                      <span className="text-base font-black text-[#0f172a] font-mono">₹{billingOpeningStock.toLocaleString()}</span>
+                    </div>
+
+                    <div className="p-3 bg-[#2563eb]/5 rounded-xl border border-[#2563eb]/20">
+                      <span className="text-[11px] font-extrabold uppercase text-[#2563eb] block mb-1">Closing Stock Valuation</span>
+                      <span className="text-base font-black text-[#2563eb] font-mono">₹{billingClosingStock.toLocaleString()}</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             <div className="pt-2 flex justify-end">
               <button
