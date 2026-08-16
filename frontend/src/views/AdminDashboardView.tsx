@@ -76,15 +76,15 @@ const INITIAL_WEEKLY_MENU = [
 
 // Initial Food Purchases Data
 const INITIAL_FOOD_PURCHASES = [
-  { id: '1', date: '2026-08-13', time: '10:30 AM', item: 'Ponni Rice (50kg Bags x4)', qty: '200 kg', amount: 9800, month: 'August', year: '2026' },
-  { id: '2', date: '2026-08-13', time: '07:15 AM', item: 'Toned Milk (Milma 1L Pouches x80)', qty: '80 L', amount: 4160, month: 'August', year: '2026' },
-  { id: '3', date: '2026-08-12', time: '04:45 PM', item: 'Grade A Eggs (Crates x10)', qty: '300 pcs', amount: 1800, month: 'August', year: '2026' },
-  { id: '4', date: '2026-08-12', time: '11:20 AM', item: 'Fresh Broiler Chicken', qty: '45 kg', amount: 8550, month: 'August', year: '2026' },
-  { id: '5', date: '2026-08-11', time: '09:00 AM', item: 'Refined Sunflower Oil (15L Tins x3)', qty: '45 L', amount: 5850, month: 'August', year: '2026' },
-  { id: '6', date: '2026-08-10', time: '02:30 PM', item: 'Onions & Potatoes (Bulk Mix)', qty: '120 kg', amount: 3600, month: 'August', year: '2026' },
-  { id: '7', date: '2026-07-28', time: '10:00 AM', item: 'Atta / Wheat Flour (10kg Packs x10)', qty: '100 kg', amount: 4200, month: 'July', year: '2026' },
-  { id: '8', date: '2026-07-25', time: '03:15 PM', item: 'Toor Dal & Chana Dal Mix', qty: '60 kg', amount: 7200, month: 'July', year: '2026' },
-  { id: '9', date: '2025-12-15', time: '11:00 AM', item: 'Spices Mix (Turmeric, Chili, Coriander)', qty: '25 kg', amount: 6500, month: 'December', year: '2025' },
+  { id: '1', date: '2026-08-13', item: 'Ponni Rice (50kg Bags x4)', qty: '200 kg', amount: 9800, month: 'August', year: '2026' },
+  { id: '2', date: '2026-08-13', item: 'Toned Milk (Milma 1L Pouches x80)', qty: '80 L', amount: 4160, month: 'August', year: '2026' },
+  { id: '3', date: '2026-08-12', item: 'Grade A Eggs (Crates x10)', qty: '300 pcs', amount: 1800, month: 'August', year: '2026' },
+  { id: '4', date: '2026-08-12', item: 'Fresh Broiler Chicken', qty: '45 kg', amount: 8550, month: 'August', year: '2026' },
+  { id: '5', date: '2026-08-11', item: 'Refined Sunflower Oil (15L Tins x3)', qty: '45 L', amount: 5850, month: 'August', year: '2026' },
+  { id: '6', date: '2026-08-10', item: 'Onions & Potatoes (Bulk Mix)', qty: '120 kg', amount: 3600, month: 'August', year: '2026' },
+  { id: '7', date: '2026-07-28', item: 'Atta / Wheat Flour (10kg Packs x10)', qty: '100 kg', amount: 4200, month: 'July', year: '2026' },
+  { id: '8', date: '2026-07-25', item: 'Toor Dal & Chana Dal Mix', qty: '60 kg', amount: 7200, month: 'July', year: '2026' },
+  { id: '9', date: '2025-12-15', item: 'Spices Mix (Turmeric, Chili, Coriander)', qty: '25 kg', amount: 6500, month: 'December', year: '2025' },
 ];
 
 // Initial Operational Expenses Data
@@ -307,7 +307,6 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   const [foodPurchases, setFoodPurchases] = useState(INITIAL_FOOD_PURCHASES);
   const [foodItem, setFoodItem] = useState(INITIAL_INVENTORY_CATALOG[0]?.name || '');
   const [foodDate, setFoodDate] = useState(new Date().toISOString().split('T')[0]);
-  const [foodTime, setFoodTime] = useState('10:30 AM');
   const [foodQty, setFoodQty] = useState('');
   const [foodAmount, setFoodAmount] = useState('');
   const [foodSearch, setFoodSearch] = useState('');
@@ -1271,7 +1270,6 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     const newEntry = {
       id: Date.now().toString(),
       date: foodDate,
-      time: foodTime || '10:30 AM',
       item: foodItem,
       qty: foodQty || '1 unit',
       amount: parseFloat(foodAmount),
@@ -1892,17 +1890,6 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-[#475569] mb-1">Purchase Time</label>
-                      <input
-                        type="text"
-                        value={foodTime}
-                        onChange={(e) => setFoodTime(e.target.value)}
-                        placeholder="e.g. 10:30 AM"
-                        className="w-full p-2.5 bg-[#f8fafc] border border-[#cbd5e1] rounded-xl text-sm font-medium focus:outline-none focus:border-[#2563eb]"
-                      />
-                    </div>
-
-                    <div>
                       <label className="block text-xs font-bold text-[#475569] mb-1">Quantity / Weight</label>
                       <input
                         type="text"
@@ -2017,7 +2004,6 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                       <thead className="bg-[#f8fafc] text-[#475569] font-bold text-xs uppercase border-b border-[#e2e8f0]">
                         <tr>
                           <th className="py-3.5 px-4">Date</th>
-                          <th className="py-3.5 px-4">Time</th>
                           <th className="py-3.5 px-4">Item Name</th>
                           <th className="py-3.5 px-4">Quantity</th>
                           <th className="py-3.5 px-4">Amount (₹)</th>
@@ -2027,7 +2013,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                       <tbody className="divide-y divide-[#e2e8f0]">
                         {filteredFoodPurchases.length === 0 ? (
                           <tr>
-                            <td colSpan={6} className="py-8 text-center text-[#64748b] text-sm">
+                            <td colSpan={5} className="py-8 text-center text-[#64748b] text-sm">
                               No food purchase entries matching search filter.
                             </td>
                           </tr>
@@ -2035,7 +2021,6 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                           filteredFoodPurchases.map((row) => (
                             <tr key={row.id} className="hover:bg-[#f8fafc] transition-colors">
                               <td className="py-3 px-4 font-mono text-xs text-[#334155]">{row.date}</td>
-                              <td className="py-3 px-4 font-mono text-xs text-[#64748b]">{row.time}</td>
                               <td className="py-3 px-4 font-semibold text-[#0f172a]">{row.item}</td>
                               <td className="py-3 px-4 text-xs font-medium text-[#475569]">{row.qty}</td>
                               <td className="py-3 px-4 font-extrabold text-[#16a34a]">₹{row.amount.toLocaleString()}</td>
@@ -3562,7 +3547,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                   <table className="w-full text-left text-xs">
                     <thead className="bg-[#f8fafc] text-[#475569] font-bold uppercase border-b border-[#e2e8f0]">
                       <tr>
-                        <th className="py-2.5 px-3">Date & Time</th>
+                        <th className="py-2.5 px-3">Date</th>
                         <th className="py-2.5 px-3">Item Name</th>
                         <th className="py-2.5 px-3">Quantity</th>
                         <th className="py-2.5 px-3 text-right">Amount (₹)</th>
@@ -3578,7 +3563,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                       ) : (
                         monthFoodPurchases.map((fp) => (
                           <tr key={fp.id} className="hover:bg-[#f8fafc]">
-                            <td className="py-2.5 px-3 font-mono text-[#334155]">{fp.date} {fp.time}</td>
+                            <td className="py-2.5 px-3 font-mono text-[#334155]">{fp.date}</td>
                             <td className="py-2.5 px-3 font-bold text-[#0f172a]">{fp.item}</td>
                             <td className="py-2.5 px-3 font-mono text-[#64748b]">{fp.qty}</td>
                             <td className="py-2.5 px-3 text-right font-mono font-bold text-[#2563eb]">₹{fp.amount.toLocaleString()}</td>
