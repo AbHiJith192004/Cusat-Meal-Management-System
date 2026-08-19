@@ -74,7 +74,7 @@ export const CreateAdminModal: React.FC<CreateAdminModalProps> = ({ isOpen, onCl
         </button>
 
         <div className="text-center space-y-1">
-          <div className="w-12 h-12 rounded-full bg-[#2563eb]/10 text-[#004ac6] flex items-center justify-center mx-auto mb-2">
+          <div className="w-12 h-12 rounded-full bg-[#F47A35]/10 text-[#D45E1A] flex items-center justify-center mx-auto mb-2">
             <span className="material-symbols-outlined text-[28px]">admin_panel_settings</span>
           </div>
           <h2 className="text-2xl font-bold text-[#151c27]">Create Admin Account</h2>
@@ -153,7 +153,7 @@ export const CreateAdminModal: React.FC<CreateAdminModalProps> = ({ isOpen, onCl
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-[#2563eb] text-white font-semibold text-sm rounded-xl hover:bg-[#004ac6] transition-colors shadow-xs flex items-center justify-center gap-2 cursor-pointer"
+            className="w-full py-3 bg-[#F47A35] text-white font-semibold text-sm rounded-xl hover:bg-[#D45E1A] transition-colors shadow-xs flex items-center justify-center gap-2 cursor-pointer"
           >
             {loading ? (
               <span className="material-symbols-outlined animate-spin text-[20px]">refresh</span>

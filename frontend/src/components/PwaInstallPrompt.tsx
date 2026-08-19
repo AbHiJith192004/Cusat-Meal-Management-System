@@ -1,16 +1,19 @@
 import React, { useState, useEffect } from 'react';
 
+const DISMISS_KEY = 'messconnect_pwa_dismissed';
+
+/**
+ * Install nudge. Mobile only — installing a home-screen app is meaningless on
+ * desktop, and a full-width banner there just steals the top of the page.
+ * Styled in the app palette so it reads as part of the product.
+ */
 export const PwaInstallPrompt: React.FC = () => {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
-  const [showPrompt, setShowPrompt] = useState<boolean>(false);
-  const [isInstalled, setIsInstalled] = useState<boolean>(false);
+  const [showPrompt, setShowPrompt] = useState(false);
 
   useEffect(() => {
-    // Check if already in standalone mode (installed)
-    if (window.matchMedia('(display-mode: standalone)').matches) {
-      setIsInstalled(true);
-      return;
-    }
+    if (window.matchMedia('(display-mode: standalone)').matches) return;
+    if (localStorage.getItem(DISMISS_KEY) === '1') return;
 
     const handleBeforeInstall = (e: Event) => {
       e.preventDefault();
@@ -19,53 +22,62 @@ export const PwaInstallPrompt: React.FC = () => {
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstall);
-
-    return () => {
-      window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
-    };
+    return () => window.removeEventListener('beforeinstallprompt', handleBeforeInstall);
   }, []);
 
-  const handleInstallClick = async () => {
+  const handleInstall = async () => {
     if (!deferredPrompt) {
-      alert('To install MessConnect on iOS: Tap the Share button in Safari, then select "Add to Home Screen".');
+      setShowPrompt(false);
       return;
     }
     deferredPrompt.prompt();
     const { outcome } = await deferredPrompt.userChoice;
-    if (outcome === 'accepted') {
-      setShowPrompt(false);
-      setIsInstalled(true);
-    }
+    if (outcome === 'accepted') setShowPrompt(false);
     setDeferredPrompt(null);
   };
 
-  if (isInstalled || !showPrompt) return null;
+  const handleDismiss = () => {
+    localStorage.setItem(DISMISS_KEY, '1');
+    setShowPrompt(false);
+  };
+
+  if (!showPrompt) return null;
 
   return (
-    <div className="bg-gradient-to-r from-[#2563eb] to-[#004ac6] text-white px-4 py-2.5 shadow-md flex items-center justify-between z-40 animate-fade-in">
-      <div className="flex items-center gap-3">
-        <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
-          <span className="material-symbols-outlined text-[20px]">phone_iphone</span>
-        </div>
-        <div>
-          <p className="text-xs font-bold leading-tight">Install MessConnect App</p>
-          <p className="text-[11px] opacity-90">Add to home screen for instant offline meal planning</p>
-        </div>
-      </div>
-      <div className="flex items-center gap-2">
-        <button
-          onClick={handleInstallClick}
-          className="px-3 py-1 bg-white text-[#004ac6] text-xs font-bold rounded-full shadow-xs hover:bg-[#f0f3ff] transition-colors cursor-pointer"
-        >
-          Install App
-        </button>
-        <button
-          onClick={() => setShowPrompt(false)}
-          className="p-1 text-white/80 hover:text-white"
-        >
-          <span className="material-symbols-outlined text-[18px]">close</span>
-        </button>
-      </div>
+    <div
+      className="lg:hidden flex items-center gap-3 px-4 py-2.5"
+      style={{
+        background: 'var(--orange-soft)',
+        borderBottom: '1px solid var(--orange-light)',
+      }}
+    >
+      <span
+        className="material-symbols-outlined shrink-0"
+        style={{ fontSize: 20, color: 'var(--orange)' }}
+      >
+        install_mobile
+      </span>
+
+      <p className="flex-1 text-xs font-bold leading-snug" style={{ color: 'var(--text-body)' }}>
+        Add to your home screen
+      </p>
+
+      <button
+        onClick={handleInstall}
+        className="px-3 py-1.5 rounded-full text-[11px] font-black shrink-0 cursor-pointer"
+        style={{ background: 'var(--orange)', color: '#fff' }}
+      >
+        Install
+      </button>
+
+      <button
+        onClick={handleDismiss}
+        className="shrink-0 cursor-pointer"
+        style={{ background: 'none', border: 'none', color: 'var(--text-muted)', lineHeight: 0 }}
+        aria-label="Dismiss"
+      >
+        <span className="material-symbols-outlined" style={{ fontSize: 18 }}>close</span>
+      </button>
     </div>
   );
 };

@@ -1,301 +1,259 @@
 import React, { useState, useEffect } from 'react';
-import { mealApi, authApi } from '../services/api';
+import { mealApi } from '../services/api';
+import {
+  BreakfastCartoon,
+  LunchCartoon,
+  DinnerCartoon,
+  MEAL_ACCENT,
+} from '../components/FoodIllustrations';
+
+type MealKey = 'breakfast' | 'lunch' | 'dinner';
+
+const MENU_ITEMS: Record<MealKey, string> = {
+  breakfast: 'Idli, Sambar, Coconut Chutney, Tea/Coffee',
+  lunch: 'Rice, Fish Curry, Vegetable Stir-fry, Buttermilk',
+  dinner: 'Chapati, Chicken Curry, Mixed Veg Salad',
+};
+const MEAL_TIMES: Record<MealKey, string> = {
+  breakfast: '7:30 AM – 9:00 AM',
+  lunch: '12:30 PM – 2:00 PM',
+  dinner: '7:30 PM – 9:00 PM',
+};
+const MEAL_LABELS: Record<MealKey, string> = {
+  breakfast: 'Breakfast',
+  lunch: 'Lunch',
+  dinner: 'Dinner',
+};
+const MEAL_FILL: Record<MealKey, string> = {
+  breakfast: 'var(--meal-breakfast)',
+  lunch: 'var(--meal-lunch)',
+  dinner: 'var(--meal-dinner)',
+};
+const MEAL_ILL: Record<MealKey, React.FC<{ size?: number }>> = {
+  breakfast: BreakfastCartoon,
+  lunch: LunchCartoon,
+  dinner: DinnerCartoon,
+};
+
+const MEALS: MealKey[] = ['breakfast', 'lunch', 'dinner'];
 
 export const MealPlanningView: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [mealPlans, setMealPlans] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [expandedMeals, setExpandedMeals] = useState<Record<string, boolean>>({
-    breakfast: true,
-    lunch: false,
-    dinner: false,
-  });
-
-  const fetchMeals = async () => {
-    setLoading(true);
-    try {
-      const data = await mealApi.getMeals();
-      setMealPlans(data);
-      if (data && data.length > 0) {
-        setSelectedDate(data[0].meal_date);
-      }
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to fetch meal schedule.');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   useEffect(() => {
-    fetchMeals();
+    mealApi
+      .getMeals()
+      .then(d => {
+        setMealPlans(d);
+        if (d?.length) setSelectedDate(d[0].meal_date);
+      })
+      .catch(e => setErrorMsg(e.message))
+      .finally(() => setLoading(false));
   }, []);
 
-  const activePlan = mealPlans.find((plan) => plan.meal_date === selectedDate) || mealPlans[0] || {
-    meal_date: selectedDate,
-    breakfast: { status: 'CONFIRMED' },
-    lunch: { status: 'CONFIRMED' },
-    dinner: { status: 'CONFIRMED' },
-  };
-
-  const isBreakfastConfirmed = (activePlan?.breakfast?.status || 'CONFIRMED') === 'CONFIRMED';
-  const isLunchConfirmed = (activePlan?.lunch?.status || 'CONFIRMED') === 'CONFIRMED';
-  const isDinnerConfirmed = (activePlan?.dinner?.status || 'CONFIRMED') === 'CONFIRMED';
-  const isFullDayConfirmed = isBreakfastConfirmed && isLunchConfirmed && isDinnerConfirmed;
-  const isFullDaySkipped = !isBreakfastConfirmed && !isLunchConfirmed && !isDinnerConfirmed;
-
-  const handleToggleFullDayMessCut = async () => {
-    const nextStatus = isFullDaySkipped ? 'CONFIRMED' : 'SKIPPED';
-
-    try {
-      setErrorMsg(null);
-      await Promise.all([
-        mealApi.updateMealSelection(selectedDate, 'BREAKFAST', nextStatus),
-        mealApi.updateMealSelection(selectedDate, 'LUNCH', nextStatus),
-        mealApi.updateMealSelection(selectedDate, 'DINNER', nextStatus),
-      ]);
-
-      setMealPlans((prev) =>
-        prev.map((plan) =>
-          plan.meal_date === selectedDate
-            ? {
-                ...plan,
-                breakfast: { ...plan.breakfast, status: nextStatus },
-                lunch: { ...plan.lunch, status: nextStatus },
-                dinner: { ...plan.dinner, status: nextStatus },
-              }
-            : plan
-        )
-      );
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to update full day mess cut.');
-    }
-  };
-
-  const handleToggleMeal = async (mealType: 'breakfast' | 'lunch' | 'dinner') => {
-    const currentStatus = activePlan[mealType]?.status || 'CONFIRMED';
-    const nextStatus = currentStatus === 'CONFIRMED' ? 'SKIPPED' : 'CONFIRMED';
-
-    // If currently full day skipped, toggling 1 meal to CONFIRMED leaves 2 meals SKIPPED (invalid)
-    // In that case, switch to single meal opt-out of the OTHER skipped meals or confirm all.
-    if (isFullDaySkipped && nextStatus === 'CONFIRMED') {
-      try {
-        setErrorMsg(null);
-        // Confirm all 3 meals (Opt-In All)
-        await Promise.all([
-          mealApi.updateMealSelection(selectedDate, 'BREAKFAST', 'CONFIRMED'),
-          mealApi.updateMealSelection(selectedDate, 'LUNCH', 'CONFIRMED'),
-          mealApi.updateMealSelection(selectedDate, 'DINNER', 'CONFIRMED'),
-        ]);
-        setMealPlans((prev) =>
-          prev.map((plan) =>
-            plan.meal_date === selectedDate
-              ? {
-                  ...plan,
-                  breakfast: { ...plan.breakfast, status: 'CONFIRMED' },
-                  lunch: { ...plan.lunch, status: 'CONFIRMED' },
-                  dinner: { ...plan.dinner, status: 'CONFIRMED' },
-                }
-              : plan
-          )
-        );
-      } catch (err: any) {
-        setErrorMsg(err.message || 'Failed to update meal selection.');
-      }
-      return;
-    }
-
-    if (nextStatus === 'SKIPPED') {
-      const otherMealsSkipped = ['breakfast', 'lunch', 'dinner'].filter(
-        (m) => m !== mealType && activePlan[m]?.status === 'SKIPPED'
-      );
-      if (otherMealsSkipped.length === 1) {
-        setErrorMsg('Invalid selection. You can either opt out of 1 single meal (no fine, pays full day) OR opt out of the entire day (3 meals) for a Full Day Mess Cut.');
-        return;
-      }
-    }
-
-    try {
-      setErrorMsg(null);
-      await mealApi.updateMealSelection(selectedDate, mealType.toUpperCase(), nextStatus);
-      // Optimistic update
-      setMealPlans((prev) =>
-        prev.map((plan) =>
-          plan.meal_date === selectedDate
-            ? {
-                ...plan,
-                [mealType]: { ...plan[mealType], status: nextStatus },
-              }
-            : plan
-        )
-      );
-    } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to update selection (Cutoff, Mess Cut limit, or Holiday locked).');
-    }
-  };
-
-  const toggleExpand = (mealKey: string) => {
-    setExpandedMeals((prev) => ({
-      ...prev,
-      [mealKey]: !prev[mealKey],
-    }));
-  };
+  const activePlan =
+    mealPlans.find(p => p.meal_date === selectedDate) ||
+    mealPlans[0] || {
+      meal_date: selectedDate,
+      breakfast: { status: 'CONFIRMED' },
+      lunch: { status: 'CONFIRMED' },
+      dinner: { status: 'CONFIRMED' },
+    };
 
   const todayStr = new Date().toISOString().split('T')[0];
-  const isLockedDate = selectedDate <= todayStr;
+  const isLocked = selectedDate <= todayStr;
+
+  const handleToggle = async (meal: MealKey) => {
+    const cur = activePlan[meal]?.status || 'CONFIRMED';
+    const next = cur === 'CONFIRMED' ? 'SKIPPED' : 'CONFIRMED';
+    try {
+      setErrorMsg(null);
+      await mealApi.updateMealSelection(selectedDate, meal.toUpperCase(), next);
+      setMealPlans(prev =>
+        prev.map(p =>
+          p.meal_date === selectedDate ? { ...p, [meal]: { ...p[meal], status: next } } : p
+        )
+      );
+    } catch (e: any) {
+      setErrorMsg(e.message || 'Could not save. The cutoff may have passed.');
+    }
+  };
+
+  const dateChips =
+    mealPlans.length > 0
+      ? mealPlans.slice(0, 7).map(p => p.meal_date)
+      : Array.from({ length: 7 }, (_, i) => {
+          const d = new Date();
+          d.setDate(d.getDate() + i);
+          return d.toISOString().split('T')[0];
+        });
+
+  const confirmedCount = MEALS.filter(
+    m => (activePlan[m]?.status || 'CONFIRMED') === 'CONFIRMED'
+  ).length;
 
   return (
-    <main className="w-full max-w-[768px] mx-auto px-4 pt-6 pb-28 md:pb-8">
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-[24px] md:text-[30px] font-bold text-[#151c27]">Meal Planning</h1>
-        <span className="text-xs font-semibold bg-[#2563eb]/10 text-[#2563eb] px-3 py-1 rounded-full border border-[#2563eb]/20">
-          Cutoff: 9:00 PM (Previous Day)
-        </span>
-      </div>
-
+    <main className="page-container">
       {errorMsg && (
-        <div className="mb-4 p-3 bg-[#ffdad6] text-[#93000a] rounded-xl text-sm font-semibold flex items-center gap-2">
-          <span className="material-symbols-outlined">warning</span>
-          <span>{errorMsg}</span>
+        <div
+          className="mb-4 px-3.5 py-3 rounded-xl text-xs font-bold flex items-start gap-2"
+          style={{ background: '#FDECEA', border: '1px solid #F6C8C3', color: 'var(--red)' }}
+          role="alert"
+        >
+          <span className="material-symbols-outlined" style={{ fontSize: 17 }}>error</span>
+          <span className="flex-1">{errorMsg}</span>
         </div>
       )}
 
-      {/* Date Scroller */}
-      <div className="flex overflow-x-auto gap-2 pb-2 hide-scrollbar mb-6 snap-x">
-        {mealPlans.map((plan) => {
-          const isSelected = plan.meal_date === selectedDate;
-          const dateObj = new Date(plan.meal_date);
-          const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
-          const dayNum = dateObj.getDate();
-
+      {/* ── Date selector ──────────────────────────────────────────── */}
+      <div className="flex gap-2.5 pb-4 overflow-x-auto hide-scrollbar snap-x lg:flex-wrap lg:overflow-visible lg:pb-5">
+        {dateChips.map(date => {
+          const isActive = date === selectedDate;
+          const d = new Date(date);
+          const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
+          const dayNum = d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
           return (
             <button
-              key={plan.meal_date}
-              onClick={() => setSelectedDate(plan.meal_date)}
-              className={`flex flex-col items-center justify-center min-w-[64px] h-[80px] rounded-lg transition-all snap-center shrink-0 cursor-pointer ${
-                isSelected
-                  ? 'bg-[#004ac6] text-white shadow-sm font-semibold'
-                  : 'bg-[#ffffff] border border-[#c3c6d7] text-[#151c27] hover:bg-[#f0f3ff]'
-              }`}
+              key={date}
+              onClick={() => setSelectedDate(date)}
+              className={`date-chip snap-center ${isActive ? 'date-chip-active' : ''}`}
+              aria-pressed={isActive}
             >
-              <span className={`text-[12px] uppercase font-semibold mb-1 ${isSelected ? 'text-white' : 'text-[#434655]'}`}>
-                {dayName}
+              <span
+                className="date-chip-label text-[13px] font-black"
+                style={{ fontFamily: 'Nunito, sans-serif' }}
+              >
+                {dayNum}, {dayName}
               </span>
-              <span className="text-[20px] font-bold">{dayNum}</span>
             </button>
           );
         })}
       </div>
 
-      {/* Full Day Toggle Banner at Top */}
-      <div className="bg-[#2563eb]/10 border border-[#2563eb]/30 rounded-[16px] p-4 mb-5 flex items-center justify-between shadow-xs">
-        <div className="flex items-center gap-3">
-          <div className="w-11 h-11 rounded-xl bg-[#2563eb] text-white flex items-center justify-center shadow-xs">
-            <span className="material-symbols-outlined text-[24px]">{isLockedDate ? 'lock' : 'event_available'}</span>
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="text-base font-bold text-[#151c27]">
-                {isLockedDate ? 'Selection Finalized' : 'Opt-Out & Mess Cut Rules'}
-              </h3>
-              <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${
-                isFullDayConfirmed 
-                  ? 'bg-[#006c49]/15 text-[#006c49]' 
-                  : isFullDaySkipped 
-                  ? 'bg-[#ba1a1a]/15 text-[#ba1a1a]' 
-                  : 'bg-[#2563eb]/15 text-[#2563eb]'
-              }`}>
-                {isFullDayConfirmed ? 'Eating All Day' : isFullDaySkipped ? 'Full Day Mess Cut' : 'Single Meal Opt-Out'}
-              </span>
-            </div>
-            <p className="text-xs text-[#434655] mt-0.5">
-              {isLockedDate
-                ? "Today's meal selections were finalized yesterday at 9:00 PM cutoff."
-                : 'Opt out of 1 meal (no fine, pays full day) OR opt out of the entire day (Mess Cut, max 10/month).'}
-            </p>
-          </div>
-        </div>
-
-        {!isLockedDate ? (
-          <label className="relative inline-flex items-center cursor-pointer shrink-0 ml-3" title="Toggle Full Day Mess Cut (All 3 Meals)">
-            <input
-              type="checkbox"
-              checked={isFullDaySkipped}
-              onChange={handleToggleFullDayMessCut}
-              className="sr-only peer"
-            />
-            <div className="w-12 h-7 bg-[#c3c6d7] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[#c3c6d7] after:border after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:bg-[#ba1a1a]"></div>
-          </label>
-        ) : (
-          <span className="px-3 py-1 bg-[#737686]/10 text-[#434655] border border-[#c3c6d7] text-xs font-semibold rounded-full flex items-center gap-1 shrink-0 ml-3">
-            <span className="material-symbols-outlined text-[14px]">lock</span>
-            Locked
-          </span>
-        )}
+      {/* ── Day summary (desktop) ──────────────────────────────────── */}
+      <div className="hidden lg:flex items-center justify-between mb-4">
+        <p className="section-label">
+          {new Date(selectedDate).toLocaleDateString('en-IN', {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+          })}
+        </p>
+        <p className="text-[13px] font-bold" style={{ color: 'var(--text-muted)' }}>
+          {isLocked ? (
+            <span className="flex items-center gap-1.5">
+              <span className="material-symbols-outlined" style={{ fontSize: 16 }}>lock</span>
+              Locked — the 9 PM cutoff has passed
+            </span>
+          ) : (
+            `${confirmedCount} of 3 meals confirmed`
+          )}
+        </p>
       </div>
 
-      {/* Meal Cards List */}
-      <div className="flex flex-col gap-4">
-        {(['breakfast', 'lunch', 'dinner'] as const).map((mealKey) => {
-          const mealInfo = activePlan[mealKey] || { status: 'CONFIRMED' };
-          const isConfirmed = mealInfo.status === 'CONFIRMED';
-
-          return (
-            <div
-              key={mealKey}
-              className={`bg-[#ffffff] rounded-[16px] border border-[#c3c6d7] shadow-xs p-4 transition-opacity ${
-                !isConfirmed ? 'opacity-80' : ''
-              }`}
-            >
+      {/* ── Meal cards ─────────────────────────────────────────────── */}
+      <div className="grid gap-4 lg:grid-cols-3">
+        {loading
+          ? MEALS.map(m => (
               <div
-                className="flex items-center justify-between mb-2 cursor-pointer select-none"
-                onClick={() => toggleExpand(mealKey)}
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-[#dce2f3] flex items-center justify-center text-[#004ac6]">
-                    <span className="material-symbols-outlined">
-                      {mealKey === 'breakfast' ? 'free_breakfast' : mealKey === 'lunch' ? 'lunch_dining' : 'dinner_dining'}
-                    </span>
-                  </div>
-                  <div>
-                    <h3 className="text-[20px] font-semibold text-[#151c27] capitalize">{mealKey}</h3>
-                    <p className="text-[14px] text-[#434655]">
-                      {mealKey === 'breakfast' ? '07:00 - 09:30 AM' : mealKey === 'lunch' ? '12:00 - 02:30 PM' : '07:00 - 09:30 PM'}
-                    </p>
-                  </div>
-                </div>
-                <span className={`material-symbols-outlined text-[#434655] transition-transform duration-200 ${expandedMeals[mealKey] ? 'rotate-180' : ''}`}>
-                  expand_more
-                </span>
-              </div>
+                key={m}
+                className="h-[188px] rounded-2xl animate-pulse"
+                style={{ background: 'var(--card)', border: '1px solid var(--line)' }}
+              />
+            ))
+          : MEALS.map(meal => {
+              const Ill = MEAL_ILL[meal];
+              const confirmed = (activePlan[meal]?.status || 'CONFIRMED') === 'CONFIRMED';
+              const menuText = activePlan[meal]?.items?.join(', ') || MENU_ITEMS[meal];
 
-              {/* Toggle Control / Lock Indicator */}
-              <div className="flex items-center justify-between pt-2 border-t border-[#c3c6d7] mt-2">
-                <span className={`text-[14px] ${isConfirmed ? 'font-semibold text-[#004ac6]' : 'text-[#434655]'}`}>
-                  {isConfirmed ? 'Meal Confirmed' : 'Meal Skipped'}
-                </span>
-                
-                {!isLockedDate ? (
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={isConfirmed}
-                      onChange={() => handleToggleMeal(mealKey)}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-[#dce2f3] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[#c3c6d7] after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#2563eb]"></div>
-                  </label>
-                ) : (
-                  <span className="text-xs text-[#737686] font-semibold flex items-center gap-1 bg-[#f0f3ff] px-2.5 py-1 rounded-md border border-[#c3c6d7]">
-                    <span className="material-symbols-outlined text-[14px]">lock</span>
-                    Locked
-                  </span>
-                )}
-              </div>
-            </div>
-          );
-        })}
+              return (
+                <section
+                  key={meal}
+                  className="stitch-meal-card flex flex-col"
+                  style={{ background: MEAL_FILL[meal], opacity: confirmed ? 1 : 0.62 }}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="meal-dot" style={{ background: MEAL_ACCENT[meal] }} />
+                        <h3
+                          className="font-display text-[21px] font-bold"
+                          style={{ color: 'var(--text-dark)' }}
+                        >
+                          {MEAL_LABELS[meal]}
+                        </h3>
+                      </div>
+                      <p
+                        className="text-xs font-bold mt-1"
+                        style={{ color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}
+                      >
+                        {MEAL_TIMES[meal]}
+                      </p>
+                    </div>
+                    <div className="shrink-0 float-gentle-alt">
+                      <Ill size={78} />
+                    </div>
+                  </div>
+
+                  <p
+                    className="text-[13px] font-semibold mt-2.5 flex-1"
+                    style={{ color: 'var(--text-body)' }}
+                  >
+                    {menuText}
+                  </p>
+
+                  <div
+                    className="flex items-center justify-between gap-2 mt-3.5 pt-3"
+                    style={{ borderTop: '1px solid rgba(120,80,30,0.12)' }}
+                  >
+                    <span
+                      className="text-[13px] font-black"
+                      style={{
+                        color: confirmed ? 'var(--text-dark)' : 'var(--text-muted)',
+                        fontFamily: 'Nunito, sans-serif',
+                      }}
+                    >
+                      {confirmed ? "I'm eating" : 'Skipping'}
+                    </span>
+
+                    {isLocked ? (
+                      <span
+                        className="text-[11px] font-bold flex items-center gap-1"
+                        style={{ color: 'var(--text-muted)' }}
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: 15 }}>lock</span>
+                        Locked
+                      </span>
+                    ) : (
+                      <label className="stitch-toggle" title={confirmed ? 'Opt out' : 'Opt in'}>
+                        <input
+                          type="checkbox"
+                          checked={confirmed}
+                          onChange={() => handleToggle(meal)}
+                          aria-label={`${MEAL_LABELS[meal]} — ${confirmed ? 'eating' : 'skipping'}`}
+                        />
+                        <div className="stitch-toggle-track" />
+                        <div className="stitch-toggle-thumb" />
+                      </label>
+                    )}
+                  </div>
+                </section>
+              );
+            })}
       </div>
+
+      {/* Cutoff note — mobile only; desktop shows it in the summary row */}
+      {!isLocked && (
+        <p
+          className="lg:hidden text-[11px] font-semibold text-center mt-4"
+          style={{ color: 'var(--text-muted)' }}
+        >
+          Opt-outs close at 9:00 PM the night before.
+        </p>
+      )}
     </main>
   );
 };

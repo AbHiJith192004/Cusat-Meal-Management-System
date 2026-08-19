@@ -8,185 +8,122 @@ interface HeaderProps {
   setUserRole: (role: UserRole) => void;
   studentAvatar: string;
   adminAvatar: string;
+  unreadCount?: number;
 }
 
+const PAGE_META: Partial<Record<ActiveTab, { title: string; sub: string }>> = {
+  'home':            { title: 'Home',              sub: 'Today at the mess' },
+  'calendar':        { title: 'Meal Schedule',     sub: 'Plan your meals and opt out before the 9 PM cutoff' },
+  'qr':              { title: 'Mess Pass',         sub: 'Show this at the dining hall entrance' },
+  'alerts':          { title: 'Alerts',            sub: 'Announcements from the mess office' },
+  'profile':         { title: 'Profile',           sub: 'Your account and dining preferences' },
+  'admin-dashboard': { title: 'Overview',          sub: 'Live mess operations at a glance' },
+  'admin-scanner':   { title: 'QR Scanner',        sub: 'Verify passes at the entrance' },
+  'admin-menu':      { title: 'Weekly Menu',       sub: 'Plan and publish the mess menu' },
+  'admin-students':  { title: 'Students',          sub: 'Directory and mess membership' },
+  'admin-ledger':    { title: 'Ledger',            sub: 'Purchases, expenses and reconciliation' },
+  'admin-billing':   { title: 'Billing',           sub: 'Monthly bills and fine adjustments' },
+  'admin-payments':  { title: 'Payments',          sub: 'Collections and pending dues' },
+  'admin-stocks':    { title: 'Stocks',            sub: 'Inventory and closing stock' },
+};
+
+/**
+ * Mobile: compact centred bar with a back affordance — matches the app design.
+ * Desktop: quiet page header (title + one line of context); navigation lives
+ * in the sidebar, so no tab row is duplicated here.
+ */
 export const Header: React.FC<HeaderProps> = ({
   currentTab,
   setCurrentTab,
   userRole,
   studentAvatar,
-  adminAvatar
+  adminAvatar,
+  unreadCount = 0,
 }) => {
   const isStudent = userRole === 'student';
+  const meta = PAGE_META[currentTab] ?? { title: 'MessConnect', sub: 'Hostel mess management' };
+  const isHome = currentTab === 'home' || currentTab === 'admin-dashboard';
+  const avatar = isStudent ? studentAvatar : adminAvatar;
+  const hasPhoto = Boolean(avatar && avatar.startsWith('data:'));
+
+  // Mobile shows the brand on home, the page name elsewhere.
+  const mobileTitle = isHome ? 'CUSAT MessConnect' : meta.title;
 
   return (
-    <header className="w-full sticky top-0 glass-header z-40 transition-colors duration-200">
-      <div className="flex items-center justify-between px-4 h-14 w-full max-w-[1200px] mx-auto">
-        {/* Left Section: Brand & Icon */}
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-2 text-[#004ac6]">
-            <span className="material-symbols-outlined text-[24px]">restaurant</span>
-            <span className="font-bold text-[20px] text-[#004ac6] tracking-tight">MessConnect</span>
+    <header className="stitch-header">
+      <div className="topbar-inner">
+        {/* ── Left ───────────────────────────────────────────── */}
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          {!isHome && (
+            <button
+              onClick={() => setCurrentTab(isStudent ? 'home' : 'admin-dashboard')}
+              className="icon-btn lg:hidden"
+              title="Back"
+              aria-label="Back"
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: 20 }}>arrow_back</span>
+            </button>
+          )}
+          {isHome && (
+            <div
+              className="w-9 h-9 rounded-full flex items-center justify-center text-base shrink-0 lg:hidden"
+              style={{ background: 'var(--card)', border: '1px solid var(--line)' }}
+              aria-hidden="true"
+            >
+              🍴
+            </div>
+          )}
+
+          {/* Mobile title (centred-ish, truncating) */}
+          <h1
+            className="font-display text-[17px] font-bold truncate lg:hidden"
+            style={{ color: 'var(--text-dark)' }}
+          >
+            {mobileTitle}
+          </h1>
+
+          {/* Desktop title + subtitle */}
+          <div className="hidden lg:block min-w-0">
+            <h1
+              className="font-display text-[21px] font-bold leading-tight truncate"
+              style={{ color: 'var(--text-dark)' }}
+            >
+              {meta.title}
+            </h1>
+            <p className="text-[12.5px] font-semibold truncate" style={{ color: 'var(--text-muted)' }}>
+              {meta.sub}
+            </p>
           </div>
         </div>
 
-        {/* Desktop Navigation Links */}
-        <nav className="hidden md:flex items-center gap-2">
-          {isStudent ? (
-            <>
-              <button
-                onClick={() => setCurrentTab('home')}
-                className={`px-3 py-1.5 rounded-lg font-medium text-sm transition-colors cursor-pointer flex items-center gap-1.5 ${
-                  currentTab === 'home'
-                    ? 'bg-[#2563eb] text-white font-semibold shadow-xs'
-                    : 'text-[#434655] hover:bg-[#2563eb]/10 hover:text-[#004ac6]'
-                }`}
-              >
-                <span className="material-symbols-outlined text-[18px]">home</span>
-                Home
-              </button>
-              <button
-                onClick={() => setCurrentTab('calendar')}
-                className={`px-3 py-1.5 rounded-lg font-medium text-sm transition-colors cursor-pointer flex items-center gap-1.5 ${
-                  currentTab === 'calendar'
-                    ? 'bg-[#2563eb] text-white font-semibold shadow-xs'
-                    : 'text-[#434655] hover:bg-[#2563eb]/10 hover:text-[#004ac6]'
-                }`}
-              >
-                <span className="material-symbols-outlined text-[18px]">calendar_month</span>
-                Calendar
-              </button>
-              <button
-                onClick={() => setCurrentTab('qr')}
-                className={`px-3 py-1.5 rounded-lg font-medium text-sm transition-colors cursor-pointer flex items-center gap-1.5 ${
-                  currentTab === 'qr'
-                    ? 'bg-[#2563eb] text-white font-semibold shadow-xs'
-                    : 'text-[#434655] hover:bg-[#2563eb]/10 hover:text-[#004ac6]'
-                }`}
-              >
-                <span className="material-symbols-outlined text-[18px]">qr_code_scanner</span>
-                QR Code
-              </button>
-              <button
-                onClick={() => setCurrentTab('alerts')}
-                className={`px-3 py-1.5 rounded-lg font-medium text-sm transition-colors cursor-pointer flex items-center gap-1.5 ${
-                  currentTab === 'alerts'
-                    ? 'bg-[#2563eb] text-white font-semibold shadow-xs'
-                    : 'text-[#434655] hover:bg-[#2563eb]/10 hover:text-[#004ac6]'
-                }`}
-              >
-                <span className="material-symbols-outlined text-[18px]">notifications</span>
-                Alerts
-              </button>
-            </>
-          ) : (
-            <>
-              <button
-                onClick={() => setCurrentTab('admin-dashboard')}
-                className={`px-3 py-1.5 rounded-lg font-medium text-sm transition-colors cursor-pointer flex items-center gap-1.5 ${
-                  currentTab === 'admin-dashboard' || currentTab === 'home'
-                    ? 'bg-[#2563eb] text-white font-semibold shadow-xs'
-                    : 'text-[#434655] hover:bg-[#2563eb]/10 hover:text-[#004ac6]'
-                }`}
-              >
-                <span className="material-symbols-outlined text-[18px]">analytics</span>
-                Daily Summary
-              </button>
-              <button
-                onClick={() => setCurrentTab('admin-students')}
-                className={`px-3 py-1.5 rounded-lg font-medium text-sm transition-colors cursor-pointer flex items-center gap-1.5 ${
-                  currentTab === 'admin-students'
-                    ? 'bg-[#2563eb] text-white font-semibold shadow-xs'
-                    : 'text-[#434655] hover:bg-[#2563eb]/10 hover:text-[#004ac6]'
-                }`}
-              >
-                <span className="material-symbols-outlined text-[18px]">group</span>
-                Student Data
-              </button>
-              <button
-                onClick={() => setCurrentTab('admin-scanner')}
-                className={`px-3 py-1.5 rounded-lg font-medium text-sm transition-colors cursor-pointer flex items-center gap-1.5 ${
-                  currentTab === 'admin-scanner'
-                    ? 'bg-[#2563eb] text-white font-semibold shadow-xs'
-                    : 'text-[#434655] hover:bg-[#2563eb]/10 hover:text-[#004ac6]'
-                }`}
-              >
-                <span className="material-symbols-outlined text-[18px]">qr_code_scanner</span>
-                Scanner
-              </button>
-              <button
-                onClick={() => setCurrentTab('admin-menu')}
-                className={`px-3 py-1.5 rounded-lg font-medium text-sm transition-colors cursor-pointer flex items-center gap-1.5 ${
-                  currentTab === 'admin-menu'
-                    ? 'bg-[#2563eb] text-white font-semibold shadow-xs'
-                    : 'text-[#434655] hover:bg-[#2563eb]/10 hover:text-[#004ac6]'
-                }`}
-              >
-                <span className="material-symbols-outlined text-[18px]">restaurant_menu</span>
-                Menu
-              </button>
-              <button
-                onClick={() => setCurrentTab('admin-ledger')}
-                className={`px-3 py-1.5 rounded-lg font-medium text-sm transition-colors cursor-pointer flex items-center gap-1.5 ${
-                  currentTab === 'admin-ledger'
-                    ? 'bg-[#2563eb] text-white font-semibold shadow-xs'
-                    : 'text-[#434655] hover:bg-[#2563eb]/10 hover:text-[#004ac6]'
-                }`}
-              >
-                <span className="material-symbols-outlined text-[18px]">account_balance_wallet</span>
-                Ledger
-              </button>
-              <button
-                onClick={() => setCurrentTab('admin-billing')}
-                className={`px-3 py-1.5 rounded-lg font-medium text-sm transition-colors cursor-pointer flex items-center gap-1.5 ${
-                  currentTab === 'admin-billing'
-                    ? 'bg-[#2563eb] text-white font-semibold shadow-xs'
-                    : 'text-[#434655] hover:bg-[#2563eb]/10 hover:text-[#004ac6]'
-                }`}
-              >
-                <span className="material-symbols-outlined text-[18px]">receipt_long</span>
-                Billing
-              </button>
-              <button
-                onClick={() => setCurrentTab('admin-payments')}
-                className={`px-3 py-1.5 rounded-lg font-medium text-sm transition-colors cursor-pointer flex items-center gap-1.5 ${
-                  currentTab === 'admin-payments'
-                    ? 'bg-[#2563eb] text-white font-semibold shadow-xs'
-                    : 'text-[#434655] hover:bg-[#2563eb]/10 hover:text-[#004ac6]'
-                }`}
-              >
-                <span className="material-symbols-outlined text-[18px]">payments</span>
-                Payments
-              </button>
-              <button
-                onClick={() => setCurrentTab('admin-stocks')}
-                className={`px-3 py-1.5 rounded-lg font-medium text-sm transition-colors cursor-pointer flex items-center gap-1.5 ${
-                  currentTab === 'admin-stocks'
-                    ? 'bg-[#2563eb] text-white font-semibold shadow-xs'
-                    : 'text-[#434655] hover:bg-[#2563eb]/10 hover:text-[#004ac6]'
-                }`}
-              >
-                <span className="material-symbols-outlined text-[18px]">inventory_2</span>
-                Stocks
-              </button>
-            </>
-          )}
-        </nav>
-
-        {/* Right Section: Profile Avatar */}
-        <div className="flex items-center gap-3">
+        {/* ── Right ──────────────────────────────────────────── */}
+        <div className="flex items-center gap-1.5 shrink-0">
           <button
-            onClick={() => setCurrentTab(isStudent ? 'profile' : 'admin-dashboard')}
-            className="flex items-center gap-2 group cursor-pointer"
+            onClick={() => setCurrentTab('alerts')}
+            className="icon-btn relative"
+            title="Alerts"
+            aria-label={unreadCount > 0 ? `Alerts, ${unreadCount} unread` : 'Alerts'}
           >
-            <div className="relative">
-              <img
-                src={isStudent ? studentAvatar : adminAvatar}
-                alt="Profile Avatar"
-                className="w-8 h-8 rounded-full object-cover border border-[#c3c6d7] group-hover:ring-2 group-hover:ring-[#2563eb]"
+            <span className="material-symbols-outlined" style={{ fontSize: 20 }}>notifications</span>
+            {unreadCount > 0 && (
+              <span
+                className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full"
+                style={{ background: 'var(--orange)', boxShadow: '0 0 0 2px var(--bg)' }}
               />
-              <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-[#006c49] border-2 border-white"></span>
-            </div>
+            )}
+          </button>
+
+          <button
+            onClick={() => setCurrentTab('profile')}
+            className="icon-btn overflow-hidden"
+            title="Profile"
+            aria-label="Profile"
+          >
+            {hasPhoto ? (
+              <img src={avatar} alt="" className="w-full h-full object-cover" />
+            ) : (
+              <span className="material-symbols-outlined" style={{ fontSize: 20 }}>person</span>
+            )}
           </button>
         </div>
       </div>

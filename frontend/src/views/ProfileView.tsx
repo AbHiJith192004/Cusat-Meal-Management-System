@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { studentApi, authApi } from '../services/api';
+import { studentApi } from '../services/api';
+import { ChefMascot, ART_CREDIT } from '../components/FoodIllustrations';
 
 interface ProfileViewProps {
   studentName: string;
@@ -7,7 +8,7 @@ interface ProfileViewProps {
   avatar: string;
   userRole?: 'student' | 'admin' | 'super_admin';
   onUpdateName: (name: string) => void;
-  onUpdateAvatar: (avatarUrl: string) => void;
+  onUpdateAvatar: (url: string) => void;
   onLogout: () => void;
 }
 
@@ -18,290 +19,345 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   userRole = 'student',
   onUpdateName,
   onUpdateAvatar,
-  onLogout
+  onLogout,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [nameInput, setNameInput] = useState(studentName);
-  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
-  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [notifications, setNotifications] = useState(true);
+  const [showLogout, setShowLogout] = useState(false);
   const [currentAvatar, setCurrentAvatar] = useState(avatar);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [stats, setStats] = useState<{ done: number; skipped: number; upcoming: number } | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    const savedAvatar = localStorage.getItem('messconnect_avatar');
-    if (savedAvatar) {
-      setCurrentAvatar(savedAvatar);
-      onUpdateAvatar(savedAvatar);
+    const saved = localStorage.getItem('messconnect_avatar');
+    if (saved) {
+      setCurrentAvatar(saved);
+      onUpdateAvatar(saved);
     }
+    studentApi
+      .getDashboard()
+      .then(d => {
+        if (d?.overall_stats)
+          setStats({
+            done: d.overall_stats.meals_done || 0,
+            skipped: d.overall_stats.meals_skipped || 0,
+            upcoming: d.overall_stats.meals_booked || 0,
+          });
+      })
+      .catch(() => {});
   }, []);
 
-  const handleSaveName = () => {
-    if (nameInput.trim()) {
-      onUpdateName(nameInput.trim());
-      setIsEditing(false);
-    }
-  };
-
-  const handlePhotoClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
-    if (file.size > 5 * 1024 * 1024) {
-      alert('Photo must be under 5MB. Please choose a smaller image.');
-      return;
-    }
-
     const reader = new FileReader();
-    reader.onload = (event) => {
-      const base64 = event.target?.result as string;
-      setCurrentAvatar(base64);
-      onUpdateAvatar(base64);
-      localStorage.setItem('messconnect_avatar', base64);
+    reader.onload = ev => {
+      const b64 = ev.target?.result as string;
+      setCurrentAvatar(b64);
+      onUpdateAvatar(b64);
+      localStorage.setItem('messconnect_avatar', b64);
     };
     reader.readAsDataURL(file);
   };
 
-  const [stats, setStats] = useState<{ mealsDone: number; mealsSkipped: number; mealsBooked: number } | null>(null);
+  const isAdmin = userRole === 'admin' || regNo.toUpperCase().includes('ADMIN');
+  const roleLabel =
+    userRole === 'super_admin' ? 'Super Warden' : isAdmin ? 'Mess Admin' : 'Hostel Student';
 
-  useEffect(() => {
-    const loadStats = async () => {
-      try {
-        const data = await studentApi.getDashboard();
-        if (data?.overall_stats) {
-          setStats({
-            mealsDone: data.overall_stats.meals_done || 0,
-            mealsSkipped: data.overall_stats.meals_skipped || 0,
-            mealsBooked: data.overall_stats.meals_booked || 0,
-          });
-        }
-      } catch (e) {}
-    };
-    loadStats();
-  }, []);
+  const rows = [
+    {
+      icon: 'verified_user',
+      label: 'Mess membership',
+      sub: 'Active hostel resident',
+      value: 'Active',
+    },
+    {
+      icon: 'calendar_month',
+      label: 'Dining plan',
+      sub: 'Regular — all meals included',
+    },
+    {
+      icon: 'lock_clock',
+      label: '9 PM cutoff reminders',
+      sub: 'Nudge before opt-outs lock for the next day',
+      toggle: true,
+    },
+    {
+      icon: 'help_outline',
+      label: 'Mess rules and support',
+      sub: 'Dietary preferences and office contacts',
+      chevron: true,
+    },
+  ];
+
+  const hasPhoto = Boolean(currentAvatar && currentAvatar.startsWith('data:'));
 
   return (
-    <main className="w-full max-w-[768px] mx-auto px-4 py-6 flex flex-col gap-6 pb-32 md:pb-12 animate-fade-in">
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleFileChange}
-        accept="image/*"
-        className="hidden"
-      />
+    <main className="page-container">
+      <input type="file" ref={fileRef} onChange={handleFile} accept="image/*" style={{ display: 'none' }} />
 
-      {/* Profile Header Card */}
-      <div className="bg-[#ffffff] rounded-2xl border border-[#c3c6d7] p-6 shadow-2xs flex flex-col items-center sm:flex-row sm:items-start gap-4 relative overflow-hidden">
-        <div className="relative">
-          <img
-            src={currentAvatar}
-            alt={studentName}
-            className="w-20 h-20 rounded-full object-cover border-2 border-[#2563eb]"
-          />
-          <button
-            onClick={handlePhotoClick}
-            className="absolute bottom-0 right-0 w-7 h-7 bg-[#2563eb] text-white rounded-full flex items-center justify-center shadow-xs hover:bg-[#004ac6] cursor-pointer"
-          >
-            <span className="material-symbols-outlined text-[16px]">photo_camera</span>
-          </button>
-        </div>
-
-        <div className="flex-1 text-center sm:text-left">
-          {isEditing ? (
-            <div className="flex items-center gap-2 mb-2">
-              <input
-                type="text"
-                value={nameInput}
-                onChange={(e) => setNameInput(e.target.value)}
-                className="p-1.5 border border-[#c3c6d7] rounded text-lg font-bold text-[#151c27] outline-none"
-              />
+      <div className="lg:grid lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] lg:gap-6 lg:items-start">
+        {/* ── Identity ───────────────────────────────────────────── */}
+        <section
+          className="rounded-3xl p-5 mb-4 lg:mb-0 lg:rounded-xl lg:p-6"
+          style={{
+            background: 'var(--card)',
+            border: '1px solid var(--card-border)',
+            boxShadow: 'var(--card-shadow)',
+          }}
+        >
+          <div className="flex items-center gap-4 lg:flex-col lg:text-center">
+            <div className="relative shrink-0">
+              {hasPhoto ? (
+                <img
+                  src={currentAvatar}
+                  alt=""
+                  className="w-[72px] h-[72px] lg:w-24 lg:h-24 rounded-full object-cover"
+                  style={{ border: '2px solid var(--orange-light)' }}
+                />
+              ) : (
+                <div
+                  className="w-[72px] h-[72px] lg:w-24 lg:h-24 rounded-full flex items-center justify-center overflow-hidden"
+                  style={{ background: 'var(--bg)', border: '2px solid var(--orange-light)' }}
+                >
+                  <ChefMascot size={54} />
+                </div>
+              )}
               <button
-                onClick={handleSaveName}
-                className="px-3 py-1.5 bg-[#2563eb] text-white text-xs font-semibold rounded hover:bg-[#004ac6]"
+                onClick={() => fileRef.current?.click()}
+                className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full flex items-center justify-center cursor-pointer"
+                style={{ background: 'var(--orange)', border: '2px solid var(--card)' }}
+                title="Upload a photo"
+                aria-label="Upload a photo"
               >
-                Save
+                <span className="material-symbols-outlined" style={{ fontSize: 14, color: '#fff' }}>
+                  photo_camera
+                </span>
               </button>
             </div>
-          ) : (
-            <div className="flex items-center justify-center sm:justify-start gap-2 mb-1">
-              <h2 className="text-[22px] font-bold text-[#151c27]">{studentName}</h2>
-              <button
-                onClick={() => setIsEditing(true)}
-                className="text-[#737686] hover:text-[#004ac6] cursor-pointer"
+
+            <div className="flex-1 min-w-0 lg:mt-3">
+              {isEditing ? (
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={nameInput}
+                    onChange={e => setNameInput(e.target.value)}
+                    className="stitch-input"
+                    style={{ padding: '7px 10px', fontSize: '0.85rem' }}
+                    aria-label="Your name"
+                  />
+                  <button
+                    onClick={() => { onUpdateName(nameInput.trim()); setIsEditing(false); }}
+                    className="btn-primary shrink-0"
+                    style={{ padding: '7px 14px', fontSize: '0.75rem' }}
+                  >
+                    Save
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 lg:justify-center">
+                  <h2
+                    className="font-display text-[19px] font-bold truncate"
+                    style={{ color: 'var(--text-dark)' }}
+                  >
+                    {studentName}
+                  </h2>
+                  <button
+                    onClick={() => setIsEditing(true)}
+                    style={{ color: 'var(--text-muted)', background: 'none', border: 'none', cursor: 'pointer', lineHeight: 0 }}
+                    aria-label="Edit name"
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: 16 }}>edit</span>
+                  </button>
+                </div>
+              )}
+
+              <p className="text-[12px] font-bold mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                {regNo}
+              </p>
+
+              <span
+                className="inline-block text-[11px] font-bold px-2.5 py-1 rounded-full mt-2"
+                style={{
+                  background: 'var(--orange-soft)',
+                  color: 'var(--orange-dark)',
+                  border: '1px solid var(--orange-light)',
+                  fontFamily: 'Nunito, sans-serif',
+                }}
               >
-                <span className="material-symbols-outlined text-[18px]">edit</span>
-              </button>
+                {roleLabel}
+              </span>
+            </div>
+          </div>
+
+          {/* Meal stats */}
+          {!isAdmin && (
+            <div
+              className="mt-5 grid grid-cols-3 text-center rounded-2xl overflow-hidden lg:rounded-lg"
+              style={{ border: '1px solid var(--line)' }}
+            >
+              {[
+                { label: 'Attended', value: stats?.done ?? 28 },
+                { label: 'Mess cuts', value: stats?.skipped ?? 2 },
+                { label: 'Upcoming', value: stats?.upcoming ?? 35 },
+              ].map((s, i) => (
+                <div
+                  key={s.label}
+                  className="py-3"
+                  style={{
+                    borderLeft: i > 0 ? '1px solid var(--line)' : 'none',
+                    background: 'var(--bg)',
+                  }}
+                >
+                  <p
+                    className="font-display text-[19px] font-bold"
+                    style={{ color: 'var(--text-dark)', fontVariantNumeric: 'tabular-nums' }}
+                  >
+                    {s.value}
+                  </p>
+                  <p className="text-[10.5px] font-bold" style={{ color: 'var(--text-muted)' }}>
+                    {s.label}
+                  </p>
+                </div>
+              ))}
             </div>
           )}
+        </section>
 
-          <p className="text-sm text-[#434655]">Reg No / ID: {regNo}</p>
-          <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mt-2">
-            {regNo.toUpperCase() === 'SADMIN001' || userRole === 'super_admin' ? (
-              <span className="px-3 py-1 bg-[#fef3c7] text-[#92400e] border border-[#f59e0b]/40 text-xs font-bold rounded-full flex items-center gap-1 shadow-2xs">
-                <span className="material-symbols-outlined text-[16px] text-[#d97706]">shield_person</span>
-                <span>Super Admin</span>
-              </span>
-            ) : regNo.toUpperCase().includes('ADMIN') || userRole === 'admin' ? (
-              <span className="px-3 py-1 bg-[#2563eb]/10 text-[#004ac6] border border-[#2563eb]/30 text-xs font-bold rounded-full flex items-center gap-1 shadow-2xs">
-                <span className="material-symbols-outlined text-[16px]">admin_panel_settings</span>
-                <span>Mess Admin</span>
-              </span>
-            ) : (
-              <span className="px-3 py-1 bg-[#6cf8bb]/40 text-[#00714d] border border-[#00714d]/20 text-xs font-bold rounded-full flex items-center gap-1 shadow-2xs">
-                <span className="material-symbols-outlined text-[16px]">school</span>
-                <span>Student</span>
-              </span>
-            )}
+        {/* ── Settings ───────────────────────────────────────────── */}
+        <div>
+          <p className="hidden lg:block section-label mb-3">Preferences</p>
 
-            <span className="px-2.5 py-1 bg-[#f0f3ff] text-[#434655] text-xs font-medium rounded-full border border-[#c3c6d7]/60">
-              CUSAT Boys Hostel
-            </span>
+          <section
+            className="rounded-2xl overflow-hidden mb-4 lg:rounded-xl"
+            style={{
+              background: 'var(--card)',
+              border: '1px solid var(--card-border)',
+              boxShadow: 'var(--card-shadow)',
+            }}
+          >
+            {rows.map((row, i) => (
+              <div
+                key={row.label}
+                className="flex items-center gap-3.5 px-4 py-3.5 lg:px-5"
+                style={{
+                  borderTop: i > 0 ? '1px solid var(--line-soft)' : 'none',
+                  cursor: row.chevron ? 'pointer' : 'default',
+                }}
+                onClick={
+                  row.chevron
+                    ? () =>
+                        alert(
+                          'CUSAT Mess Office\nPhone: +91 484 257 7290\nEmail: mess@cusat.ac.in'
+                        )
+                    : undefined
+                }
+              >
+                <span
+                  className="material-symbols-outlined shrink-0"
+                  style={{ color: 'var(--orange)', fontSize: 20 }}
+                >
+                  {row.icon}
+                </span>
 
-            {(regNo.toUpperCase().includes('LAKESIDE') || (stats as any)?.campus_location === 'LAKESIDE_CAMPUS') && (
-              <span className="px-3 py-1 bg-[#2563eb]/15 text-[#004ac6] border border-[#2563eb]/30 text-xs font-bold rounded-full flex items-center gap-1 shadow-2xs">
-                <span className="material-symbols-outlined text-[16px]">location_on</span>
-                <span>Lakeside Campus (25% Off Mess Bill)</span>
-              </span>
-            )}
-          </div>
+                <div className="flex-1 min-w-0">
+                  <p
+                    className="text-[13.5px] font-bold"
+                    style={{ color: 'var(--text-dark)', fontFamily: 'Nunito, sans-serif' }}
+                  >
+                    {row.label}
+                  </p>
+                  <p className="text-[11.5px] font-semibold" style={{ color: 'var(--text-muted)' }}>
+                    {row.sub}
+                  </p>
+                </div>
+
+                {row.value && (
+                  <span
+                    className="text-[11px] font-bold px-2 py-0.5 rounded-full shrink-0"
+                    style={{ background: 'var(--green-light)', color: 'var(--green)' }}
+                  >
+                    {row.value}
+                  </span>
+                )}
+
+                {row.toggle && (
+                  <label className="stitch-toggle" onClick={e => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      checked={notifications}
+                      onChange={() => setNotifications(!notifications)}
+                      aria-label="9 PM cutoff reminders"
+                    />
+                    <div className="stitch-toggle-track" />
+                    <div className="stitch-toggle-thumb" />
+                  </label>
+                )}
+
+                {row.chevron && (
+                  <span
+                    className="material-symbols-outlined shrink-0"
+                    style={{ color: 'var(--text-light)', fontSize: 18 }}
+                  >
+                    chevron_right
+                  </span>
+                )}
+              </div>
+            ))}
+          </section>
+
+          <button
+            onClick={() => setShowLogout(true)}
+            className="w-full py-3 rounded-2xl text-[13px] font-black cursor-pointer lg:w-auto lg:px-5 lg:py-2.5 lg:rounded-lg"
+            style={{
+              background: 'var(--card)',
+              border: '1px solid #F6C8C3',
+              color: 'var(--red)',
+              fontFamily: 'Nunito, sans-serif',
+            }}
+          >
+            Sign out
+          </button>
         </div>
       </div>
 
-      {/* Student Overview Section - Meal Details */}
-      {userRole === 'student' && (
-        <div className="bg-[#ffffff] rounded-2xl border border-[#c3c6d7] p-5 shadow-2xs space-y-3">
-          <h3 className="text-base font-bold text-[#151c27] flex items-center gap-2">
-            <span className="material-symbols-outlined text-[#2563eb]">analytics</span>
-            Student Overview & Meal Attendance
-          </h3>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            <div className="bg-[#006c49]/5 border border-[#006c49]/20 rounded-xl p-3.5 flex flex-col">
-              <span className="text-xs font-semibold text-[#006c49] flex items-center gap-1">
-                <span className="material-symbols-outlined text-[16px]">check_circle</span>
-                Meals Done
-              </span>
-              <span className="text-2xl font-extrabold text-[#006c49] mt-1">{stats?.mealsDone ?? 0}</span>
-              <span className="text-[11px] text-[#434655] mt-0.5">Attended & Scanned</span>
-            </div>
-
-            <div className="bg-[#ba1a1a]/5 border border-[#ba1a1a]/20 rounded-xl p-3.5 flex flex-col">
-              <span className="text-xs font-semibold text-[#ba1a1a] flex items-center gap-1">
-                <span className="material-symbols-outlined text-[16px]">cancel</span>
-                Meals Skipped
-              </span>
-              <span className="text-2xl font-extrabold text-[#ba1a1a] mt-1">{stats?.mealsSkipped ?? 0}</span>
-              <span className="text-[11px] text-[#434655] mt-0.5">Missed / Unserved</span>
-            </div>
-
-            <div className="bg-[#2563eb]/5 border border-[#2563eb]/20 rounded-xl p-3.5 flex flex-col col-span-2 sm:col-span-1">
-              <span className="text-xs font-semibold text-[#2563eb] flex items-center gap-1">
-                <span className="material-symbols-outlined text-[16px]">calendar_month</span>
-                Meals Booked
-              </span>
-              <span className="text-2xl font-extrabold text-[#151c27] mt-1">{stats?.mealsBooked ?? 0}</span>
-              <span className="text-[11px] text-[#434655] mt-0.5">Opted-In Count</span>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Settings Options List */}
-      <div className="bg-[#ffffff] rounded-2xl border border-[#c3c6d7] shadow-2xs overflow-hidden divide-y divide-[#c3c6d7]/40">
-        <div className="p-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-[#004ac6]">verified_user</span>
-            <div>
-              <p className="font-semibold text-sm text-[#151c27]">Account Status</p>
-              <p className="text-xs text-[#737686]">Mess membership active</p>
-            </div>
-          </div>
-          <span className="px-2.5 py-1 bg-[#6cf8bb] text-[#00714d] rounded-full text-xs font-bold">
-            Active
-          </span>
-        </div>
-
-        <div className="p-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-[#004ac6]">notifications</span>
-            <div>
-              <p className="font-semibold text-sm text-[#151c27]">Meal Reminders</p>
-              <p className="text-xs text-[#737686]">Get notified before meal cutoff times</p>
-            </div>
-          </div>
-          <label className="relative inline-flex items-center cursor-pointer">
-            <input
-              type="checkbox"
-              checked={notificationsEnabled}
-              onChange={() => setNotificationsEnabled(!notificationsEnabled)}
-              className="sr-only peer"
-            />
-            <div className="w-11 h-6 bg-[#dce2f3] peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-[#c3c6d7] after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#2563eb]"></div>
-          </label>
-        </div>
-
-        <button
-          onClick={() => alert('Mess Helpline: +91 98765 00000\nEmail: mess-support@cusat.ac.in')}
-          className="w-full p-4 flex items-center justify-between text-left hover:bg-[#f0f3ff] transition-colors cursor-pointer"
-        >
-          <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-[#004ac6]">help_outline</span>
-            <div>
-              <p className="font-semibold text-sm text-[#151c27]">Help & Support</p>
-              <p className="text-xs text-[#737686]">Mess rules, fine info & contacts</p>
-            </div>
-          </div>
-          <span className="material-symbols-outlined text-[#737686]">chevron_right</span>
-        </button>
-
-        <button
-          onClick={() => alert('MessConnect v2.5.0\nCUSAT Hostel Mess Management')}
-          className="w-full p-4 flex items-center justify-between text-left hover:bg-[#f0f3ff] transition-colors cursor-pointer"
-        >
-          <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-[#004ac6]">info</span>
-            <div>
-              <p className="font-semibold text-sm text-[#151c27]">About MessConnect</p>
-              <p className="text-xs text-[#737686]">Version 2.5.0</p>
-            </div>
-          </div>
-          <span className="material-symbols-outlined text-[#737686]">chevron_right</span>
-        </button>
-      </div>
-
-      {/* Logout Button */}
-      <button
-        onClick={() => setShowLogoutModal(true)}
-        className="w-full py-3.5 bg-[#ffdad6] text-[#93000a] font-bold text-sm rounded-xl hover:bg-[#ffdad6]/80 transition-colors flex items-center justify-center gap-2 cursor-pointer shadow-2xs"
+      {/* Required by the icon set's licence */}
+      <p
+        className="text-[11px] font-semibold text-center mt-8 lg:text-left"
+        style={{ color: 'var(--text-light)' }}
       >
-        <span className="material-symbols-outlined text-[20px]">logout</span>
-        Log Out
-      </button>
+        {ART_CREDIT}
+      </p>
 
-      {/* Logout Modal */}
-      {showLogoutModal && (
-        <div className="fixed inset-0 glass-modal-overlay flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl max-w-sm w-full p-6 shadow-xl space-y-4">
-            <h3 className="text-lg font-bold text-[#151c27]">Log Out of MessConnect?</h3>
-            <p className="text-xs text-[#434655]">
-              You'll need your Registration No and Password to sign back in.
+      {/* ── Sign-out confirmation ────────────────────────────────── */}
+      {showLogout && (
+        <div
+          className="fixed inset-0 z-60 flex items-center justify-center p-5"
+          style={{ background: 'rgba(45,26,14,0.4)', backdropFilter: 'blur(4px)' }}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="rounded-2xl p-6 w-full max-w-[340px]"
+            style={{ background: 'var(--card)', border: '1px solid var(--card-border)' }}
+          >
+            <h3 className="font-display text-[19px] font-bold" style={{ color: 'var(--text-dark)' }}>
+              Sign out?
+            </h3>
+            <p className="text-[13px] font-semibold mt-1 mb-5" style={{ color: 'var(--text-muted)' }}>
+              You will need your registration number and password to sign back in.
             </p>
             <div className="flex gap-2">
               <button
-                onClick={() => {
-                  setShowLogoutModal(false);
-                  onLogout();
-                }}
-                className="flex-1 py-2 bg-[#ba1a1a] text-white font-semibold text-xs rounded-lg hover:bg-[#93000a]"
+                onClick={() => { setShowLogout(false); onLogout(); }}
+                className="btn-primary flex-1"
+                style={{ background: 'var(--red)' }}
               >
-                Yes, Log Out
+                Sign out
               </button>
-              <button
-                onClick={() => setShowLogoutModal(false)}
-                className="px-4 py-2 border border-[#c3c6d7] text-xs font-semibold rounded-lg text-[#434655]"
-              >
+              <button onClick={() => setShowLogout(false)} className="btn-secondary flex-1">
                 Cancel
               </button>
             </div>

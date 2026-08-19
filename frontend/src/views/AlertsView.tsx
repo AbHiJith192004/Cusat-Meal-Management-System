@@ -7,113 +7,224 @@ interface AlertsViewProps {
   onMarkAllRead: () => void;
 }
 
+type VisualType = 'food' | 'menu' | 'bill' | 'info' | 'warning' | 'success';
+
+const TYPE_CONFIG: Record<
+  VisualType,
+  { strip: string; icon: string; action?: string; tint: string }
+> = {
+  food:    { strip: 'var(--alert-food)', icon: 'restaurant',    action: 'View details', tint: 'var(--orange-soft)' },
+  menu:    { strip: 'var(--alert-menu)', icon: 'event_note',    action: 'See menu',     tint: 'var(--green-light)' },
+  bill:    { strip: 'var(--alert-bill)', icon: 'payments',      action: 'Pay now',      tint: '#FDECEA' },
+  info:    { strip: 'var(--alert-info)', icon: 'campaign',      tint: '#EAF2FB' },
+  warning: { strip: 'var(--warn, #E8A33D)', icon: 'warning',    tint: '#FDF3E2' },
+  success: { strip: 'var(--alert-menu)', icon: 'check_circle',  tint: 'var(--green-light)' },
+};
+
+function resolveType(alert: AlertItem): VisualType {
+  if (alert.id.includes('POLICY-02') || alert.id.includes('POLICY-03') || alert.type === 'warning') return 'bill';
+  if (alert.type === 'success') return 'success';
+  if (alert.id.includes('POLICY-01') || alert.type === 'info') return 'info';
+  return 'food';
+}
+
+const SYSTEM_ALERTS: AlertItem[] = [
+  {
+    id: 'SA-01',
+    title: 'Special Biryani Dinner',
+    message: "Don't miss out on our special Hyderabadi Biryani this evening at the mess hall!",
+    time: 'Today, 6:30 PM',
+    type: 'info',
+    isUnread: true,
+  },
+  {
+    id: 'SA-02',
+    title: 'Menu Change for Tomorrow',
+    message: 'Breakfast will now include Masala Dosa instead of Idli.',
+    time: 'Yesterday, 8:45 PM',
+    type: 'info',
+    isUnread: false,
+  },
+  {
+    id: 'SA-03',
+    title: 'Monthly Mess Bill Due',
+    message: 'Your monthly mess bill is due. Please pay by the 5th to avoid late fees.',
+    time: '2 days ago',
+    type: 'warning',
+    isUnread: false,
+  },
+  {
+    id: 'SA-04',
+    title: 'Hostel Meeting Reminder',
+    message: 'A general body meeting for all residents is scheduled for this Friday in the common room.',
+    time: '3 days ago',
+    type: 'info',
+    isUnread: false,
+  },
+];
+
+const SYSTEM_TYPE_MAP: Record<string, VisualType> = {
+  'SA-01': 'food',
+  'SA-02': 'menu',
+  'SA-03': 'bill',
+  'SA-04': 'info',
+};
+
 export const AlertsView: React.FC<AlertsViewProps> = ({ alerts: initialAlerts, onMarkAllRead }) => {
   const [alertsList, setAlertsList] = useState<AlertItem[]>(initialAlerts);
+  const [visualTypes, setVisualTypes] = useState<Record<string, VisualType>>({});
 
   useEffect(() => {
-    const fetchNotifications = async () => {
-      try {
-        const res = await notificationsApi.getNotifications();
-        if (res && res.items && res.items.length > 0) {
+    notificationsApi
+      .getNotifications()
+      .then(res => {
+        if (res?.items?.length > 0) {
           const formatted: AlertItem[] = res.items.map((n: any, idx: number) => ({
-            id: n.id || `NOTIF-${idx}`,
+            id: n.id || `N-${idx}`,
             title: n.title,
             message: n.message,
-            time: new Date(n.created_at || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            time: new Date(n.created_at || Date.now()).toLocaleTimeString([], {
+              hour: '2-digit',
+              minute: '2-digit',
+            }),
             type: n.notification_type === 'FINE' ? 'warning' : 'info',
             isUnread: !n.is_read,
           }));
           setAlertsList(formatted);
+          const types: Record<string, VisualType> = {};
+          formatted.forEach(a => { types[a.id] = resolveType(a); });
+          setVisualTypes(types);
         }
-      } catch (e) {}
-    };
-    fetchNotifications();
+      })
+      .catch(() => {});
   }, []);
 
-  const handleMarkRead = async () => {
+  const displayList = alertsList.length > 0 ? alertsList : SYSTEM_ALERTS;
+  const unread = displayList.filter(a => a.isUnread).length;
+
+  const getVisualType = (alert: AlertItem): VisualType =>
+    SYSTEM_TYPE_MAP[alert.id] || visualTypes[alert.id] || resolveType(alert);
+
+  const handleMarkRead = () => {
     onMarkAllRead();
-    setAlertsList((prev) => prev.map((a) => ({ ...a, isUnread: false })));
+    setAlertsList(prev => prev.map(a => ({ ...a, isUnread: false })));
   };
 
-  const systemPolicies: AlertItem[] = [
-    {
-      id: 'POLICY-01',
-      title: 'Opt-Out & Mess Cut Rules (9:00 PM IST Cutoff)',
-      message: 'Students can either opt out of the entire day (all 3 meals) which counts as a Mess Cut, or opt out of just 1 meal a day without a fine (paying for the full day). Changes lock at 9:00 PM IST the previous day.',
-      time: 'System Rule',
-      type: 'info' as const,
-      isUnread: false,
-    },
-    {
-      id: 'POLICY-02',
-      title: 'Monthly Mess Cut Limit (Max 10 Mess Cuts/Month)',
-      message: 'The maximum number of full-day mess cuts allowed is 10 per month.',
-      time: 'System Rule',
-      type: 'warning' as const,
-      isUnread: false,
-    },
-    {
-      id: 'POLICY-03',
-      title: 'Missed Meal Fine Rate (₹30)',
-      message: 'Unattended confirmed meals incur a standard ₹30 non-attendance fine.',
-      time: 'System Rule',
-      type: 'warning' as const,
-      isUnread: false,
-    }
-  ];
-
-  const displayList = alertsList.length > 0 ? alertsList : systemPolicies;
-
   return (
-    <main className="w-full max-w-[768px] mx-auto px-4 py-6 flex flex-col gap-6 pb-28 md:pb-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-[24px] md:text-[30px] font-bold text-[#151c27]">Mess Notifications</h1>
-          <p className="text-xs text-[#434655]">Live system alerts and cutoff policy notifications</p>
-        </div>
-        <button
-          onClick={handleMarkRead}
-          className="text-xs font-semibold text-[#004ac6] hover:underline cursor-pointer"
-        >
-          Mark all as read
-        </button>
+    <main className="page-container">
+      {/* ── Header row ─────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between gap-3 mb-3 lg:mb-4">
+        <p className="section-label">
+          {unread > 0 ? `${unread} unread` : 'All caught up'}
+        </p>
+        {unread > 0 && (
+          <button onClick={handleMarkRead} className="btn-link text-[13px]">
+            Mark all as read
+          </button>
+        )}
       </div>
 
-      <div className="flex flex-col gap-3">
-        {displayList.map((alert) => (
-          <div
-            key={alert.id}
-            className={`p-4 rounded-xl border transition-all ${
-              alert.isUnread
-                ? 'bg-white border-[#2563eb]/40 shadow-xs ring-1 ring-[#2563eb]/20'
-                : 'bg-white border-[#c3c6d7]/60 opacity-90'
-            }`}
-          >
-            <div className="flex items-start justify-between gap-3 mb-1">
-              <div className="flex items-center gap-2">
-                <span
-                  className={`material-symbols-outlined text-[20px] ${
-                    alert.type === 'warning'
-                      ? 'text-[#ba1a1a]'
-                      : alert.type === 'success'
-                      ? 'text-[#006c49]'
-                      : 'text-[#004ac6]'
-                  }`}
-                >
-                  {alert.type === 'warning'
-                    ? 'warning'
-                    : alert.type === 'success'
-                    ? 'check_circle'
-                    : 'info'}
-                </span>
-                <h3 className="font-semibold text-sm text-[#151c27]">{alert.title}</h3>
+      {/* ── Alert list ─────────────────────────────────────────────── */}
+      {/* Mobile: one stacked sheet. Desktop: two columns of discrete cards. */}
+      <div className="flex flex-col gap-3 lg:grid lg:grid-cols-2 lg:gap-4 lg:items-start">
+        {displayList.map(alert => {
+          const cfg = TYPE_CONFIG[getVisualType(alert)] || TYPE_CONFIG.info;
+
+          return (
+            <article key={alert.id} className="alert-stitch-card">
+              <div className="alert-strip" style={{ background: cfg.strip }} />
+
+              <div className="alert-body">
+                <div className="flex items-start gap-3">
+                  <span
+                    className="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+                    style={{ background: cfg.tint }}
+                  >
+                    <span
+                      className="material-symbols-outlined"
+                      style={{ fontSize: 17, color: cfg.strip }}
+                    >
+                      {cfg.icon}
+                    </span>
+                  </span>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-2">
+                      <h3
+                        className="font-display text-[15px] font-bold leading-snug"
+                        style={{ color: 'var(--text-dark)' }}
+                      >
+                        {alert.title}
+                      </h3>
+                      {alert.isUnread && (
+                        <span
+                          className="w-2 h-2 rounded-full shrink-0 mt-1.5"
+                          style={{ background: 'var(--orange)' }}
+                          aria-label="Unread"
+                        />
+                      )}
+                    </div>
+
+                    <p className="text-[11px] font-semibold mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                      {alert.time}
+                    </p>
+
+                    <p
+                      className="text-[13px] font-semibold mt-1.5 leading-relaxed"
+                      style={{ color: 'var(--text-body)' }}
+                    >
+                      {alert.message}
+                    </p>
+
+                    {(cfg.action || alert.isUnread) && (
+                      <div className="flex items-center justify-between gap-3 mt-3">
+                        {cfg.action ? (
+                          <button
+                            className="px-3 py-1.5 rounded-full text-[12px] font-bold cursor-pointer lg:rounded-md"
+                            style={{ background: cfg.tint, color: cfg.strip, border: 'none' }}
+                          >
+                            {cfg.action}
+                          </button>
+                        ) : (
+                          <span />
+                        )}
+
+                        {alert.isUnread && (
+                          <button
+                            onClick={() =>
+                              setAlertsList(prev =>
+                                prev.map(a => (a.id === alert.id ? { ...a, isUnread: false } : a))
+                              )
+                            }
+                            className="text-[11px] font-bold cursor-pointer shrink-0"
+                            style={{ background: 'none', border: 'none', color: 'var(--text-muted)' }}
+                          >
+                            Mark as read
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
-              <span className="text-[11px] text-[#737686] shrink-0">{alert.time}</span>
-            </div>
-            <p className="text-xs text-[#434655] pl-7">{alert.message}</p>
-          </div>
-        ))}
+            </article>
+          );
+        })}
       </div>
+
+      {displayList.length === 0 && (
+        <div
+          className="rounded-2xl px-6 py-12 text-center"
+          style={{ background: 'var(--card)', border: '1px solid var(--line)' }}
+        >
+          <p className="font-display text-[17px] font-bold" style={{ color: 'var(--text-dark)' }}>
+            Nothing to read
+          </p>
+          <p className="text-[13px] font-semibold mt-1" style={{ color: 'var(--text-muted)' }}>
+            Mess announcements will show up here.
+          </p>
+        </div>
+      )}
     </main>
   );
 };

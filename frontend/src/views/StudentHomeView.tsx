@@ -1,252 +1,265 @@
 import React, { useState, useEffect } from 'react';
-import { ActiveTab, DayMealPlan } from '../types';
-import { studentApi, mealApi } from '../services/api';
+import { mealApi } from '../services/api';
+import {
+  DosaCartoon,
+  LunchCartoon,
+  DinnerCartoon,
+  BreakfastCartoon,
+  MEAL_ACCENT,
+} from '../components/FoodIllustrations';
 
 interface StudentHomeViewProps {
   studentName: string;
   hostelName: string;
-  todayPlan?: DayMealPlan;
-  tomorrowPlan?: DayMealPlan;
-  onNavigate: (tab: ActiveTab) => void;
+  onNavigate: (tab: any) => void;
 }
 
-const friendlyStatus = (status: string | undefined): string => {
-  if (!status) return 'Eating';
-  switch (status.toUpperCase()) {
-    case 'CONFIRMED': return 'Eating';
-    case 'SKIPPED': return 'Opted Out';
-    case 'ATTENDED': return 'Done ✅';
-    case 'NO_SERVICE': return 'No Service';
-    default: return status;
-  }
+type MealKey = 'breakfast' | 'lunch' | 'dinner';
+
+function getGreeting() {
+  const h = new Date().getHours();
+  if (h < 12) return 'Good Morning';
+  if (h < 17) return 'Good Afternoon';
+  if (h < 20) return 'Good Evening';
+  return 'Good Night';
+}
+
+function getCurrentMealType(): MealKey {
+  const h = new Date().getHours();
+  // Before 11am — including the small hours — the next meal is breakfast.
+  if (h < 11) return 'breakfast';
+  if (h < 16) return 'lunch';
+  return 'dinner';
+}
+
+const MEAL_TIMES: Record<MealKey, string> = {
+  breakfast: '7:30 AM – 9:30 AM',
+  lunch: '12:30 PM – 2:00 PM',
+  dinner: '7:30 PM – 9:00 PM',
+};
+const MEAL_LABELS: Record<MealKey, string> = {
+  breakfast: 'Breakfast',
+  lunch: 'Lunch',
+  dinner: 'Dinner',
+};
+const MEAL_FALLBACK: Record<MealKey, string> = {
+  breakfast: 'Masala Dosa & Filter Coffee',
+  lunch: 'Meals, Fish Curry, Poriyal, Curd',
+  dinner: 'Chapati, Paneer Butter Masala, Dal, Rice',
+};
+const MEAL_ILLUSTRATION = {
+  breakfast: BreakfastCartoon,
+  lunch: LunchCartoon,
+  dinner: DinnerCartoon,
+} as const;
+
+const MEAL_FILL: Record<MealKey, string> = {
+  breakfast: 'var(--meal-breakfast)',
+  lunch: 'var(--meal-lunch)',
+  dinner: 'var(--meal-dinner)',
 };
 
-const statusColor = (status: string | undefined): string => {
-  const s = (status || 'CONFIRMED').toUpperCase();
-  if (s === 'SKIPPED') return 'text-[#ba1a1a]';
-  if (s === 'ATTENDED') return 'text-[#006c49]';
-  return 'text-[#006c49]';
-};
+export const StudentHomeView: React.FC<StudentHomeViewProps> = ({ studentName, onNavigate }) => {
+  const [meals, setMeals] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
 
-const statusIcon = (status: string | undefined): string => {
-  const s = (status || 'CONFIRMED').toUpperCase();
-  if (s === 'SKIPPED') return 'close';
-  if (s === 'ATTENDED') return 'check_circle';
-  return 'restaurant';
-};
-
-const statusDotColor = (status: string | undefined): string => {
-  const s = (status || 'CONFIRMED').toUpperCase();
-  if (s === 'SKIPPED') return 'bg-[#ba1a1a]';
-  if (s === 'ATTENDED') return 'bg-[#006c49]';
-  return 'bg-[#006c49]';
-};
-
-export const StudentHomeView: React.FC<StudentHomeViewProps> = ({
-  studentName: defaultName,
-  hostelName,
-  onNavigate,
-}) => {
-  const [dashboardData, setDashboardData] = useState<any>(null);
-  const [mealsList, setMealsList] = useState<any[]>([]);
+  const currentMeal = getCurrentMealType();
+  const firstName = studentName?.trim().split(' ')[0] || 'Student';
 
   useEffect(() => {
-    const loadDashboard = async () => {
-      try {
-        const data = await studentApi.getDashboard();
-        setDashboardData(data);
-
-        const meals = await mealApi.getMeals();
-        setMealsList(meals || []);
-      } catch (e) {}
-    };
-    loadDashboard();
+    mealApi
+      .getMeals()
+      .then(d => { if (d?.length) setMeals(d); })
+      .catch(() => {})
+      .finally(() => setLoading(false));
   }, []);
 
-  const name = dashboardData?.student_name || defaultName;
+  const todayPlan = meals[0];
+  const itemsFor = (type: MealKey) => {
+    const plan = todayPlan?.[type];
+    if (plan?.items?.length) return plan.items.join(', ');
+    return MEAL_FALLBACK[type];
+  };
 
-  let totalBooked = 0;
-  let totalDone = 0;
-  let totalSkipped = 0;
-
-  mealsList.forEach((day: any) => {
-    ['breakfast', 'lunch', 'dinner'].forEach((mealKey) => {
-      const status = day[mealKey]?.status;
-      if (status === 'CONFIRMED') totalBooked++;
-      if (status === 'ATTENDED') totalDone++;
-      if (status === 'SKIPPED') totalSkipped++;
-    });
-  });
-
-  const breakfastStatus = dashboardData?.meals?.breakfast?.status;
-  const lunchStatus = dashboardData?.meals?.lunch?.status;
-  const dinnerStatus = dashboardData?.meals?.dinner?.status;
-
-  const finalDone = dashboardData?.overall_stats?.meals_done ?? 0;
-  const finalSkipped = dashboardData?.overall_stats?.meals_skipped ?? 0;
-  const finalBooked = dashboardData?.overall_stats?.meals_booked ?? 0;
-  const totalTracked = finalDone + finalSkipped + finalBooked;
-  const attendanceRate = totalTracked > 0 
-    ? Math.round((finalDone / totalTracked) * 100) 
-    : 100;
+  const otherMeals = (['breakfast', 'lunch', 'dinner'] as MealKey[]).filter(m => m !== currentMeal);
+  const HeroIllustration = currentMeal === 'breakfast' ? DosaCartoon : MEAL_ILLUSTRATION[currentMeal];
 
   return (
-    <main className="w-full max-w-[768px] mx-auto px-4 py-6 flex flex-col gap-6 pb-32 md:pb-12 animate-fade-in">
-      {/* Welcome Section */}
-      <section className="flex flex-col gap-1">
-        <h2 className="text-[24px] md:text-[30px] font-bold text-[#151c27] tracking-tight">
-          Hello, {name}
-        </h2>
-        <p className="text-[14px] text-[#434655] font-medium">{hostelName}</p>
-      </section>
+    <main className="page-container">
+      {/* ── Greeting ─────────────────────────────────────────────── */}
+      <div className="mb-5 lg:mb-7">
+        <h1
+          className="font-display text-[28px] lg:text-[30px] font-bold"
+          style={{ color: 'var(--text-dark)' }}
+        >
+          {getGreeting()}, {firstName}!
+        </h1>
+        <p className="hidden lg:block text-sm font-semibold mt-1" style={{ color: 'var(--text-muted)' }}>
+          Here is what the mess is serving today.
+        </p>
+      </div>
 
-      {/* Section 1: Today's Meals Status */}
-      <section className="flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-[20px] font-semibold text-[#151c27]">Today's Meals</h3>
-          <span className="text-[14px] text-[#434655]">
-            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}
-          </span>
-        </div>
+      <div className="grid gap-4 lg:grid-cols-3 lg:gap-5 lg:items-start">
+        {/* ── Currently serving ──────────────────────────────────── */}
+        <section className="stitch-card-hero lg:col-span-2">
+          <p className="section-label">Currently Serving</p>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-          {/* Breakfast */}
-          <div className="bg-[#ffffff] border border-[#c3c6d7] rounded-xl p-4 shadow-xs relative overflow-hidden flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[16px] font-semibold text-[#151c27]">Breakfast</span>
-              <span className={`material-symbols-outlined ${statusColor(breakfastStatus)}`}>{statusIcon(breakfastStatus)}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${statusDotColor(breakfastStatus)}`}></div>
-              <span className={`text-[14px] font-medium ${statusColor(breakfastStatus)}`}>
-                {friendlyStatus(breakfastStatus)}
-              </span>
-            </div>
-            <p className="text-[12px] text-[#434655] mt-1">07:00 - 09:30 AM</p>
-          </div>
+          <div className="flex items-start justify-between gap-4 mt-2">
+            <div className="min-w-0 flex-1">
+              <h2
+                className="font-display text-[34px] lg:text-[32px] font-bold"
+                style={{ color: 'var(--text-dark)' }}
+              >
+                {MEAL_LABELS[currentMeal]}
+              </h2>
 
-          {/* Lunch */}
-          <div className="bg-[#2563eb]/10 border border-[#2563eb]/20 rounded-xl p-4 shadow-xs relative overflow-hidden flex flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[16px] font-semibold text-[#151c27]">Lunch</span>
-              <span className={`material-symbols-outlined ${statusColor(lunchStatus)}`}>{statusIcon(lunchStatus)}</span>
-            </div>
-            <div className="flex items-center gap-2 animate-subtle-pulse">
-              <div className={`w-2 h-2 rounded-full ${statusDotColor(lunchStatus)}`}></div>
-              <span className={`text-[14px] font-medium ${statusColor(lunchStatus)}`}>
-                {friendlyStatus(lunchStatus)}
-              </span>
-            </div>
-            <p className="text-[12px] text-[#434655] mt-1">12:00 - 02:30 PM</p>
-          </div>
+              <p
+                className="text-[15px] lg:text-base font-semibold mt-1.5 mb-4 lg:mb-5"
+                style={{ color: 'var(--text-body)' }}
+              >
+                {itemsFor(currentMeal)}
+              </p>
 
-          {/* Dinner */}
-          <div className="bg-[#ffffff] border border-[#c3c6d7] rounded-xl p-4 shadow-xs flex flex-col gap-2 opacity-80">
-            <div className="flex items-center justify-between">
-              <span className="text-[16px] font-semibold text-[#151c27]">Dinner</span>
-              <span className={`material-symbols-outlined ${statusColor(dinnerStatus)}`}>{statusIcon(dinnerStatus)}</span>
+              <p
+                className="text-sm font-black whitespace-nowrap"
+                style={{ color: 'var(--text-dark)', fontVariantNumeric: 'tabular-nums' }}
+              >
+                {MEAL_TIMES[currentMeal]}
+              </p>
+              <p className="text-xs font-semibold mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                Today&rsquo;s special
+              </p>
             </div>
-            <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${statusDotColor(dinnerStatus)}`}></div>
-              <span className={`text-[14px] font-medium ${statusColor(dinnerStatus)}`}>
-                {friendlyStatus(dinnerStatus)}
-              </span>
-            </div>
-            <p className="text-[12px] text-[#434655] mt-1">07:00 - 09:30 PM</p>
-          </div>
-        </div>
-      </section>
 
-      {/* Section 2: Tomorrow's Meals Selection */}
-      <section className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-[20px] font-semibold text-[#151c27]">Tomorrow's Meals</h3>
-          <span className="bg-[#e7eefe] px-2.5 py-1 rounded-md text-[12px] text-[#434655] flex items-center gap-1">
-            <span className="material-symbols-outlined text-[14px]">info</span>
-            Changes close at 9:00 PM
-          </span>
-        </div>
-
-        <div className="bg-[#ffffff] border border-[#c3c6d7] rounded-xl shadow-xs overflow-hidden flex flex-col">
-          <div className="flex w-full divide-x divide-[#c3c6d7] border-b border-[#c3c6d7]">
-            <div className="flex-1 p-3 flex flex-col items-center justify-center gap-1 py-4 bg-[#006c49]/5">
-              <span className="text-[12px] text-[#434655]">Breakfast</span>
-              <span className="material-symbols-outlined text-[#006c49] text-[20px]">restaurant</span>
-              <span className="text-[12px] font-semibold text-[#006c49]">Eating</span>
-            </div>
-            <div className="flex-1 p-3 flex flex-col items-center justify-center gap-1 py-4 bg-[#006c49]/5">
-              <span className="text-[12px] text-[#434655]">Lunch</span>
-              <span className="material-symbols-outlined text-[#006c49] text-[20px]">restaurant</span>
-              <span className="text-[12px] font-semibold text-[#006c49]">Eating</span>
-            </div>
-            <div className="flex-1 p-3 flex flex-col items-center justify-center gap-1 py-4 bg-[#006c49]/5">
-              <span className="text-[12px] text-[#434655]">Dinner</span>
-              <span className="material-symbols-outlined text-[#006c49] text-[20px]">restaurant</span>
-              <span className="text-[12px] font-semibold text-[#006c49]">Eating</span>
+            <div className="shrink-0 float-gentle -mt-2 -mr-1">
+              <HeroIllustration size={150} />
             </div>
           </div>
 
-          <div className="p-4 bg-[#ffffff]">
+          <div
+            className="flex items-center justify-end lg:justify-between gap-3 mt-4 pt-3.5"
+            style={{ borderTop: '1px solid var(--line)' }}
+          >
+            <button onClick={() => onNavigate('calendar')} className="btn-link">
+              View full menu
+            </button>
             <button
-              onClick={() => onNavigate('calendar')}
-              className="w-full bg-[#2563eb] text-white font-semibold py-3 rounded-lg flex items-center justify-center gap-2 hover:bg-[#004ac6] transition-colors h-[48px] shadow-xs cursor-pointer"
+              onClick={() => onNavigate('qr')}
+              className="hidden lg:inline-flex btn-secondary"
             >
-              <span className="material-symbols-outlined text-[20px]">edit_calendar</span>
-              Change Tomorrow's Meals
+              <span className="material-symbols-outlined" style={{ fontSize: 17 }}>
+                confirmation_number
+              </span>
+              Mess pass
             </button>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* Section 3: Student Overview - Meal Status Breakdown */}
-      <section className="flex flex-col gap-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-[20px] font-semibold text-[#151c27]">Student Meal Overview</h3>
-          <span className="px-2.5 py-1 bg-[#006c49]/10 text-[#006c49] text-xs font-bold rounded-full">
-            {attendanceRate}% Attendance
-          </span>
-        </div>
+        {/* ── Mess pass CTA ──────────────────────────────────────── */}
+        {/* Mobile keeps the signature full-width pill; desktop turns it into a
+            quiet card so the page does not shout. */}
+        <button onClick={() => onNavigate('qr')} className="btn-primary w-full lg:hidden">
+          Get mess pass
+        </button>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="bg-[#ffffff] border border-[#006c49]/30 rounded-xl p-4 shadow-xs flex flex-col items-start gap-1">
-            <div className="flex items-center gap-1.5 text-[#006c49]">
-              <span className="material-symbols-outlined text-[20px]">check_circle</span>
-              <span className="text-[11px] font-bold uppercase tracking-wider">Meals Done</span>
-            </div>
-            <span className="text-[28px] font-extrabold text-[#006c49]">{finalDone}</span>
-            <span className="text-[11px] text-[#434655]">Attended & Scanned</span>
+        <aside className="hidden lg:block stitch-card p-5">
+          <p className="section-label">Your pass</p>
+          <p
+            className="font-display text-[19px] font-bold mt-1.5"
+            style={{ color: 'var(--text-dark)' }}
+          >
+            Ready to scan
+          </p>
+          <p className="text-[13px] font-semibold mt-1 mb-4" style={{ color: 'var(--text-muted)' }}>
+            A single-use QR valid for 60 seconds at the dining hall entrance.
+          </p>
+          <button onClick={() => onNavigate('qr')} className="btn-primary w-full">
+            Open mess pass
+          </button>
+
+          <div className="mt-5 pt-4 flex flex-col gap-2.5" style={{ borderTop: '1px solid var(--line)' }}>
+            <button
+              onClick={() => onNavigate('calendar')}
+              className="flex items-center gap-2.5 text-[13px] font-bold cursor-pointer text-left"
+              style={{ background: 'none', border: 'none', color: 'var(--text-body)', padding: 0 }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: 18, color: 'var(--text-muted)' }}>
+                event_available
+              </span>
+              Opt out of a meal
+            </button>
+            <button
+              onClick={() => onNavigate('alerts')}
+              className="flex items-center gap-2.5 text-[13px] font-bold cursor-pointer text-left"
+              style={{ background: 'none', border: 'none', color: 'var(--text-body)', padding: 0 }}
+            >
+              <span className="material-symbols-outlined" style={{ fontSize: 18, color: 'var(--text-muted)' }}>
+                campaign
+              </span>
+              Mess announcements
+            </button>
           </div>
+        </aside>
 
-          <div className="bg-[#ffffff] border border-[#ba1a1a]/30 rounded-xl p-4 shadow-xs flex flex-col items-start gap-1">
-            <div className="flex items-center gap-1.5 text-[#ba1a1a]">
-              <span className="material-symbols-outlined text-[20px]">cancel</span>
-              <span className="text-[11px] font-bold uppercase tracking-wider">Mess Cuts / Skipped</span>
-            </div>
-            <span className="text-[28px] font-extrabold text-[#ba1a1a]">{finalSkipped}</span>
-            <span className="text-[11px] text-[#434655]">Mess Cuts (Max 10/mo)</span>
-          </div>
+        {/* ── Rest of the day ────────────────────────────────────── */}
+        <section className="lg:col-span-3">
+          <p className="hidden lg:block section-label mb-3">Also today</p>
 
-          <div className="bg-[#ffffff] border border-[#c3c6d7] rounded-xl p-4 shadow-xs flex flex-col items-start gap-1">
-            <div className="flex items-center gap-1.5 text-[#2563eb]">
-              <span className="material-symbols-outlined text-[20px]">calendar_today</span>
-              <span className="text-[11px] font-bold uppercase tracking-wider">Meals Booked</span>
-            </div>
-            <span className="text-[28px] font-extrabold text-[#151c27]">{finalBooked}</span>
-            <span className="text-[11px] text-[#434655]">Confirmed Selections</span>
-          </div>
+          <div className="grid gap-3 lg:grid-cols-2 lg:gap-4">
+            {loading
+              ? [1, 2].map(n => (
+                  <div
+                    key={n}
+                    className="h-[104px] rounded-2xl animate-pulse"
+                    style={{ background: 'var(--card)', border: '1px solid var(--line)' }}
+                  />
+                ))
+              : otherMeals.map(meal => {
+                  const Illustration = MEAL_ILLUSTRATION[meal];
+                  return (
+                    <button
+                      key={meal}
+                      onClick={() => onNavigate('calendar')}
+                      className="stitch-meal-card flex items-center gap-4 text-left cursor-pointer w-full"
+                      style={{ background: MEAL_FILL[meal] }}
+                    >
+                      <div className="shrink-0 float-gentle-alt">
+                        <Illustration size={78} />
+                      </div>
 
-          <div className="bg-[#f0f4ff] border border-[#2563eb]/20 rounded-xl p-4 shadow-xs flex flex-col items-start gap-1">
-            <div className="flex items-center gap-1.5 text-[#2563eb]">
-              <span className="material-symbols-outlined text-[20px]">analytics</span>
-              <span className="text-[11px] font-bold uppercase tracking-wider">Activity Status</span>
-            </div>
-            <span className="text-[16px] font-bold text-[#151c27] mt-1">
-              {finalSkipped === 0 ? 'Perfect Record' : finalSkipped > 5 ? 'High Miss Rate' : 'Regular Student'}
-            </span>
-            <span className="text-[11px] text-[#434655]">Status Metric</span>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <span className="meal-dot" style={{ background: MEAL_ACCENT[meal] }} />
+                          <h3
+                            className="font-display text-[19px] font-bold"
+                            style={{ color: 'var(--text-dark)' }}
+                          >
+                            {MEAL_LABELS[meal]}
+                          </h3>
+                        </div>
+                        <p
+                          className="text-xs font-bold mt-0.5"
+                          style={{ color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}
+                        >
+                          {MEAL_TIMES[meal]}
+                        </p>
+                        <p className="text-[13px] font-semibold mt-1" style={{ color: 'var(--text-body)' }}>
+                          {itemsFor(meal)}
+                        </p>
+                      </div>
+
+                      <span
+                        className="material-symbols-outlined only-desktop shrink-0"
+                        style={{ fontSize: 20, color: 'var(--text-light)' }}
+                      >
+                        chevron_right
+                      </span>
+                    </button>
+                  );
+                })}
           </div>
-        </div>
-      </section>
+        </section>
+      </div>
     </main>
   );
 };

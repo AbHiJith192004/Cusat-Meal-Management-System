@@ -109,7 +109,7 @@ export const MealRateModal: React.FC<MealRateModalProps> = ({
         </button>
 
         <div className="text-center space-y-1">
-          <div className="w-12 h-12 rounded-full bg-[#2563eb]/10 text-[#004ac6] flex items-center justify-center mx-auto mb-2">
+          <div className="w-12 h-12 rounded-full bg-[#F47A35]/10 text-[#D45E1A] flex items-center justify-center mx-auto mb-2">
             <span className="material-symbols-outlined text-[28px]">payments</span>
           </div>
           <h2 className="text-2xl font-bold text-[#151c27]">Meal Rates & Pricing Manager</h2>
@@ -137,7 +137,7 @@ export const MealRateModal: React.FC<MealRateModalProps> = ({
           {/* Form 1: Bulk Apply Month Rate */}
           <form onSubmit={handleBulkApply} className="bg-[#f0f3ff] p-4 rounded-xl space-y-3 border border-[#c3c6d7]/60">
             <h3 className="text-sm font-bold text-[#151c27] flex items-center gap-1.5">
-              <span className="material-symbols-outlined text-[18px] text-[#004ac6]">calendar_month</span>
+              <span className="material-symbols-outlined text-[18px] text-[#D45E1A]">calendar_month</span>
               1. Apply Bulk Rate (Entire Month)
             </h3>
             <p className="text-[11px] text-[#434655]">Set standard daily prices for all days in selected month.</p>
@@ -194,7 +194,7 @@ export const MealRateModal: React.FC<MealRateModalProps> = ({
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-2.5 bg-[#2563eb] text-white font-semibold text-xs rounded-xl hover:bg-[#004ac6] transition-colors cursor-pointer shadow-xs"
+              className="w-full py-2.5 bg-[#F47A35] text-white font-semibold text-xs rounded-xl hover:bg-[#D45E1A] transition-colors cursor-pointer shadow-xs"
             >
               Apply ₹{totalDaily}/day to All Days
             </button>

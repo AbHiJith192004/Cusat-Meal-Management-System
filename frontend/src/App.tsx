@@ -8,6 +8,8 @@ import {
 } from './data/mockData';
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
+import { SideNav } from './components/SideNav';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { StudentHomeView } from './views/StudentHomeView';
 import { MealPlanningView } from './views/MealPlanningView';
 import { StudentQrView } from './views/StudentQrView';
@@ -55,14 +57,15 @@ export function App() {
           setUserRole(savedRole);
           setCurrentTab(savedTab);
 
-          if (savedRole === 'student') {
-            const profile = await studentApi.getProfile();
-            setStudentInfo((prev) => ({
-              ...prev,
-              name: profile.name || prev.name,
-              regNo: profile.registration_number || prev.regNo,
-            }));
-          }
+          // /me works for every role — without this an admin's name resets to
+          // the placeholder on every refresh.
+          const profile = await studentApi.getProfile();
+          setStudentInfo((prev) => ({
+            ...prev,
+            name: profile.name || prev.name,
+            regNo: profile.registration_number || prev.regNo,
+            hostel: savedRole === 'admin' ? 'CUSAT Mess Administration' : prev.hostel,
+          }));
           setIsLoggedIn(true);
         } catch (e) {
           // Token expired or invalid — clear session
@@ -166,19 +169,26 @@ export function App() {
   // Show loading spinner while checking token
   if (checkingSession) {
     return (
-      <div className="min-h-screen bg-[#f9f9ff] flex items-center justify-center text-[#2563eb]">
-        <div className="flex flex-col items-center gap-3">
-          <span className="material-symbols-outlined text-[48px] animate-spin">refresh</span>
-          <p className="text-sm font-semibold text-[#151c27]">Connecting to MessConnect...</p>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: 'var(--bg)' }}>
+        <div className="flex flex-col items-center gap-4">
+          <div
+            className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl"
+            style={{ background: 'var(--orange-soft)', border: '1px solid var(--orange-light)' }}
+          >
+            🍴
+          </div>
+          <p className="text-sm font-bold" style={{ color: 'var(--text-muted)' }}>
+            Connecting to MessConnect…
+          </p>
         </div>
       </div>
     );
   }
 
-  // If user is not logged in, display full-screen Sign In page (no background mock app)
+  // If user is not logged in, display full-screen Sign In page
   if (!isLoggedIn) {
     return (
-      <div className="min-h-screen bg-[#f9f9ff] text-[#151c27] flex flex-col font-sans antialiased selection:bg-[#2563eb] selection:text-white">
+      <div className="min-h-screen" style={{ background: 'var(--bg)' }}>
         <PwaInstallPrompt />
         <LoginModal
           isOpen={true}
@@ -191,11 +201,23 @@ export function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f9f9ff] text-[#151c27] flex flex-col font-sans antialiased selection:bg-[#2563eb] selection:text-white">
-      {/* PWA Install Banner */}
-      <PwaInstallPrompt />
+    <div className="app-shell">
+      {/* Desktop-only left rail */}
+      <SideNav
+        currentTab={currentTab}
+        setCurrentTab={handleTabChange}
+        userRole={userRole}
+        userName={studentInfo.name}
+        regNo={studentInfo.regNo}
+        unreadAlertsCount={unreadAlertsCount}
+        onLogout={handleLogout}
+      />
 
-      {/* Top Header Navigation */}
+      <div className="app-main">
+        {/* PWA Install Banner (mobile) */}
+        <PwaInstallPrompt />
+
+      {/* Top bar */}
       <Header
         currentTab={currentTab}
         setCurrentTab={handleTabChange}
@@ -203,10 +225,12 @@ export function App() {
         setUserRole={handleRoleChange}
         studentAvatar={studentInfo.avatar}
         adminAvatar={adminAvatar}
+        unreadCount={unreadAlertsCount}
       />
 
       {/* View Switcher Container */}
       <div className="flex-1 w-full flex flex-col">
+        <ErrorBoundary resetKey={currentTab}>
         {userRole === 'student' && (
           <>
             {(currentTab === 'home' || currentTab === 'admin-dashboard') && (
@@ -217,12 +241,15 @@ export function App() {
               />
             )}
             {currentTab === 'calendar' && <MealPlanningView />}
-            {currentTab === 'qr' && <StudentQrView />}
+            {currentTab === 'qr' && (
+              <StudentQrView studentName={studentInfo.name} regNo={studentInfo.regNo} />
+            )}
             {currentTab === 'alerts' && (
               <AlertsView alerts={alerts} onMarkAllRead={handleMarkAllAlertsRead} />
             )}
             {currentTab === 'profile' && (
               <ProfileView
+                userRole="student"
                 studentName={studentInfo.name}
                 regNo={studentInfo.regNo}
                 avatar={studentInfo.avatar}
@@ -265,6 +292,7 @@ export function App() {
             )}
             {currentTab === 'profile' && (
               <ProfileView
+                userRole={studentInfo.regNo?.toUpperCase() === 'SADMIN001' ? 'super_admin' : 'admin'}
                 studentName={studentInfo.name || 'Admin'}
                 regNo={studentInfo.regNo || 'ADMIN001'}
                 avatar={studentInfo.avatar}
@@ -275,15 +303,17 @@ export function App() {
             )}
           </>
         )}
+        </ErrorBoundary>
       </div>
 
-      {/* Bottom Navigation for Mobile */}
-      <BottomNav
-        currentTab={currentTab}
-        setCurrentTab={handleTabChange}
-        userRole={userRole}
-        unreadAlertsCount={unreadAlertsCount}
-      />
+        {/* Bottom Navigation for Mobile */}
+        <BottomNav
+          currentTab={currentTab}
+          setCurrentTab={handleTabChange}
+          userRole={userRole}
+          unreadAlertsCount={unreadAlertsCount}
+        />
+      </div>
     </div>
   );
 }

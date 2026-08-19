@@ -1,96 +1,896 @@
 @import "tailwindcss";
 
-/* ===== CLEAN LIGHT THEME WITH GLASSMOPHISM TOP & BOTTOM BARS ===== */
+/* =====================================================================
+   CUSAT MESSCONNECT — DESIGN SYSTEM
+   ---------------------------------------------------------------------
+   Two expressions of ONE language:
+
+   • MOBILE  (< 1024px) — the illustrated app. Warm cream canvas, rounded
+     display type, pastel meal cards, pill CTAs, bottom tab bar.
+
+   • DESKTOP (>= 1024px) — the same palette, stripped to essentials.
+     White surfaces on a near-white warm canvas, hairline borders, no drop
+     shadows, no pastel fills, tighter radii, sidebar navigation. Colour
+     is reduced to an accent rather than a fill.
+   ===================================================================== */
+
+@theme {
+  --color-bg:            #FCF3DE;
+  --color-bg-soft:       #FEF8EC;
+  --color-surface:       #FFFFFF;
+  --color-line:          #EFDCB4;
+
+  --color-brand:         #F47A35;
+  --color-brand-dark:    #D45E1A;
+  --color-brand-tint:    #FFF1E6;
+
+  --color-ink:           #2D1A0E;
+  --color-ink-body:      #5C3D1E;
+  --color-ink-muted:     #9B7B52;
+
+  --color-ok:            #3F9E52;
+  --color-warn:          #E8A33D;
+  --color-danger:        #DC4A3D;
+  --color-info:          #3B82C4;
+
+  --font-display: "Baloo 2", "Nunito", system-ui, sans-serif;
+  --font-sans:    "Nunito", system-ui, sans-serif;
+}
+
+:root {
+  /* Aliases consumed by inline style={{}} throughout the app */
+  --bg:              #FCF3DE;
+  --bg-alt:          #FEF8EC;
+  --card:            #FFFFFF;
+  --card-border:     #EFDCB4;
+  --card-shadow:     0 1px 2px rgba(120, 80, 30, 0.04), 0 6px 20px rgba(120, 80, 30, 0.06);
+  --card-shadow-lg:  0 2px 4px rgba(120, 80, 30, 0.05), 0 12px 32px rgba(120, 80, 30, 0.09);
+
+  --orange:          #F47A35;
+  --orange-dark:     #D45E1A;
+  --orange-light:    #FFD9BE;
+  --orange-soft:     #FFF1E6;
+
+  --text-dark:       #2D1A0E;
+  --text-body:       #5C3D1E;
+  --text-muted:      #9B7B52;
+  --text-light:      #C4A882;
+
+  --line:            #EFDCB4;
+  --line-soft:       #F6EAD2;
+
+  /* Pastel meal fills — mobile only, flattened to white on desktop */
+  --meal-breakfast:  #FCE7C6;
+  --meal-lunch:      #FBDCD8;
+  --meal-dinner:     #E4DCF4;
+  --meal-snacks:     #D9EFDF;
+
+  --alert-food:      #F47A35;
+  --alert-menu:      #3F9E52;
+  --alert-bill:      #DC4A3D;
+  --alert-info:      #3B82C4;
+
+  --green:           #3F9E52;
+  --green-light:     #E7F4E9;
+  --red:             #DC4A3D;
+  --blue:            #3B82C4;
+
+  --radius-sm:   10px;
+  --radius-md:   14px;
+  --radius-lg:   20px;
+  --radius-xl:   24px;
+  --radius-pill: 999px;
+
+  --sidebar-w:   252px;
+  --topbar-h:    64px;
+
+  --ease: cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* Desktop token overrides — "minimal" is centralised here, so every
+   component below flattens without needing its own breakpoint. */
+@media (min-width: 1024px) {
+  :root {
+    --bg:             #FBF7EF;
+    --bg-alt:         #FFFFFF;
+    --card-border:    #ECE2D2;
+    --line:           #ECE2D2;
+    --line-soft:      #F4EDE2;
+    --card-shadow:    none;
+    --card-shadow-lg: none;
+
+    --meal-breakfast: #FFFFFF;
+    --meal-lunch:     #FFFFFF;
+    --meal-dinner:    #FFFFFF;
+    --meal-snacks:    #FFFFFF;
+
+    --radius-sm:   8px;
+    --radius-md:   10px;
+    --radius-lg:   12px;
+    --radius-xl:   14px;
+  }
+}
+
+/* ---------------------------------------------------------------------
+   Visibility helpers — deliberately unlayered and !important.
+
+   Google's Material Symbols stylesheet is a third-party, unlayered sheet
+   that sets `.material-symbols-outlined { display: inline-block }`. Unlayered
+   rules beat every cascade layer, so Tailwind's `hidden` / `lg:hidden` do
+   nothing on icon spans. Use these on icons instead.
+   --------------------------------------------------------------------- */
+.only-mobile  { display: revert !important; }
+.only-desktop { display: none   !important; }
+
+@media (min-width: 1024px) {
+  .only-mobile  { display: none   !important; }
+  .only-desktop { display: revert !important; }
+}
+
+@layer base {
+
+/* =====================================================================
+   RESET & BASE
+   ===================================================================== */
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
 
 body {
-  background-color: #f9f9ff;
-  color: #151c27;
+  margin: 0;
+  background: var(--bg);
+  color: var(--text-dark);
+  font-family: "Nunito", system-ui, sans-serif;
+  font-size: 15px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
   min-height: 100vh;
-  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
 }
 
-/* Glassmorphism Top Header Bar */
-.glass-header {
-  background: rgba(249, 249, 255, 0.82);
-  backdrop-filter: blur(16px) saturate(1.8);
-  -webkit-backdrop-filter: blur(16px) saturate(1.8);
-  border-bottom: 1px solid rgba(195, 198, 215, 0.6);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+h1, h2, h3, h4, .font-display {
+  font-family: "Baloo 2", "Nunito", system-ui, sans-serif;
+  letter-spacing: -0.01em;
+  line-height: 1.15;
+  margin: 0;
 }
 
-/* Glassmorphism Bottom Navigation Bar */
-.glass-nav {
-  background: rgba(249, 249, 255, 0.85);
-  backdrop-filter: blur(16px) saturate(1.8);
-  -webkit-backdrop-filter: blur(16px) saturate(1.8);
-  border-top: 1px solid rgba(195, 198, 215, 0.6);
-  box-shadow: 0 -4px 25px rgba(0, 0, 0, 0.06);
+button { font-family: inherit; }
+
+:focus-visible {
+  outline: 2px solid var(--orange);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
+::selection { background: var(--orange); color: #fff; }
 
-/* Utility layers */
-@layer utilities {
-  .material-symbols-outlined {
-    font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb {
+  background: var(--line);
+  border-radius: 99px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover { background: var(--text-light); background-clip: content-box; }
+
+.hide-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+
+}
+
+@layer components {
+
+/* =====================================================================
+   APP SHELL
+   Mobile: one full-bleed column + fixed bottom tab bar.
+   Desktop: fixed left rail + fluid main column. No phone frame.
+   ===================================================================== */
+.app-shell {
+  min-height: 100vh;
+  background: var(--bg);
+}
+
+.app-main {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  width: 100%;
+}
+
+.app-sidebar { display: none; }
+
+@media (min-width: 1024px) {
+  .app-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: var(--sidebar-w);
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-alt);
+    border-right: 1px solid var(--line);
+    z-index: 40;
   }
-  .material-symbols-outlined.filled {
-    font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-  }
-  .hide-scrollbar::-webkit-scrollbar {
-    display: none;
-  }
-  .hide-scrollbar {
-    -ms-overflow-style: none;
-    scrollbar-width: none;
+  .app-main {
+    margin-left: var(--sidebar-w);
+    width: auto;          /* 100% + margin-left would overflow the viewport */
   }
 }
 
-/* Animations */
-@keyframes scanline {
-  0% { transform: translateY(-100%); }
-  100% { transform: translateY(100%); }
+/* Legacy alias — used to be a hard 480px phone frame, now a fluid column */
+.app-viewport-shell {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  position: relative;
 }
 
-.animate-scanline {
-  animation: scanline 2.5s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+.page-container {
+  width: 100%;
+  padding: 16px 16px 104px;
+  flex: 1;
 }
 
-@keyframes subtlePulse {
-  0% { opacity: 1; }
-  50% { opacity: 0.8; }
-  100% { opacity: 1; }
+@media (min-width: 640px) {
+  .page-container { padding: 20px 24px 104px; }
 }
 
-.animate-subtle-pulse {
-  animation: subtlePulse 2.5s infinite ease-in-out;
-}
-
-.scanner-frame {
-  box-shadow: 0 0 0 4000px rgba(0, 0, 0, 0.6);
-}
-
-@keyframes scan-line-vertical {
-  0% { top: 0; }
-  50% { top: 100%; }
-  100% { top: 0; }
-}
-
-.animate-scan {
-  animation: scan-line-vertical 2s infinite linear;
-}
-
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-.animate-fade-in {
-  animation: fadeIn 0.25s ease-out;
-}
-
-/* Mobile safe area for bottom nav */
-@supports (padding-bottom: env(safe-area-inset-bottom)) {
-  .safe-bottom {
-    padding-bottom: calc(env(safe-area-inset-bottom) + 0.5rem);
+@media (min-width: 1024px) {
+  .page-container {
+    padding: 32px 40px 56px;
+    max-width: 1180px;
+    margin: 0 auto;
   }
+}
+
+.section-label {
+  font-family: "Nunito", sans-serif;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+/* =====================================================================
+   SIDEBAR (desktop only)
+   ===================================================================== */
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 18px 18px;
+  border-bottom: 1px solid var(--line);
+}
+
+.sidebar-nav {
+  flex: 1;
+  padding: 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+}
+
+.sidebar-item {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  padding: 9px 12px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-body);
+  font-family: "Nunito", sans-serif;
+  font-size: 14px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s var(--ease), color 0.15s var(--ease);
+}
+.sidebar-item:hover { background: var(--line-soft); color: var(--text-dark); }
+
+.sidebar-item-active,
+.sidebar-item-active:hover {
+  background: var(--orange-soft);
+  color: var(--orange-dark);
+}
+
+.sidebar-footer {
+  padding: 12px;
+  border-top: 1px solid var(--line);
+}
+
+/* =====================================================================
+   TOPBAR
+   Mobile: centred title with back button / actions.
+   Desktop: left-aligned title + subtitle, actions right, hairline rule.
+   ===================================================================== */
+.stitch-header {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  width: 100%;
+  background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: saturate(140%) blur(10px);
+  border-bottom: 1px solid var(--line);
+}
+
+.topbar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  height: 56px;
+  padding: 0 14px;
+}
+
+@media (min-width: 1024px) {
+  .topbar-inner {
+    height: var(--topbar-h);
+    padding: 0 40px;
+    max-width: 1180px;
+    margin: 0 auto;
+  }
+}
+
+.icon-btn {
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  border-radius: 999px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  color: var(--text-body);
+  cursor: pointer;
+  transition: border-color 0.15s var(--ease), color 0.15s var(--ease), background 0.15s var(--ease);
+}
+.icon-btn:hover { border-color: var(--orange-light); color: var(--orange); }
+
+@media (min-width: 1024px) {
+  .icon-btn { background: transparent; border-color: transparent; }
+  .icon-btn:hover { background: var(--line-soft); border-color: transparent; }
+}
+
+/* =====================================================================
+   BOTTOM TAB BAR (mobile only)
+   ===================================================================== */
+.stitch-bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 6px 0 max(8px, env(safe-area-inset-bottom));
+  background: color-mix(in srgb, var(--card) 92%, transparent);
+  backdrop-filter: saturate(160%) blur(14px);
+  border-top: 1px solid var(--line);
+  z-index: 50;
+}
+
+@media (min-width: 1024px) { .stitch-bottom-nav { display: none; } }
+
+.nav-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 5px 4px 7px;
+  border: none;
+  background: none;
+  cursor: pointer;
+  position: relative;
+  -webkit-tap-highlight-color: transparent;
+}
+.nav-tab:active { transform: scale(0.94); }
+
+.nav-tab-active-dot {
+  position: absolute;
+  bottom: 1px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: var(--orange);
+}
+
+/* =====================================================================
+   SURFACES
+   ===================================================================== */
+.stitch-card {
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--card-shadow);
+  overflow: hidden;
+}
+
+.stitch-card-hero {
+  position: relative;
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--card-shadow-lg);
+  padding: 20px;
+  overflow: hidden;
+}
+
+@media (min-width: 1024px) {
+  .stitch-card-hero { padding: 28px 32px; }
+}
+
+/* Pastel meal card on mobile, white card with coloured accent on desktop */
+.stitch-meal-card {
+  position: relative;
+  padding: 16px;
+  border: 1px solid rgba(120, 80, 30, 0.10);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 1px 2px rgba(120, 80, 30, 0.04);
+  overflow: hidden;
+  transition: border-color 0.15s var(--ease);
+}
+
+@media (min-width: 1024px) {
+  .stitch-meal-card {
+    padding: 20px;
+    border-color: var(--line);
+    box-shadow: none;
+    background: var(--card) !important;
+  }
+  .stitch-meal-card:hover { border-color: var(--orange-light); }
+}
+
+/* Small coloured dot that carries meal identity once the fill is removed */
+.meal-dot {
+  display: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+@media (min-width: 1024px) { .meal-dot { display: inline-block; } }
+
+/* =====================================================================
+   BUTTONS
+   ===================================================================== */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px 28px;
+  border: none;
+  border-radius: var(--radius-pill);
+  background: var(--orange);
+  color: #fff;
+  font-family: "Nunito", sans-serif;
+  font-size: 0.9rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 4px 14px rgba(244, 122, 53, 0.28);
+  transition: background 0.15s var(--ease), transform 0.12s var(--ease);
+}
+.btn-primary:hover  { background: var(--orange-dark); }
+.btn-primary:active { transform: translateY(1px); }
+
+@media (min-width: 1024px) {
+  .btn-primary {
+    padding: 11px 22px;
+    border-radius: var(--radius-sm);
+    font-size: 0.85rem;
+    letter-spacing: 0.02em;
+    text-transform: none;
+    box-shadow: none;
+  }
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 20px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-pill);
+  background: var(--card);
+  color: var(--text-body);
+  font-family: "Nunito", sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.15s var(--ease), color 0.15s var(--ease), background 0.15s var(--ease);
+}
+.btn-secondary:hover { border-color: var(--orange); color: var(--orange); }
+
+@media (min-width: 1024px) {
+  .btn-secondary { border-radius: var(--radius-sm); padding: 9px 16px; }
+  .btn-secondary:hover { background: var(--orange-soft); }
+}
+
+/* Quiet text action, e.g. "View Menu" */
+.btn-link {
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--orange);
+  font-family: "Nunito", sans-serif;
+  font-size: 0.875rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+.btn-link:hover { color: var(--orange-dark); text-decoration: underline; text-underline-offset: 3px; }
+
+/* =====================================================================
+   FORM CONTROLS
+   ===================================================================== */
+.stitch-input {
+  width: 100%;
+  padding: 12px 14px;
+  background: var(--bg-alt);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-md);
+  font-family: "Nunito", sans-serif;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text-dark);
+  outline: none;
+  transition: border-color 0.15s var(--ease), box-shadow 0.15s var(--ease);
+}
+.stitch-input::placeholder { color: var(--text-light); font-weight: 500; }
+.stitch-input:focus {
+  border-color: var(--orange);
+  box-shadow: 0 0 0 3px rgba(244, 122, 53, 0.14);
+}
+
+@media (min-width: 1024px) {
+  .stitch-input { background: var(--card); padding: 10px 12px; }
+}
+
+.stitch-toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.stitch-toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
+.stitch-toggle-track {
+  width: 46px;
+  height: 26px;
+  border-radius: 999px;
+  background: #DCD3C4;
+  transition: background 0.2s var(--ease);
+}
+.stitch-toggle input:checked + .stitch-toggle-track { background: var(--green); }
+.stitch-toggle input:focus-visible + .stitch-toggle-track { box-shadow: 0 0 0 3px rgba(244, 122, 53, 0.25); }
+.stitch-toggle-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.22);
+  transition: transform 0.2s var(--ease);
+  pointer-events: none;
+}
+.stitch-toggle input:checked ~ .stitch-toggle-thumb { transform: translateX(20px); }
+
+@media (min-width: 1024px) {
+  .stitch-toggle-track { width: 40px; height: 22px; }
+  .stitch-toggle-thumb { width: 16px; height: 16px; }
+  .stitch-toggle input:checked ~ .stitch-toggle-thumb { transform: translateX(18px); }
+}
+
+/* =====================================================================
+   DATE CHIPS
+   ===================================================================== */
+.date-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  min-width: 86px;
+  padding: 9px 14px;
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-pill);
+  background: var(--card);
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s var(--ease), border-color 0.15s var(--ease);
+}
+.date-chip:hover { border-color: var(--orange-light); }
+
+.date-chip-active,
+.date-chip-active:hover {
+  background: var(--orange);
+  border-color: var(--orange);
+  box-shadow: 0 4px 12px rgba(244, 122, 53, 0.26);
+}
+
+/* The label colour has to follow the chip, which inverts on desktop */
+.date-chip-label { color: var(--text-dark); }
+.date-chip-active .date-chip-label { color: #fff; }
+
+@media (min-width: 1024px) {
+  .date-chip { min-width: 0; padding: 7px 14px; border-radius: var(--radius-sm); }
+  .date-chip-active,
+  .date-chip-active:hover {
+    background: var(--card);
+    border-color: var(--orange);
+    box-shadow: inset 0 0 0 1px var(--orange);
+  }
+  .date-chip-active .date-chip-label { color: var(--orange-dark); }
+}
+
+/* =====================================================================
+   TICKET / MESS PASS
+   ===================================================================== */
+.qr-ticket-card {
+  position: relative;
+  padding: 22px 18px;
+  background: var(--card);
+  border: 2px dashed var(--card-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--card-shadow-lg);
+}
+
+.qr-inner-frame {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 12px;
+  border: 2px dashed var(--card-border);
+  border-radius: var(--radius-md);
+  background: var(--card);
+}
+
+@media (min-width: 1024px) {
+  .qr-ticket-card { border-style: solid; border-width: 1px; padding: 28px; }
+  .qr-inner-frame { border-style: solid; border-width: 1px; }
+}
+
+/* =====================================================================
+   ALERT CARDS
+   ===================================================================== */
+.alert-stitch-card {
+  display: flex;
+  position: relative;
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--card-shadow);
+  overflow: hidden;
+}
+
+.alert-strip { width: 4px; flex-shrink: 0; }
+.alert-body  { flex: 1; padding: 14px 16px; min-width: 0; }
+
+@media (min-width: 1024px) {
+  .alert-strip { width: 3px; }
+  .alert-body  { padding: 16px 18px; }
+}
+
+/* =====================================================================
+   MODALS
+   Bottom sheet on phones (thumb-reachable, never pushed off-screen by a tall
+   body), centred dialog from the small breakpoint up.
+   ===================================================================== */
+.modal-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: rgba(45, 26, 14, 0.55);
+  backdrop-filter: blur(4px);
+}
+
+.modal-panel {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-height: 92vh;
+  overflow: hidden;
+  background: var(--card);
+  border: 1px solid var(--card-border);
+  border-radius: 20px 20px 0 0;
+  padding: 20px 16px calc(16px + env(safe-area-inset-bottom));
+}
+
+@media (min-width: 640px) {
+  .modal-scrim { align-items: center; padding: 20px; }
+  .modal-panel {
+    border-radius: 16px;
+    padding: 24px;
+    max-height: 85vh;
+  }
+}
+
+/* =====================================================================
+   DATA TABLES
+   A `w-full` table inside an overflow-x-auto wrapper can never scroll — it
+   just compresses, which is what was squeezing admin columns to breaking
+   point on phones. A min-width makes the wrapper do its job instead.
+   ===================================================================== */
+.data-table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+}
+
+.data-table th,
+.data-table td {
+  white-space: nowrap;
+}
+
+/* Cells that hold prose need to keep wrapping */
+.data-table .wrap-cell { white-space: normal; min-width: 180px; }
+
+@media (min-width: 1024px) {
+  .data-table { min-width: 0; }
+}
+
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* =====================================================================
+   SCANNER
+   ===================================================================== */
+/* Mobile: camera fills the top, log sheet slides under it.
+   Desktop: camera and log sit side by side inside the page container. */
+.scanner-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--bg);
+}
+
+@media (min-width: 1024px) {
+  .scanner-page {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(340px, 0.85fr);
+    gap: 24px;
+    align-items: start;
+    min-height: 0;
+    width: 100%;          /* auto margins would otherwise cancel flex stretch */
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 32px 40px 56px;
+  }
+}
+
+.scanner-viewport {
+  position: relative;
+  overflow: hidden;
+  background: #2A2622;
+  height: 52vh;
+  min-height: 280px;
+}
+
+@media (min-width: 1024px) {
+  .scanner-viewport {
+    width: 100%;
+    height: auto;
+    min-height: 0;        /* the mobile min-height would fight aspect-ratio */
+    aspect-ratio: 4 / 3;
+  }
+}
+
+/* One scan per row, hairline separated */
+.scan-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 0;
+  border-top: 1px solid var(--line-soft);
+}
+.scan-row:first-child { border-top: none; }
+
+.scanner-outer-border {
+  position: absolute;
+  inset: 12px;
+  border: 2px solid var(--orange);
+  border-radius: 14px;
+  pointer-events: none;
+}
+
+.scanner-corner {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  border-color: var(--orange);
+  border-style: solid;
+}
+
+.scanner-panel {
+  flex: 1;
+  padding: 16px 16px 104px;
+  background: var(--bg);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  box-shadow: 0 -4px 20px rgba(120, 80, 30, 0.08);
+  margin-top: -16px;
+  position: relative;
+}
+
+@media (min-width: 1024px) {
+  .scanner-viewport { border-radius: var(--radius-lg); border: 1px solid var(--line); }
+  .scanner-panel {
+    flex: none;
+    margin-top: 0;
+    padding: 20px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-lg);
+    box-shadow: none;
+    position: sticky;
+    top: calc(var(--topbar-h) + 32px);
+  }
+}
+
+/* =====================================================================
+   MOTION
+   Illustrations drift gently on mobile; desktop holds still.
+   ===================================================================== */
+@keyframes float-gentle {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-5px); }
+}
+.float-gentle     { animation: float-gentle 3s ease-in-out infinite; }
+.float-gentle-alt { animation: float-gentle 3.5s ease-in-out infinite 0.4s; }
+
+/* Opacity only, deliberately. A transform keyframe — even one that resolves to
+   `none` — makes the element a containing block for its fixed-position
+   descendants, which was pinning every modal inside the admin view to the
+   page instead of the viewport. */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+.animate-fade-in { animation: fade-in 0.28s var(--ease) both; }
+
+/* For elements that want the slight rise and hold no fixed children */
+@keyframes rise-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+.animate-rise-in { animation: rise-in 0.28s var(--ease) both; }
+
+@media (min-width: 1024px) {
+  .float-gentle, .float-gentle-alt { animation: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
+/* Hide decorative art where it adds noise rather than meaning */
+@media (min-width: 1024px) {
+  .hide-on-desktop { display: none !important; }
+}
+
 }

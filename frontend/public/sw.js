@@ -1,10 +1,13 @@
-const CACHE_NAME = 'messconnect-v1';
+// Bump this whenever shipped assets change, so clients drop the old cache.
+const CACHE_NAME = 'messconnect-v2';
+
+// Only paths that exist in a production build. /src/* are dev-server URLs, and
+// addAll() rejects the whole install if any single request 404s — which meant
+// the worker never installed once built.
 const ASSETS_TO_CACHE = [
   '/',
   '/index.html',
-  '/manifest.json',
-  '/src/main.tsx',
-  '/src/index.css'
+  '/manifest.json'
 ];
 
 // Install Event - Cache App Shell

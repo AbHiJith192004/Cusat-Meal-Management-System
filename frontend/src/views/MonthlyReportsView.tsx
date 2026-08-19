@@ -102,7 +102,7 @@ export const MonthlyReportsView: React.FC = () => {
 
           <button
             onClick={handleExportPDF}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-[#2563eb] text-white rounded-lg hover:bg-[#004ac6] text-xs font-semibold shadow-xs transition-colors cursor-pointer"
+            className="flex items-center gap-1.5 px-3.5 py-2 bg-[#F47A35] text-white rounded-lg hover:bg-[#D45E1A] text-xs font-semibold shadow-xs transition-colors cursor-pointer"
           >
             <span className="material-symbols-outlined text-[18px]">picture_as_pdf</span>
             Generate PDF Report
@@ -120,9 +120,9 @@ export const MonthlyReportsView: React.FC = () => {
       {/* Summary Cards Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-[#ffffff] rounded-xl border border-[#c3c6d7] p-4 shadow-2xs relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-24 h-24 bg-[#2563eb]/5 rounded-bl-full -mr-4 -mt-4"></div>
+          <div className="absolute top-0 right-0 w-24 h-24 bg-[#F47A35]/5 rounded-bl-full -mr-4 -mt-4"></div>
           <div className="flex justify-between items-start mb-4">
-            <div className="p-2 bg-[#2563eb]/10 rounded-lg text-[#004ac6]">
+            <div className="p-2 bg-[#F47A35]/10 rounded-lg text-[#D45E1A]">
               <span className="material-symbols-outlined">restaurant</span>
             </div>
           </div>
@@ -172,7 +172,7 @@ export const MonthlyReportsView: React.FC = () => {
               value={searchTableQuery}
               onChange={(e) => setSearchTableQuery(e.target.value)}
               placeholder="Search students..."
-              className="pl-8 pr-3 py-1.5 bg-[#ffffff] border border-[#c3c6d7] rounded-md text-xs text-[#151c27] focus:ring-1 focus:ring-[#2563eb] outline-none w-48 md:w-64"
+              className="pl-8 pr-3 py-1.5 bg-[#ffffff] border border-[#c3c6d7] rounded-md text-xs text-[#151c27] focus:ring-1 focus:ring-[#F47A35] outline-none w-48 md:w-64"
             />
           </div>
         </div>

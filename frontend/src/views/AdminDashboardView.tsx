@@ -732,19 +732,19 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
         <head>
           <title>Student Mess Invoice - ${record.name} (${record.messId})</title>
           <style>
-            body { font-family: 'Helvetica Neue', Arial, sans-serif; padding: 35px; color: #0f172a; line-height: 1.5; font-size: 13px; }
-            .header { text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 15px; margin-bottom: 25px; }
-            .header h1 { margin: 0; color: #2563eb; font-size: 24px; }
-            .header h2 { margin: 4px 0 0 0; color: #475569; font-size: 15px; font-weight: 600; }
-            .invoice-card { background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 12px; padding: 20px; margin-bottom: 25px; display: flex; justify-content: space-between; }
+            body { font-family: 'Helvetica Neue', Arial, sans-serif; padding: 35px; color: #2D1A0E; line-height: 1.5; font-size: 13px; }
+            .header { text-align: center; border-bottom: 2px solid #F47A35; padding-bottom: 15px; margin-bottom: 25px; }
+            .header h1 { margin: 0; color: #F47A35; font-size: 24px; }
+            .header h2 { margin: 4px 0 0 0; color: #6B4A28; font-size: 15px; font-weight: 600; }
+            .invoice-card { background: #FDF7EA; border: 1px solid #E3CB9B; border-radius: 12px; padding: 20px; margin-bottom: 25px; display: flex; justify-content: space-between; }
             .badge { display: inline-block; padding: 4px 12px; border-radius: 20px; font-weight: bold; font-size: 11px; }
             .badge-paid { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
             .badge-pending { background: #ffedd5; color: #9a3412; border: 1px solid #fdba74; }
             table { width: 100%; border-collapse: collapse; margin-bottom: 25px; }
-            th, td { padding: 10px 14px; border: 1px solid #cbd5e1; text-align: left; }
-            th { background-color: #f1f5f9; font-weight: bold; color: #334155; }
-            .total-row { font-weight: 900; background-color: #eff6ff; font-size: 15px; color: #2563eb; }
-            .footer { margin-top: 50px; display: flex; justify-content: space-between; font-size: 12px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 20px; }
+            th, td { padding: 10px 14px; border: 1px solid #E3CB9B; text-align: left; }
+            th { background-color: #F7EEDA; font-weight: bold; color: #5C3D1E; }
+            .total-row { font-weight: 900; background-color: #FFF6EF; font-size: 15px; color: #F47A35; }
+            .footer { margin-top: 50px; display: flex; justify-content: space-between; font-size: 12px; color: #9B7B52; border-top: 1px solid #EFDCB4; padding-top: 20px; }
           </style>
         </head>
         <body>
@@ -755,18 +755,18 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
           <div class="invoice-card">
             <div>
-              <div style="font-size: 18px; font-weight: bold; color: #0f172a;">${record.name}</div>
-              <div style="color: #2563eb; font-weight: bold; font-family: monospace; font-size: 14px; margin-top: 2px;">Mess ID: ${record.messId}</div>
-              <div style="color: #64748b; margin-top: 4px;">Department: ${record.department} | Category: ${record.category}</div>
+              <div style="font-size: 18px; font-weight: bold; color: #2D1A0E;">${record.name}</div>
+              <div style="color: #F47A35; font-weight: bold; font-family: monospace; font-size: 14px; margin-top: 2px;">Mess ID: ${record.messId}</div>
+              <div style="color: #9B7B52; margin-top: 4px;">Department: ${record.department} | Category: ${record.category}</div>
             </div>
             <div style="text-align: right;">
               <div class="badge ${record.status === 'PAID' ? 'badge-paid' : 'badge-pending'}">
                 ${record.status === 'PAID' ? 'STATUS: PAID 🟢' : 'STATUS: PAYMENT PENDING 🟠'}
               </div>
-              <div style="font-size: 11px; color: #64748b; margin-top: 6px;">
+              <div style="font-size: 11px; color: #9B7B52; margin-top: 6px;">
                 Billing Period: <strong>${record.month} ${record.year}</strong>
               </div>
-              ${record.utrRef ? `<div style="font-size: 11px; font-family: monospace; color: #334155; margin-top: 2px;">UTR Ref: ${record.utrRef}</div>` : ''}
+              ${record.utrRef ? `<div style="font-size: 11px; font-family: monospace; color: #5C3D1E; margin-top: 2px;">UTR Ref: ${record.utrRef}</div>` : ''}
             </div>
           </div>
 
@@ -788,7 +788,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               <tr>
                 <td>Fine / Penalties</td>
                 <td>Meal skip / Unnotified cuts accrued</td>
-                <td style="text-align: right; font-weight: bold; color: ${record.fineAmount > 0 ? '#dc2626' : '#64748b'};">₹${record.fineAmount.toLocaleString()}</td>
+                <td style="text-align: right; font-weight: bold; color: ${record.fineAmount > 0 ? '#dc2626' : '#9B7B52'};">₹${record.fineAmount.toLocaleString()}</td>
               </tr>
               <tr class="total-row">
                 <td colspan="2">TOTAL AMOUNT PAYABLE</td>
@@ -875,19 +875,19 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
         <head>
           <title>CUSAT Mess Expense Breakdown - ${billingMonth} ${billingYear}</title>
           <style>
-            body { font-family: 'Helvetica Neue', Arial, sans-serif; padding: 30px; color: #0f172a; line-height: 1.4; font-size: 12px; }
-            .header { text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 15px; margin-bottom: 20px; }
-            .header h1 { margin: 0; color: #2563eb; font-size: 22px; }
-            .header h2 { margin: 4px 0 0 0; color: #475569; font-size: 14px; font-weight: 600; }
-            .meta { display: flex; justify-content: space-between; margin-bottom: 20px; bg: #f8fafc; padding: 12px; border-radius: 6px; border: 1px solid #cbd5e1; }
-            h3 { font-size: 14px; color: #2563eb; margin: 18px 0 8px 0; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; }
+            body { font-family: 'Helvetica Neue', Arial, sans-serif; padding: 30px; color: #2D1A0E; line-height: 1.4; font-size: 12px; }
+            .header { text-align: center; border-bottom: 2px solid #F47A35; padding-bottom: 15px; margin-bottom: 20px; }
+            .header h1 { margin: 0; color: #F47A35; font-size: 22px; }
+            .header h2 { margin: 4px 0 0 0; color: #6B4A28; font-size: 14px; font-weight: 600; }
+            .meta { display: flex; justify-content: space-between; margin-bottom: 20px; bg: #FDF7EA; padding: 12px; border-radius: 6px; border: 1px solid #E3CB9B; }
+            h3 { font-size: 14px; color: #F47A35; margin: 18px 0 8px 0; border-bottom: 1px solid #EFDCB4; padding-bottom: 4px; }
             table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
-            th, td { padding: 8px 12px; border: 1px solid #cbd5e1; text-align: left; font-size: 11px; }
-            th { background-color: #f1f5f9; font-weight: bold; color: #334155; }
-            .grand-box { background: linear-gradient(135deg, #1e3a8a, #2563eb); color: white; padding: 20px; border-radius: 12px; text-align: center; margin-top: 25px; box-shadow: 0 4px 12px rgba(37,99,235,0.2); }
+            th, td { padding: 8px 12px; border: 1px solid #E3CB9B; text-align: left; font-size: 11px; }
+            th { background-color: #F7EEDA; font-weight: bold; color: #5C3D1E; }
+            .grand-box { background: linear-gradient(135deg, #1e3a8a, #F47A35); color: white; padding: 20px; border-radius: 12px; text-align: center; margin-top: 25px; box-shadow: 0 4px 12px rgba(37,99,235,0.2); }
             .grand-box h2 { margin: 0 0 6px 0; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; color: #93c5fd; }
             .grand-box .amount { font-size: 32px; font-weight: 900; }
-            .footer { margin-top: 40px; display: flex; justify-content: space-between; font-size: 11px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 15px; }
+            .footer { margin-top: 40px; display: flex; justify-content: space-between; font-size: 11px; color: #9B7B52; border-top: 1px solid #EFDCB4; padding-top: 15px; }
           </style>
         </head>
         <body>
@@ -924,9 +924,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                   <td style="text-align: right;">₹${fp.amount.toLocaleString()}</td>
                 </tr>
               `).join('')}
-              <tr style="font-weight: bold; background: #f8fafc;">
+              <tr style="font-weight: bold; background: #FDF7EA;">
                 <td colspan="4">Total Food & Grocery Purchases</td>
-                <td style="text-align: right; color: #2563eb;">₹${totalFoodPurchasesAmount.toLocaleString()}</td>
+                <td style="text-align: right; color: #F47A35;">₹${totalFoodPurchasesAmount.toLocaleString()}</td>
               </tr>
             </tbody>
           </table>
@@ -953,9 +953,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                   <td style="text-align: right; font-weight: bold;">₹${(op.qty * op.wacPrice).toLocaleString()}</td>
                 </tr>
               `).join('')}
-              <tr style="font-weight: bold; background: #f8fafc;">
+              <tr style="font-weight: bold; background: #FDF7EA;">
                 <td colspan="4">Total Opening Stock (Directly Calculated by App)</td>
-                <td style="text-align: right; color: #2563eb;">₹${billingOpeningStock.toLocaleString()}</td>
+                <td style="text-align: right; color: #F47A35;">₹${billingOpeningStock.toLocaleString()}</td>
               </tr>
             </tbody>
           </table>
@@ -982,7 +982,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                   <td style="text-align: right; font-weight: bold;">₹${(cl.qty * cl.wacPrice).toLocaleString()}</td>
                 </tr>
               `).join('')}
-              <tr style="font-weight: bold; background: #f8fafc;">
+              <tr style="font-weight: bold; background: #FDF7EA;">
                 <td colspan="4">Total Closing Stock</td>
                 <td style="text-align: right; color: #dc2626;">₹${billingClosingStock.toLocaleString()}</td>
               </tr>
@@ -1005,9 +1005,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 <td>3. Less Closing Stock Amount</td>
                 <td style="text-align: right; font-weight: bold; color: #dc2626;">- ₹${billingClosingStock.toLocaleString()}</td>
               </tr>
-              <tr style="font-weight: bold; background: #2563eb/10; font-size: 12px;">
+              <tr style="font-weight: bold; background: #F47A35/10; font-size: 12px;">
                 <td>Actual Food Cost of Month (1 + 2 - 3)</td>
-                <td style="text-align: right; color: #2563eb; font-size: 14px;">₹${actualFoodCost.toLocaleString()}</td>
+                <td style="text-align: right; color: #F47A35; font-size: 14px;">₹${actualFoodCost.toLocaleString()}</td>
               </tr>
             </tbody>
           </table>
@@ -1032,9 +1032,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                   <td style="text-align: right; font-weight: bold;">₹${op.amount.toLocaleString()}</td>
                 </tr>
               `).join('')}
-              <tr style="font-weight: bold; background: #f8fafc;">
+              <tr style="font-weight: bold; background: #FDF7EA;">
                 <td colspan="3">Total Operational Expenses</td>
-                <td style="text-align: right; color: #2563eb;">₹${totalOperationalExpensesAmount.toLocaleString()}</td>
+                <td style="text-align: right; color: #F47A35;">₹${totalOperationalExpensesAmount.toLocaleString()}</td>
               </tr>
             </tbody>
           </table>
@@ -1054,9 +1054,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               <tr><td>2</td><td>Committee Allowance</td><td style="text-align: right;">₹${monthAdminRecord.allowance.toLocaleString()}</td></tr>
               <tr><td>3</td><td>Stationary Charges</td><td style="text-align: right;">₹${monthAdminRecord.stationary.toLocaleString()}</td></tr>
               <tr><td>4</td><td>Miscellaneous Charges</td><td style="text-align: right;">₹${monthAdminRecord.misc.toLocaleString()}</td></tr>
-              <tr style="font-weight: bold; background: #f8fafc;">
+              <tr style="font-weight: bold; background: #FDF7EA;">
                 <td colspan="2">Total Administrational Expenses</td>
-                <td style="text-align: right; color: #2563eb;">₹${totalAdminExpenseAmount.toLocaleString()}</td>
+                <td style="text-align: right; color: #F47A35;">₹${totalAdminExpenseAmount.toLocaleString()}</td>
               </tr>
             </tbody>
           </table>
@@ -1099,18 +1099,18 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
         <head>
           <title>CUSAT Mess Billing Report - ${billingMonth} ${billingYear}</title>
           <style>
-            body { font-family: 'Helvetica Neue', Arial, sans-serif; padding: 40px; color: #0f172a; line-height: 1.5; }
-            .header { text-align: center; border-bottom: 2px solid #2563eb; padding-bottom: 20px; margin-bottom: 30px; }
-            .header h1 { margin: 0; color: #2563eb; font-size: 24px; }
-            .header h2 { margin: 5px 0 0 0; color: #475569; font-size: 15px; font-weight: 500; }
-            .meta { display: flex; justify-content: space-between; margin-bottom: 25px; background: #f8fafc; padding: 15px; border-radius: 8px; font-size: 13px; }
+            body { font-family: 'Helvetica Neue', Arial, sans-serif; padding: 40px; color: #2D1A0E; line-height: 1.5; }
+            .header { text-align: center; border-bottom: 2px solid #F47A35; padding-bottom: 20px; margin-bottom: 30px; }
+            .header h1 { margin: 0; color: #F47A35; font-size: 24px; }
+            .header h2 { margin: 5px 0 0 0; color: #6B4A28; font-size: 15px; font-weight: 500; }
+            .meta { display: flex; justify-content: space-between; margin-bottom: 25px; background: #FDF7EA; padding: 15px; border-radius: 8px; font-size: 13px; }
             table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
-            th, td { padding: 12px 16px; border: 1px solid #cbd5e1; text-align: left; font-size: 13px; }
-            th { background-color: #f1f5f9; font-weight: bold; color: #334155; }
-            .highlight-box { background-color: #2563eb; color: white; padding: 20px; border-radius: 12px; text-align: center; margin-top: 30px; }
+            th, td { padding: 12px 16px; border: 1px solid #E3CB9B; text-align: left; font-size: 13px; }
+            th { background-color: #F7EEDA; font-weight: bold; color: #5C3D1E; }
+            .highlight-box { background-color: #F47A35; color: white; padding: 20px; border-radius: 12px; text-align: center; margin-top: 30px; }
             .highlight-box h3 { margin: 0 0 8px 0; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; }
             .highlight-box .rate { font-size: 34px; font-weight: 900; }
-            .footer { margin-top: 50px; display: flex; justify-content: space-between; font-size: 11px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 20px; }
+            .footer { margin-top: 50px; display: flex; justify-content: space-between; font-size: 11px; color: #9B7B52; border-top: 1px solid #EFDCB4; padding-top: 20px; }
           </style>
         </head>
         <body>
@@ -1125,7 +1125,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             <div><strong>Report Status:</strong> VERIFIED & APPROVED</div>
           </div>
 
-          <h3 style="color: #0f172a; margin-bottom: 12px;">Calculation of Daily Mess Rate</h3>
+          <h3 style="color: #2D1A0E; margin-bottom: 12px;">Calculation of Daily Mess Rate</h3>
           <table>
             <thead>
               <tr>
@@ -1160,9 +1160,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 <td>Closing Stock</td>
                 <td style="text-align: right; font-weight: bold; color: #dc2626;">- ₹${billingClosingStock.toLocaleString()}</td>
               </tr>
-              <tr style="background-color: #f8fafc; font-weight: bold;">
+              <tr style="background-color: #FDF7EA; font-weight: bold;">
                 <td colspan="2">Actual Expenditure (1 + 2 + 3 + 4 - 5)</td>
-                <td style="text-align: right; color: #2563eb; font-size: 15px;">₹${actualCost.toLocaleString()}</td>
+                <td style="text-align: right; color: #F47A35; font-size: 15px;">₹${actualCost.toLocaleString()}</td>
               </tr>
               <tr>
                 <td colspan="2">Chargeable Student Days (Overall Opted-In Days)</td>
@@ -1261,7 +1261,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
         status: 'UPCOMING',
         label: 'Upcoming',
         colorHex: '#3B82F6',
-        bgStyle: 'bg-[#3B82F6]/10 text-[#2563EB] border-[#3B82F6]/30',
+        bgStyle: 'bg-[#3B82F6]/10 text-[#F47A35] border-[#3B82F6]/30',
         icon: 'schedule',
         timingText,
       };
@@ -1493,41 +1493,44 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   });
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 md:p-6 pb-32 md:pb-12 bg-[#f8fafc] animate-fade-in">
+    <div className="flex-1 p-4 pb-28 lg:px-10 lg:pt-8 lg:pb-14 animate-fade-in" style={{ background: 'var(--bg)' }}>
       <div className="max-w-[1280px] mx-auto space-y-6">
         
-        {/* Page Header */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center pb-3 border-b border-[#e2e8f0] gap-4">
-          <div>
-            <div className="flex items-center gap-3 mb-1">
-              <h1 className="text-[26px] md:text-[32px] font-extrabold text-[#0f172a] tracking-tight">
-                CUSAT Mess Administration
-              </h1>
-              <span className="bg-[#2563eb]/10 text-[#2563eb] border border-[#2563eb]/20 text-xs font-bold px-3 py-1 rounded-full flex items-center gap-1">
-                <span className="material-symbols-outlined text-[14px]">shield_person</span> Official Admin Panel
-              </span>
-            </div>
-            <p className="text-sm font-medium text-[#64748b] flex items-center gap-2">
-              <span className="material-symbols-outlined text-[18px]">calendar_today</span>
-              {new Date().toLocaleDateString('en-US', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-            </p>
-          </div>
+        {/* Page header — the top bar already names the section, so this is just
+            the date and the two page actions, on one row at every size */}
+        <div
+          className="flex items-center justify-between gap-3 pb-3"
+          style={{ borderBottom: '1px solid var(--card-border)' }}
+        >
+          <p
+            className="text-[12px] sm:text-sm font-semibold flex items-center gap-1.5 min-w-0"
+            style={{ color: 'var(--text-muted)' }}
+          >
+            <span className="material-symbols-outlined shrink-0" style={{ fontSize: 16 }}>calendar_today</span>
+            <span className="truncate">
+              {new Date().toLocaleDateString('en-US', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' })}
+            </span>
+          </p>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={fetchDashboard}
-              className="flex items-center gap-1.5 px-3.5 py-2 bg-white hover:bg-[#f1f5f9] text-[#334155] font-semibold text-xs rounded-xl border border-[#cbd5e1] transition-all shadow-xs cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-2 font-bold text-xs rounded-xl cursor-pointer"
+              style={{ background: 'var(--card)', color: 'var(--text-body)', border: '1px solid var(--card-border)' }}
+              title="Refresh"
             >
-              <span className={`material-symbols-outlined text-[18px] ${loading ? 'animate-spin' : ''}`}>refresh</span>
-              Refresh Data
+              <span className={`material-symbols-outlined ${loading ? 'animate-spin' : ''}`} style={{ fontSize: 17 }}>refresh</span>
+              <span className="hidden sm:inline">Refresh</span>
             </button>
 
             <button
               onClick={() => setShowExportModal(true)}
-              className="flex items-center gap-1.5 px-4 py-2 bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-semibold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
+              className="flex items-center gap-1.5 px-3 py-2 font-bold text-xs rounded-xl cursor-pointer"
+              style={{ background: 'var(--orange)', color: '#fff', border: 'none' }}
+              title="Export"
             >
-              <span className="material-symbols-outlined text-[18px]">download</span>
-              Export Report
+              <span className="material-symbols-outlined" style={{ fontSize: 17 }}>download</span>
+              <span className="hidden sm:inline">Export</span>
             </button>
           </div>
         </div>
@@ -1537,12 +1540,12 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
         {/* ------------------------------------------------------------- */}
         {activeModuleTab === 'daily-summary' && (
           <section className="space-y-6 animate-fade-in">
-            <div className="flex items-center justify-between">
-              <h2 className="text-[20px] font-bold text-[#0f172a] flex items-center gap-2">
-                <span className="material-symbols-outlined text-[#2563eb]">today</span>
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+              <h2 className="font-display text-[20px] font-bold flex items-center gap-2" style={{ color: 'var(--text-dark)' }}>
+                <span className="material-symbols-outlined" style={{ color: 'var(--orange)' }}>today</span>
                 Live Meal Overview
               </h2>
-              <p className="text-xs font-medium text-[#64748b]">
+              <p className="text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>
                 Click any metric card to inspect individual student records
               </p>
             </div>
@@ -1560,173 +1563,111 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               const notEligibleCount = stats.not_eligible ?? 0;
               const menuText = stats.menu || (mealKey === 'breakfast' ? 'Appam & Egg Curry / Veg Stew + Tea' : mealKey === 'lunch' ? 'Kerala Meals & Fish Curry' : 'Chapati & Chicken Curry + Milk');
 
+              const mealIconColor = mealKey === 'breakfast' ? 'var(--meal-breakfast, #FFE4BC)' : mealKey === 'lunch' ? 'var(--meal-lunch, #FFD6D6)' : 'var(--meal-dinner, #E0D6F5)';
+              const mealTextColor = mealKey === 'breakfast' ? '#8B5E0A' : mealKey === 'lunch' ? '#8B1A1A' : '#3D1A8B';
+
               return (
                 <div
                   key={mealKey}
-                  className="bg-white rounded-2xl border border-[#e2e8f0] shadow-sm overflow-hidden transition-all hover:shadow-md"
+                  className="rounded-2xl border overflow-hidden transition-all hover:shadow-md"
+                  style={{ background: 'var(--card, #fff)', borderColor: 'var(--card-border, #EDD5A0)', boxShadow: 'var(--card-shadow, 0 2px 16px rgba(100,60,10,0.10))' }}
                 >
-                  {/* Header Band */}
-                  <div className="p-4 md:p-5 bg-[#f8fafc] border-b border-[#e2e8f0] flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className={`p-2.5 rounded-xl text-white font-bold flex items-center justify-center ${
-                        mealKey === 'breakfast' ? 'bg-[#2563eb]' : mealKey === 'lunch' ? 'bg-[#16a34a]' : 'bg-[#7c3aed]'
-                      }`}>
-                        <span className="material-symbols-outlined text-[24px]">
+                  {/* Header band — stacks on phones so the time range and the
+                      status pill never get squeezed onto one line */}
+                  <div
+                    className="p-4 border-b"
+                    style={{ background: mealIconColor, borderColor: 'var(--card-border)' }}
+                  >
+                    <div className="flex items-start gap-3">
+                      <span
+                        className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0"
+                        style={{ background: 'rgba(255,255,255,0.65)', color: mealTextColor }}
+                      >
+                        <span className="material-symbols-outlined" style={{ fontSize: 22 }}>
                           {mealKey === 'breakfast' ? 'bakery_dining' : mealKey === 'lunch' ? 'lunch_dining' : 'dinner_dining'}
                         </span>
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="text-xl font-extrabold text-[#0f172a]">{mealTitle.toUpperCase()}</h3>
-                          
-                          {/* Live Status Badge with Icon + Text + Color */}
-                          <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${statusInfo.bgStyle}`}>
-                            <span className="material-symbols-outlined text-[15px]">
+                      </span>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+                          <h3
+                            className="font-display text-[19px] font-bold leading-none"
+                            style={{ color: 'var(--text-dark)' }}
+                          >
+                            {mealTitle}
+                          </h3>
+                          <span
+                            className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold border whitespace-nowrap ${statusInfo.bgStyle}`}
+                          >
+                            <span className="material-symbols-outlined" style={{ fontSize: 14 }}>
                               {statusInfo.icon}
                             </span>
-                            <span>{statusInfo.label}</span>
-                            <span className="text-[11px] font-normal opacity-80">· {statusInfo.timingText}</span>
+                            {statusInfo.label}
                           </span>
                         </div>
 
-                        {/* Menu Item Description */}
-                        <p className="text-xs font-medium text-[#475569] mt-1 flex items-center gap-1.5">
-                          <span className="material-symbols-outlined text-[16px] text-[#2563eb]">skillet</span>
-                          <span><strong className="text-[#334155]">Today's Menu:</strong> {menuText}</span>
+                        <p
+                          className="text-[12px] font-bold mt-1 whitespace-nowrap"
+                          style={{ color: 'var(--text-body)', fontVariantNumeric: 'tabular-nums' }}
+                        >
+                          {statusInfo.timingText}
                         </p>
                       </div>
                     </div>
+
+                    <p
+                      className="text-[12px] font-semibold mt-2.5 leading-snug"
+                      style={{ color: 'var(--text-body)' }}
+                    >
+                      <span style={{ color: 'var(--text-dark)', fontWeight: 800 }}>Today&rsquo;s menu: </span>
+                      {menuText}
+                    </p>
                   </div>
 
-                  {/* Metrics Cards Grid */}
-                  <div className="p-4 md:p-5 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-                    
-                    {/* 1. Total Students - Blue #2563EB */}
-                    <button
-                      onClick={() => handleOpenDrillDown(mealKey.toUpperCase(), mealTitle, 'TOTAL', 'Total Students', '#2563EB', totalCount)}
-                      className="p-3.5 rounded-xl border border-[#2563eb]/30 bg-[#2563eb]/5 hover:bg-[#2563eb]/10 transition-all text-left group cursor-pointer flex flex-col justify-between"
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-bold text-[#2563eb] flex items-center gap-1">
-                          <span className="material-symbols-outlined text-[16px]">groups</span>
-                          Total Students
+                  {/* Metric tiles */}
+                  <div className="p-3 sm:p-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5 sm:gap-3">
+                    {([
+                      { key: 'TOTAL',        title: 'Total Students',   label: 'Total students', sub: 'Click for list',  icon: 'groups',       color: '#F47A35', value: totalCount },
+                      { key: 'SERVED',       title: 'Students Served',  label: 'Served',         sub: 'Scanned & eaten', icon: 'check_circle', color: '#16A34A', value: servedCount },
+                      { key: 'SKIPPED',      title: 'Students Skipped', label: 'Skipped',        sub: 'Opted out',       icon: 'cancel',       color: '#DC2626', value: skippedCount },
+                      { key: 'PENDING',      title: 'Students Pending', label: 'Pending',        sub: 'Awaiting scan',   icon: 'pending',      color: '#EA580C', value: pendingCount },
+                      { key: 'FINED',        title: 'Fined Students',   label: 'Fined',          sub: 'Missed & fined',  icon: 'warning',      color: '#DC2626', value: finedCount },
+                      { key: 'NOT_ELIGIBLE', title: 'Not Eligible',     label: 'Not eligible',   sub: 'Excluded',        icon: 'block',        color: '#6B7280', value: notEligibleCount },
+                    ] as const).map(m => (
+                      <button
+                        key={m.key}
+                        onClick={() => handleOpenDrillDown(mealKey.toUpperCase(), mealTitle, m.key, m.title, m.color, m.value)}
+                        className="p-3 rounded-xl text-left cursor-pointer transition-colors flex flex-col gap-1"
+                        style={{
+                          border: `1px solid ${m.color}38`,
+                          background: `${m.color}0D`,
+                        }}
+                      >
+                        <span className="flex items-center gap-1.5 min-w-0">
+                          <span className="material-symbols-outlined shrink-0" style={{ fontSize: 15, color: m.color }}>
+                            {m.icon}
+                          </span>
+                          <span
+                            className="text-[11px] font-bold truncate"
+                            style={{ color: m.color, fontFamily: 'Nunito, sans-serif' }}
+                          >
+                            {m.label}
+                          </span>
                         </span>
-                        <span className="w-2 h-2 rounded-full bg-[#2563eb]"></span>
-                      </div>
-                      <p className="text-2xl font-extrabold text-[#0f172a] group-hover:scale-105 transition-transform">
-                        {totalCount.toLocaleString()}
-                      </p>
-                      <p className="text-[11px] text-[#64748b] mt-1 flex items-center gap-0.5">
-                        <span>Click for list</span>
-                        <span className="material-symbols-outlined text-[12px]">chevron_right</span>
-                      </p>
-                    </button>
 
-                    {/* 2. Students Served - Green #16A34A */}
-                    <button
-                      onClick={() => handleOpenDrillDown(mealKey.toUpperCase(), mealTitle, 'SERVED', 'Students Served', '#16A34A', servedCount)}
-                      className="p-3.5 rounded-xl border border-[#16a34a]/30 bg-[#16a34a]/5 hover:bg-[#16a34a]/10 transition-all text-left group cursor-pointer flex flex-col justify-between"
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-bold text-[#16a34a] flex items-center gap-1">
-                          <span className="material-symbols-outlined text-[16px]">check_circle</span>
-                          Served 🟢
+                        <span
+                          className="font-display text-[22px] font-bold leading-none"
+                          style={{ color: m.color, fontVariantNumeric: 'tabular-nums' }}
+                        >
+                          {m.value.toLocaleString()}
                         </span>
-                        <span className="w-2 h-2 rounded-full bg-[#16a34a]"></span>
-                      </div>
-                      <p className="text-2xl font-extrabold text-[#16a34a] group-hover:scale-105 transition-transform">
-                        {servedCount.toLocaleString()}
-                      </p>
-                      <p className="text-[11px] text-[#64748b] mt-1 flex items-center gap-0.5">
-                        <span>Scanned & Eaten</span>
-                        <span className="material-symbols-outlined text-[12px]">chevron_right</span>
-                      </p>
-                    </button>
 
-                    {/* 3. Students Skipped - Red #DC2626 */}
-                    <button
-                      onClick={() => handleOpenDrillDown(mealKey.toUpperCase(), mealTitle, 'SKIPPED', 'Students Skipped', '#DC2626', skippedCount)}
-                      className="p-3.5 rounded-xl border border-[#dc2626]/30 bg-[#dc2626]/5 hover:bg-[#dc2626]/10 transition-all text-left group cursor-pointer flex flex-col justify-between"
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-bold text-[#dc2626] flex items-center gap-1">
-                          <span className="material-symbols-outlined text-[16px]">cancel</span>
-                          Skipped 🔴
+                        <span className="flex items-center gap-0.5 text-[10.5px] font-semibold" style={{ color: 'var(--text-muted)' }}>
+                          <span className="truncate">{m.sub}</span>
+                          <span className="material-symbols-outlined shrink-0" style={{ fontSize: 12 }}>chevron_right</span>
                         </span>
-                        <span className="w-2 h-2 rounded-full bg-[#dc2626]"></span>
-                      </div>
-                      <p className="text-2xl font-extrabold text-[#dc2626] group-hover:scale-105 transition-transform">
-                        {skippedCount.toLocaleString()}
-                      </p>
-                      <p className="text-[11px] text-[#64748b] mt-1 flex items-center gap-0.5">
-                        <span>Opted Out</span>
-                        <span className="material-symbols-outlined text-[12px]">chevron_right</span>
-                      </p>
-                    </button>
-
-                    {/* 4. Students Pending - Orange #EA580C */}
-                    <button
-                      onClick={() => handleOpenDrillDown(mealKey.toUpperCase(), mealTitle, 'PENDING', 'Students Pending', '#EA580C', pendingCount)}
-                      className="p-3.5 rounded-xl border border-[#ea580c]/30 bg-[#ea580c]/5 hover:bg-[#ea580c]/10 transition-all text-left group cursor-pointer flex flex-col justify-between"
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-bold text-[#ea580c] flex items-center gap-1">
-                          <span className="material-symbols-outlined text-[16px]">pending</span>
-                          Pending 🟠
-                        </span>
-                        <span className="w-2 h-2 rounded-full bg-[#ea580c]"></span>
-                      </div>
-                      <p className="text-2xl font-extrabold text-[#ea580c] group-hover:scale-105 transition-transform">
-                        {pendingCount.toLocaleString()}
-                      </p>
-                      <p className="text-[11px] text-[#64748b] mt-1 flex items-center gap-0.5">
-                        <span>Awaiting Scan</span>
-                        <span className="material-symbols-outlined text-[12px]">chevron_right</span>
-                      </p>
-                    </button>
-
-                    {/* 5. Students Fined - Red #DC2626 */}
-                    <button
-                      onClick={() => handleOpenDrillDown(mealKey.toUpperCase(), mealTitle, 'FINED', 'Fined Students', '#DC2626', finedCount)}
-                      className="p-3.5 rounded-xl border border-[#dc2626]/30 bg-[#dc2626]/5 hover:bg-[#dc2626]/10 transition-all text-left group cursor-pointer flex flex-col justify-between"
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-bold text-[#dc2626] flex items-center gap-1">
-                          <span className="material-symbols-outlined text-[16px]">warning</span>
-                          Fined 🔴
-                        </span>
-                        <span className="w-2 h-2 rounded-full bg-[#dc2626]"></span>
-                      </div>
-                      <p className="text-2xl font-extrabold text-[#dc2626] group-hover:scale-105 transition-transform">
-                        {finedCount.toLocaleString()}
-                      </p>
-                      <p className="text-[11px] text-[#64748b] mt-1 flex items-center gap-0.5">
-                        <span>Missed & Fined</span>
-                        <span className="material-symbols-outlined text-[12px]">chevron_right</span>
-                      </p>
-                    </button>
-
-                    {/* 6. Not Eligible - Grey #6B7280 */}
-                    <button
-                      onClick={() => handleOpenDrillDown(mealKey.toUpperCase(), mealTitle, 'NOT_ELIGIBLE', 'Not Eligible', '#6B7280', notEligibleCount)}
-                      className="p-3.5 rounded-xl border border-[#6b7280]/30 bg-[#6b7280]/5 hover:bg-[#6b7280]/10 transition-all text-left group cursor-pointer flex flex-col justify-between"
-                    >
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-bold text-[#6b7280] flex items-center gap-1">
-                          <span className="material-symbols-outlined text-[16px]">block</span>
-                          Not Eligible ⚪
-                        </span>
-                        <span className="w-2 h-2 rounded-full bg-[#6b7280]"></span>
-                      </div>
-                      <p className="text-2xl font-extrabold text-[#6b7280] group-hover:scale-105 transition-transform">
-                        {notEligibleCount.toLocaleString()}
-                      </p>
-                      <p className="text-[11px] text-[#64748b] mt-1 flex items-center gap-0.5">
-                        <span>Excluded</span>
-                        <span className="material-symbols-outlined text-[12px]">chevron_right</span>
-                      </p>
-                    </button>
-
+                      </button>
+                    ))}
                   </div>
                 </div>
               );
@@ -1741,11 +1682,11 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           <section className="space-y-6 animate-fade-in">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div>
-                <h2 className="text-[20px] font-bold text-[#0f172a] flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[#2563eb]">restaurant_menu</span>
+                <h2 className="text-[20px] font-bold text-[#2D1A0E] flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[#F47A35]">restaurant_menu</span>
                   Weekly Mess Menu Management
                 </h2>
-                <p className="text-xs font-medium text-[#64748b]">
+                <p className="text-xs font-medium text-[#9B7B52]">
                   Inspect and edit official food items for Monday through Sunday
                 </p>
               </div>
@@ -1758,19 +1699,20 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             </div>
 
             {/* Day Selector Tabs */}
-            <div className="flex gap-2 overflow-x-auto pb-2 border-b border-[#e2e8f0]">
+            <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-2 border-b border-[#EFDCB4]">
               {weeklyMenu.map((item, idx) => (
                 <button
                   key={item.day}
                   onClick={() => setSelectedDayIndex(idx)}
-                  className={`px-4 py-2.5 rounded-xl font-bold text-xs md:text-sm transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
+                  className={`px-3.5 sm:px-4 py-2 rounded-xl font-bold text-xs sm:text-sm transition-colors whitespace-nowrap cursor-pointer shrink-0 ${
                     selectedDayIndex === idx
-                      ? 'bg-[#2563eb] text-white shadow-xs'
-                      : 'bg-white text-[#475569] hover:bg-[#f1f5f9] border border-[#e2e8f0]'
+                      ? 'bg-[#F47A35] text-white'
+                      : 'bg-white text-[#6B4A28] hover:bg-[#F7EEDA] border border-[#EFDCB4]'
                   }`}
                 >
-                  <span className="material-symbols-outlined text-[16px]">calendar_today</span>
-                  {item.day}
+                  {/* Phones only have room for the short form */}
+                  <span className="sm:hidden">{item.day.slice(0, 3)}</span>
+                  <span className="hidden sm:inline">{item.day}</span>
                 </button>
               ))}
             </div>
@@ -1779,18 +1721,18 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             {(() => {
               const currentDay = weeklyMenu[selectedDayIndex];
               return (
-                <div className="bg-white rounded-2xl border border-[#e2e8f0] shadow-sm p-6 space-y-6">
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-[#e2e8f0] pb-4 gap-3">
+                <div className="bg-white rounded-2xl border border-[#EFDCB4] p-4 sm:p-6 space-y-5 sm:space-y-6">
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center border-b border-[#EFDCB4] pb-4 gap-3">
                     <div>
-                      <h3 className="text-2xl font-extrabold text-[#0f172a]">{currentDay.day} Menu Schedule</h3>
-                      <p className="text-xs font-medium text-[#64748b] mt-0.5">
+                      <h3 className="text-2xl font-extrabold text-[#2D1A0E]">{currentDay.day} Menu Schedule</h3>
+                      <p className="text-xs font-medium text-[#9B7B52] mt-0.5">
                         Official CUSAT Mess Food Items
                       </p>
                     </div>
 
                     <button
                       onClick={() => setEditingDayMenu({ ...currentDay })}
-                      className="px-4 py-2 bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                      className="px-4 py-2 bg-[#F47A35] hover:bg-[#D45E1A] text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
                     >
                       <span className="material-symbols-outlined text-[16px]">edit</span>
                       Edit {currentDay.day} Menu
@@ -1799,20 +1741,20 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                     {/* Breakfast */}
-                    <div className="p-5 rounded-2xl border border-[#2563eb]/20 bg-[#2563eb]/5 space-y-3">
+                    <div className="p-5 rounded-2xl border border-[#F47A35]/20 bg-[#F47A35]/5 space-y-3">
                       <div className="flex justify-between items-center">
                         <div className="flex items-center gap-2">
-                          <span className="p-2 bg-[#2563eb] text-white rounded-xl">
+                          <span className="p-2 bg-[#F47A35] text-white rounded-xl">
                             <span className="material-symbols-outlined text-[20px]">bakery_dining</span>
                           </span>
                           <div>
-                            <h4 className="font-extrabold text-base text-[#0f172a]">Breakfast</h4>
-                            <p className="text-[11px] font-semibold text-[#2563eb]">8:00 AM – 9:30 AM</p>
+                            <h4 className="font-extrabold text-base text-[#2D1A0E]">Breakfast</h4>
+                            <p className="text-[11px] font-semibold text-[#F47A35]">8:00 AM – 9:30 AM</p>
                           </div>
                         </div>
                       </div>
-                      <div className="pt-2 border-t border-[#2563eb]/10">
-                        <p className="text-sm font-semibold text-[#334155] leading-relaxed">
+                      <div className="pt-2 border-t border-[#F47A35]/10">
+                        <p className="text-sm font-semibold text-[#5C3D1E] leading-relaxed">
                           {currentDay.breakfast}
                         </p>
                       </div>
@@ -1826,13 +1768,13 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                             <span className="material-symbols-outlined text-[20px]">lunch_dining</span>
                           </span>
                           <div>
-                            <h4 className="font-extrabold text-base text-[#0f172a]">Lunch</h4>
+                            <h4 className="font-extrabold text-base text-[#2D1A0E]">Lunch</h4>
                             <p className="text-[11px] font-semibold text-[#16a34a]">12:00 PM – 2:30 PM</p>
                           </div>
                         </div>
                       </div>
                       <div className="pt-2 border-t border-[#16a34a]/10">
-                        <p className="text-sm font-semibold text-[#334155] leading-relaxed">
+                        <p className="text-sm font-semibold text-[#5C3D1E] leading-relaxed">
                           {currentDay.lunch}
                         </p>
                       </div>
@@ -1846,13 +1788,13 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                             <span className="material-symbols-outlined text-[20px]">dinner_dining</span>
                           </span>
                           <div>
-                            <h4 className="font-extrabold text-base text-[#0f172a]">Dinner</h4>
+                            <h4 className="font-extrabold text-base text-[#2D1A0E]">Dinner</h4>
                             <p className="text-[11px] font-semibold text-[#7c3aed]">7:00 PM – 9:30 PM</p>
                           </div>
                         </div>
                       </div>
                       <div className="pt-2 border-t border-[#7c3aed]/10">
-                        <p className="text-sm font-semibold text-[#334155] leading-relaxed">
+                        <p className="text-sm font-semibold text-[#5C3D1E] leading-relaxed">
                           {currentDay.dinner}
                         </p>
                       </div>
@@ -1871,73 +1813,46 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           <section className="space-y-6 animate-fade-in">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div>
-                <h2 className="text-[20px] font-bold text-[#0f172a] flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[#2563eb]">account_balance_wallet</span>
+                <h2 className="text-[20px] font-bold text-[#2D1A0E] flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[#F47A35]">account_balance_wallet</span>
                   Ledger & Operational Accounts
                 </h2>
-                <p className="text-xs font-medium text-[#64748b]">
+                <p className="text-xs font-medium text-[#9B7B52]">
                   Complete purchase history, operational costs, administrative expenses, and inventory management
                 </p>
               </div>
 
               <button
                 onClick={() => onNavigate('admin-reports')}
-                className="px-4 py-2 bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                className="px-4 py-2 bg-[#F47A35] hover:bg-[#D45E1A] text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[16px]">file_download</span>
                 Download Ledger Summary
               </button>
             </div>
 
-            {/* 4 SUB NAVIGATION TABS FOR LEDGER */}
-            <div className="bg-white rounded-2xl border border-[#e2e8f0] p-1.5 shadow-xs flex flex-wrap gap-1">
-              <button
-                onClick={() => setLedgerSubTab('food-purchases')}
-                className={`flex-1 min-w-[140px] py-2.5 px-4 rounded-xl font-bold text-xs md:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                  ledgerSubTab === 'food-purchases'
-                    ? 'bg-[#2563eb] text-white shadow-xs'
-                    : 'text-[#64748b] hover:bg-[#f1f5f9] hover:text-[#0f172a]'
-                }`}
-              >
-                <span className="material-symbols-outlined text-[18px]">shopping_cart</span>
-                <span>Food Purchases</span>
-              </button>
-
-              <button
-                onClick={() => setLedgerSubTab('operational-expenses')}
-                className={`flex-1 min-w-[140px] py-2.5 px-4 rounded-xl font-bold text-xs md:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                  ledgerSubTab === 'operational-expenses'
-                    ? 'bg-[#2563eb] text-white shadow-xs'
-                    : 'text-[#64748b] hover:bg-[#f1f5f9] hover:text-[#0f172a]'
-                }`}
-              >
-                <span className="material-symbols-outlined text-[18px]">settings</span>
-                <span>Operational Expenses</span>
-              </button>
-
-              <button
-                onClick={() => setLedgerSubTab('admin-expenses')}
-                className={`flex-1 min-w-[140px] py-2.5 px-4 rounded-xl font-bold text-xs md:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                  ledgerSubTab === 'admin-expenses'
-                    ? 'bg-[#2563eb] text-white shadow-xs'
-                    : 'text-[#64748b] hover:bg-[#f1f5f9] hover:text-[#0f172a]'
-                }`}
-              >
-                <span className="material-symbols-outlined text-[18px]">work</span>
-                <span>Administrative Expenses</span>
-              </button>
-
-              <button
-                onClick={() => setLedgerSubTab('inventory')}
-                className={`flex-1 min-w-[140px] py-2.5 px-4 rounded-xl font-bold text-xs md:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer ${
-                  ledgerSubTab === 'inventory'
-                    ? 'bg-[#2563eb] text-white shadow-xs'
-                    : 'text-[#64748b] hover:bg-[#f1f5f9] hover:text-[#0f172a]'
-                }`}
-              >
-                <span className="material-symbols-outlined text-[18px]">inventory_2</span>
-                <span>Inventory</span>
-              </button>
+            {/* Ledger sub-navigation — a single scrolling row on phones so the
+                labels never wrap into ragged two-line blocks */}
+            <div className="bg-white rounded-2xl border border-[#EFDCB4] p-1.5 flex gap-1 overflow-x-auto hide-scrollbar">
+              {([
+                { id: 'food-purchases',        label: 'Food purchases',  icon: 'shopping_cart' },
+                { id: 'operational-expenses',  label: 'Operational',     icon: 'settings' },
+                { id: 'admin-expenses',        label: 'Administrative',  icon: 'work' },
+                { id: 'inventory',             label: 'Inventory',       icon: 'inventory_2' },
+              ] as const).map(t => (
+                <button
+                  key={t.id}
+                  onClick={() => setLedgerSubTab(t.id)}
+                  className={`shrink-0 lg:flex-1 py-2.5 px-3.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 whitespace-nowrap transition-colors cursor-pointer ${
+                    ledgerSubTab === t.id
+                      ? 'bg-[#F47A35] text-white'
+                      : 'text-[#9B7B52] hover:bg-[#F7EEDA] hover:text-[#2D1A0E]'
+                  }`}
+                >
+                  <span className="material-symbols-outlined" style={{ fontSize: 17 }}>{t.icon}</span>
+                  {t.label}
+                </button>
+              ))}
             </div>
 
             {/* --------------------------------------------------------- */}
@@ -1947,20 +1862,20 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               <div className="space-y-6 animate-fade-in">
                 
                 {/* Food Purchase Logging Form Card */}
-                <div className="bg-white p-5 rounded-2xl border border-[#e2e8f0] shadow-xs space-y-4">
-                  <h3 className="font-extrabold text-base text-[#0f172a] flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[#2563eb]">add_shopping_cart</span>
+                <div className="bg-white p-5 rounded-2xl border border-[#EFDCB4] shadow-xs space-y-4">
+                  <h3 className="font-extrabold text-base text-[#2D1A0E] flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[#F47A35]">add_shopping_cart</span>
                     Log New Food Purchase Entry
                   </h3>
 
                   <form onSubmit={handleAddFoodPurchase} className="grid grid-cols-1 md:grid-cols-5 gap-3">
                     <div>
-                      <label className="block text-xs font-bold text-[#475569] mb-1">Item Name (from Inventory)</label>
+                      <label className="block text-xs font-bold text-[#6B4A28] mb-1">Item Name (from Inventory)</label>
                       <select
                         value={foodItem}
                         onChange={(e) => setFoodItem(e.target.value)}
                         required
-                        className="w-full p-2.5 bg-[#f8fafc] border border-[#cbd5e1] rounded-xl text-sm font-bold text-[#0f172a] focus:outline-none focus:border-[#2563eb]"
+                        className="w-full p-2.5 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-sm font-bold text-[#2D1A0E] focus:outline-none focus:border-[#F47A35]"
                       >
                         <option value="">Select item from inventory...</option>
                         {inventoryCatalog.map((inv) => (
@@ -1972,30 +1887,30 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-[#475569] mb-1">Purchase Date</label>
+                      <label className="block text-xs font-bold text-[#6B4A28] mb-1">Purchase Date</label>
                       <input
                         type="date"
                         value={foodDate}
                         onChange={(e) => setFoodDate(e.target.value)}
                         required
-                        className="w-full p-2.5 bg-[#f8fafc] border border-[#cbd5e1] rounded-xl text-sm font-medium focus:outline-none focus:border-[#2563eb]"
+                        className="w-full p-2.5 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-sm font-medium focus:outline-none focus:border-[#F47A35]"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-[#475569] mb-1">Quantity / Weight</label>
+                      <label className="block text-xs font-bold text-[#6B4A28] mb-1">Quantity / Weight</label>
                       <input
                         type="text"
                         value={foodQty}
                         onChange={(e) => setFoodQty(e.target.value)}
                         placeholder="e.g. 50 kg / 80 L"
-                        className="w-full p-2.5 bg-[#f8fafc] border border-[#cbd5e1] rounded-xl text-sm font-medium focus:outline-none focus:border-[#2563eb]"
+                        className="w-full p-2.5 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-sm font-medium focus:outline-none focus:border-[#F47A35]"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-[#475569] mb-1">Total Amount (₹)</label>
-                      <div className="flex gap-2">
+                      <label className="block text-xs font-bold text-[#6B4A28] mb-1">Total Amount (₹)</label>
+                      <div className="flex flex-col sm:flex-row gap-2">
                         <input
                           type="number"
                           value={foodAmount}
@@ -2004,11 +1919,11 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                           required
                           min="0"
                           step="any"
-                          className="w-full p-2.5 bg-[#f8fafc] border border-[#cbd5e1] rounded-xl text-sm font-medium focus:outline-none focus:border-[#2563eb]"
+                          className="w-full p-2.5 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-sm font-medium focus:outline-none focus:border-[#F47A35]"
                         />
                         <button
                           type="submit"
-                          className="px-4 py-2.5 bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer whitespace-nowrap"
+                          className="w-full sm:w-auto px-4 py-2.5 bg-[#F47A35] hover:bg-[#D45E1A] text-white font-bold text-xs rounded-xl transition-colors cursor-pointer whitespace-nowrap"
                         >
                           Log Purchase
                         </button>
@@ -2019,29 +1934,29 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
                 {/* Summary Stat Bar */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="bg-white p-4 rounded-2xl border border-[#e2e8f0] shadow-xs">
-                    <p className="text-xs font-bold text-[#64748b]">Total Food Purchase Cost</p>
-                    <p className="text-2xl font-extrabold text-[#2563eb] mt-1">₹{totalFoodCost.toLocaleString()}</p>
-                    <p className="text-[11px] text-[#64748b] mt-1">Filtered result total</p>
+                  <div className="bg-white p-4 rounded-2xl border border-[#EFDCB4] shadow-xs">
+                    <p className="text-xs font-bold text-[#9B7B52]">Total Food Purchase Cost</p>
+                    <p className="text-2xl font-extrabold text-[#F47A35] mt-1">₹{totalFoodCost.toLocaleString()}</p>
+                    <p className="text-[11px] text-[#9B7B52] mt-1">Filtered result total</p>
                   </div>
-                  <div className="bg-white p-4 rounded-2xl border border-[#e2e8f0] shadow-xs">
-                    <p className="text-xs font-bold text-[#64748b]">Total Purchase Logs</p>
-                    <p className="text-2xl font-extrabold text-[#0f172a] mt-1">{filteredFoodPurchases.length} Entries</p>
-                    <p className="text-[11px] text-[#64748b] mt-1">Logged food entries</p>
+                  <div className="bg-white p-4 rounded-2xl border border-[#EFDCB4] shadow-xs">
+                    <p className="text-xs font-bold text-[#9B7B52]">Total Purchase Logs</p>
+                    <p className="text-2xl font-extrabold text-[#2D1A0E] mt-1">{filteredFoodPurchases.length} Entries</p>
+                    <p className="text-[11px] text-[#9B7B52] mt-1">Logged food entries</p>
                   </div>
-                  <div className="bg-white p-4 rounded-2xl border border-[#e2e8f0] shadow-xs">
-                    <p className="text-xs font-bold text-[#64748b]">Average Purchase Price</p>
+                  <div className="bg-white p-4 rounded-2xl border border-[#EFDCB4] shadow-xs">
+                    <p className="text-xs font-bold text-[#9B7B52]">Average Purchase Price</p>
                     <p className="text-2xl font-extrabold text-[#16a34a] mt-1">
                       ₹{filteredFoodPurchases.length ? Math.round(totalFoodCost / filteredFoodPurchases.length).toLocaleString() : 0}
                     </p>
-                    <p className="text-[11px] text-[#64748b] mt-1">Avg cost per order</p>
+                    <p className="text-[11px] text-[#9B7B52] mt-1">Avg cost per order</p>
                   </div>
                 </div>
 
                 {/* Search & Filter Toolbar */}
-                <div className="bg-white p-4 rounded-2xl border border-[#e2e8f0] shadow-xs flex flex-col md:flex-row gap-3 items-center justify-between">
+                <div className="bg-white p-4 rounded-2xl border border-[#EFDCB4] shadow-xs flex flex-col md:flex-row gap-3 items-center justify-between">
                   <div className="relative w-full md:w-96">
-                    <span className="material-symbols-outlined absolute left-3 top-2.5 text-[#94a3b8] text-[20px]">
+                    <span className="material-symbols-outlined absolute left-3 top-2.5 text-[#BFA37A] text-[20px]">
                       search
                     </span>
                     <input
@@ -2049,7 +1964,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                       value={foodSearch}
                       onChange={(e) => setFoodSearch(e.target.value)}
                       placeholder="Search items by name (e.g. Rice, Milk, Eggs)..."
-                      className="w-full pl-10 pr-4 py-2 bg-[#f8fafc] border border-[#cbd5e1] rounded-xl text-sm font-medium focus:outline-none focus:border-[#2563eb]"
+                      className="w-full pl-10 pr-4 py-2 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-sm font-medium focus:outline-none focus:border-[#F47A35]"
                     />
                   </div>
 
@@ -2057,7 +1972,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                     <select
                       value={foodMonthFilter}
                       onChange={(e) => setFoodMonthFilter(e.target.value)}
-                      className="px-3 py-2 bg-[#f8fafc] border border-[#cbd5e1] rounded-xl text-xs font-bold text-[#334155]"
+                      className="px-3 py-2 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-xs font-bold text-[#5C3D1E]"
                     >
                       <option value="ALL">All Months</option>
                       <option value="August">August</option>
@@ -2070,7 +1985,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                     <select
                       value={foodYearFilter}
                       onChange={(e) => setFoodYearFilter(e.target.value)}
-                      className="px-3 py-2 bg-[#f8fafc] border border-[#cbd5e1] rounded-xl text-xs font-bold text-[#334155]"
+                      className="px-3 py-2 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-xs font-bold text-[#5C3D1E]"
                     >
                       <option value="ALL">All Years</option>
                       <option value="2026">2026</option>
@@ -2081,20 +1996,20 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 </div>
 
                 {/* Food Purchase History Table */}
-                <div className="bg-white rounded-2xl border border-[#e2e8f0] shadow-xs overflow-hidden">
-                  <div className="p-4 border-b border-[#e2e8f0] flex justify-between items-center">
-                    <h3 className="font-extrabold text-base text-[#0f172a] flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[#2563eb]">history</span>
+                <div className="bg-white rounded-2xl border border-[#EFDCB4] shadow-xs overflow-hidden">
+                  <div className="p-4 border-b border-[#EFDCB4] flex flex-wrap justify-between items-center gap-x-3 gap-y-1.5">
+                    <h3 className="font-extrabold text-base text-[#2D1A0E] flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[#F47A35]">history</span>
                       Food Purchase History Log
                     </h3>
-                    <span className="text-xs font-semibold text-[#64748b]">
+                    <span className="text-xs font-semibold text-[#9B7B52]">
                       Showing {filteredFoodPurchases.length} records
                     </span>
                   </div>
 
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
-                      <thead className="bg-[#f8fafc] text-[#475569] font-bold text-xs uppercase border-b border-[#e2e8f0]">
+                    <table className="data-table text-left text-sm">
+                      <thead className="bg-[#FDF7EA] text-[#6B4A28] font-bold text-xs uppercase border-b border-[#EFDCB4]">
                         <tr>
                           <th className="py-3.5 px-4">Date</th>
                           <th className="py-3.5 px-4">Item Name</th>
@@ -2103,19 +2018,19 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                           <th className="py-3.5 px-4 text-center">Action</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-[#e2e8f0]">
+                      <tbody className="divide-y divide-[#EFDCB4]">
                         {filteredFoodPurchases.length === 0 ? (
                           <tr>
-                            <td colSpan={5} className="py-8 text-center text-[#64748b] text-sm">
+                            <td colSpan={5} className="py-8 text-center text-[#9B7B52] text-sm">
                               No food purchase entries matching search filter.
                             </td>
                           </tr>
                         ) : (
                           filteredFoodPurchases.map((row) => (
-                            <tr key={row.id} className="hover:bg-[#f8fafc] transition-colors">
-                              <td className="py-3 px-4 font-mono text-xs text-[#334155]">{row.date}</td>
-                              <td className="py-3 px-4 font-semibold text-[#0f172a]">{row.item}</td>
-                              <td className="py-3 px-4 text-xs font-medium text-[#475569]">{row.qty}</td>
+                            <tr key={row.id} className="hover:bg-[#FDF7EA] transition-colors">
+                              <td className="py-3 px-4 font-mono text-xs text-[#5C3D1E]">{row.date}</td>
+                              <td className="py-3 px-4 font-semibold text-[#2D1A0E]">{row.item}</td>
+                              <td className="py-3 px-4 text-xs font-medium text-[#6B4A28]">{row.qty}</td>
                               <td className="py-3 px-4 font-extrabold text-[#16a34a]">₹{row.amount.toLocaleString()}</td>
                               <td className="py-3 px-4 text-center">
                                 <button
@@ -2144,42 +2059,42 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               <div className="space-y-6 animate-fade-in">
                 
                 {/* Form Card */}
-                <div className="bg-white p-5 rounded-2xl border border-[#e2e8f0] shadow-xs space-y-4">
-                  <h3 className="font-extrabold text-base text-[#0f172a] flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[#2563eb]">build</span>
+                <div className="bg-white p-5 rounded-2xl border border-[#EFDCB4] shadow-xs space-y-4">
+                  <h3 className="font-extrabold text-base text-[#2D1A0E] flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[#F47A35]">build</span>
                     Log Operational Expense Entry
                   </h3>
 
                   <form onSubmit={handleAddOpExpense} className="grid grid-cols-1 md:grid-cols-4 gap-3">
                     <div>
-                      <label className="block text-xs font-bold text-[#475569] mb-1">Date</label>
+                      <label className="block text-xs font-bold text-[#6B4A28] mb-1">Date</label>
                       <input
                         type="date"
                         value={opDate}
                         onChange={(e) => setOpDate(e.target.value)}
                         required
-                        className="w-full p-2.5 bg-[#f8fafc] border border-[#cbd5e1] rounded-xl text-sm font-medium focus:outline-none focus:border-[#2563eb]"
+                        className="w-full p-2.5 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-sm font-medium focus:outline-none focus:border-[#F47A35]"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-[#475569] mb-1">Title</label>
+                      <label className="block text-xs font-bold text-[#6B4A28] mb-1">Title</label>
                       <input
                         type="text"
                         value={opTitle}
                         onChange={(e) => setOpTitle(e.target.value)}
                         placeholder="e.g. Indane LPG Commercial Cylinder Refill"
                         required
-                        className="w-full p-2.5 bg-[#f8fafc] border border-[#cbd5e1] rounded-xl text-sm font-medium focus:outline-none focus:border-[#2563eb]"
+                        className="w-full p-2.5 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-sm font-medium focus:outline-none focus:border-[#F47A35]"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-[#475569] mb-1">Category</label>
+                      <label className="block text-xs font-bold text-[#6B4A28] mb-1">Category</label>
                       <select
                         value={opCategory}
                         onChange={(e) => setOpCategory(e.target.value as 'Gas/Fuel' | 'Miscellaneous')}
-                        className="w-full p-2.5 bg-[#f8fafc] border border-[#cbd5e1] rounded-xl text-sm font-bold text-[#334155] focus:outline-none focus:border-[#2563eb]"
+                        className="w-full p-2.5 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-sm font-bold text-[#5C3D1E] focus:outline-none focus:border-[#F47A35]"
                       >
                         <option value="Gas/Fuel">Gas/Fuel</option>
                         <option value="Miscellaneous">Miscellaneous</option>
@@ -2187,8 +2102,8 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-[#475569] mb-1">Amount (₹)</label>
-                      <div className="flex gap-2">
+                      <label className="block text-xs font-bold text-[#6B4A28] mb-1">Amount (₹)</label>
+                      <div className="flex flex-col sm:flex-row gap-2">
                         <input
                           type="number"
                           value={opAmount}
@@ -2197,11 +2112,11 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                           required
                           min="0"
                           step="any"
-                          className="w-full p-2.5 bg-[#f8fafc] border border-[#cbd5e1] rounded-xl text-sm font-medium focus:outline-none focus:border-[#2563eb]"
+                          className="w-full p-2.5 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-sm font-medium focus:outline-none focus:border-[#F47A35]"
                         />
                         <button
                           type="submit"
-                          className="px-4 py-2.5 bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer whitespace-nowrap"
+                          className="w-full sm:w-auto px-4 py-2.5 bg-[#F47A35] hover:bg-[#D45E1A] text-white font-bold text-xs rounded-xl transition-colors cursor-pointer whitespace-nowrap"
                         >
                           Log Expense
                         </button>
@@ -2211,18 +2126,18 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 </div>
 
                 {/* History Table */}
-                <div className="bg-white rounded-2xl border border-[#e2e8f0] shadow-xs overflow-hidden">
-                  <div className="p-4 border-b border-[#e2e8f0] flex justify-between items-center">
-                    <h3 className="font-extrabold text-base text-[#0f172a] flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[#2563eb]">receipt_long</span>
+                <div className="bg-white rounded-2xl border border-[#EFDCB4] shadow-xs overflow-hidden">
+                  <div className="p-4 border-b border-[#EFDCB4] flex flex-wrap justify-between items-center gap-x-3 gap-y-1.5">
+                    <h3 className="font-extrabold text-base text-[#2D1A0E] flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[#F47A35]">receipt_long</span>
                       Operational Expenses Log
                     </h3>
-                    <span className="text-xs font-semibold text-[#64748b]">{opExpenses.length} entries</span>
+                    <span className="text-xs font-semibold text-[#9B7B52]">{opExpenses.length} entries</span>
                   </div>
 
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
-                      <thead className="bg-[#f8fafc] text-[#475569] font-bold text-xs uppercase border-b border-[#e2e8f0]">
+                    <table className="data-table text-left text-sm">
+                      <thead className="bg-[#FDF7EA] text-[#6B4A28] font-bold text-xs uppercase border-b border-[#EFDCB4]">
                         <tr>
                           <th className="py-3.5 px-4">Date</th>
                           <th className="py-3.5 px-4">Title</th>
@@ -2231,18 +2146,18 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                           <th className="py-3.5 px-4 text-center">Action</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-[#e2e8f0]">
+                      <tbody className="divide-y divide-[#EFDCB4]">
                         {opExpenses.length === 0 ? (
                           <tr>
-                            <td colSpan={5} className="py-8 text-center text-[#64748b] text-sm">
+                            <td colSpan={5} className="py-8 text-center text-[#9B7B52] text-sm">
                               No operational expenses logged yet.
                             </td>
                           </tr>
                         ) : (
                           opExpenses.map((row) => (
-                            <tr key={row.id} className="hover:bg-[#f8fafc] transition-colors">
-                              <td className="py-3 px-4 font-mono text-xs text-[#334155]">{row.date}</td>
-                              <td className="py-3 px-4 font-semibold text-[#0f172a]">{row.title}</td>
+                            <tr key={row.id} className="hover:bg-[#FDF7EA] transition-colors">
+                              <td className="py-3 px-4 font-mono text-xs text-[#5C3D1E]">{row.date}</td>
+                              <td className="py-3 px-4 font-semibold text-[#2D1A0E]">{row.title}</td>
                               <td className="py-3 px-4">
                                 <span className={`px-2.5 py-0.5 text-xs font-extrabold rounded-full border ${
                                   row.category === 'Gas/Fuel'
@@ -2280,21 +2195,21 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               <div className="space-y-6 animate-fade-in">
                 
                 {/* Form Card */}
-                <div className="bg-white p-5 rounded-2xl border border-[#e2e8f0] shadow-xs space-y-4">
-                  <h3 className="font-extrabold text-base text-[#0f172a] flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[#2563eb]">badge</span>
+                <div className="bg-white p-5 rounded-2xl border border-[#EFDCB4] shadow-xs space-y-4">
+                  <h3 className="font-extrabold text-base text-[#2D1A0E] flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[#F47A35]">badge</span>
                     Log Administrative Expense Entry
                   </h3>
 
                   <form onSubmit={handleAddAdminExpense} className="space-y-4">
                     {/* Top Row: Bill Month & Bill Year */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-3 border-b border-[#e2e8f0]">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pb-3 border-b border-[#EFDCB4]">
                       <div>
-                        <label className="block text-xs font-bold text-[#475569] mb-1">Bill Month</label>
+                        <label className="block text-xs font-bold text-[#6B4A28] mb-1">Bill Month</label>
                         <select
                           value={adminBillMonth}
                           onChange={(e) => setAdminBillMonth(e.target.value)}
-                          className="w-full p-2.5 bg-[#f8fafc] border border-[#cbd5e1] rounded-xl text-sm font-bold text-[#0f172a] focus:outline-none focus:border-[#2563eb]"
+                          className="w-full p-2.5 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-sm font-bold text-[#2D1A0E] focus:outline-none focus:border-[#F47A35]"
                         >
                           <option value="January">January</option>
                           <option value="February">February</option>
@@ -2312,11 +2227,11 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                       </div>
 
                       <div>
-                        <label className="block text-xs font-bold text-[#475569] mb-1">Bill Year</label>
+                        <label className="block text-xs font-bold text-[#6B4A28] mb-1">Bill Year</label>
                         <select
                           value={adminBillYear}
                           onChange={(e) => setAdminBillYear(e.target.value)}
-                          className="w-full p-2.5 bg-[#f8fafc] border border-[#cbd5e1] rounded-xl text-sm font-bold text-[#0f172a] focus:outline-none focus:border-[#2563eb]"
+                          className="w-full p-2.5 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-sm font-bold text-[#2D1A0E] focus:outline-none focus:border-[#F47A35]"
                         >
                           <option value="2026">2026</option>
                           <option value="2025">2025</option>
@@ -2329,7 +2244,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                     {/* Stacked Rows for Amounts */}
                     <div className="space-y-3">
                       <div>
-                        <label className="block text-xs font-bold text-[#475569] mb-1">Workers Salary (₹)</label>
+                        <label className="block text-xs font-bold text-[#6B4A28] mb-1">Workers Salary (₹)</label>
                         <input
                           type="number"
                           value={adminSalary}
@@ -2337,12 +2252,12 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                           placeholder="e.g. 85000"
                           min="0"
                           step="any"
-                          className="w-full p-2.5 bg-[#f8fafc] border border-[#cbd5e1] rounded-xl text-sm font-medium focus:outline-none focus:border-[#2563eb]"
+                          className="w-full p-2.5 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-sm font-medium focus:outline-none focus:border-[#F47A35]"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs font-bold text-[#475569] mb-1">Committee Allowance (₹)</label>
+                        <label className="block text-xs font-bold text-[#6B4A28] mb-1">Committee Allowance (₹)</label>
                         <input
                           type="number"
                           value={adminAllowance}
@@ -2350,12 +2265,12 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                           placeholder="e.g. 12000"
                           min="0"
                           step="any"
-                          className="w-full p-2.5 bg-[#f8fafc] border border-[#cbd5e1] rounded-xl text-sm font-medium focus:outline-none focus:border-[#2563eb]"
+                          className="w-full p-2.5 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-sm font-medium focus:outline-none focus:border-[#F47A35]"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs font-bold text-[#475569] mb-1">Stationary Charges (₹)</label>
+                        <label className="block text-xs font-bold text-[#6B4A28] mb-1">Stationary Charges (₹)</label>
                         <input
                           type="number"
                           value={adminStationary}
@@ -2363,12 +2278,12 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                           placeholder="e.g. 2500"
                           min="0"
                           step="any"
-                          className="w-full p-2.5 bg-[#f8fafc] border border-[#cbd5e1] rounded-xl text-sm font-medium focus:outline-none focus:border-[#2563eb]"
+                          className="w-full p-2.5 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-sm font-medium focus:outline-none focus:border-[#F47A35]"
                         />
                       </div>
 
                       <div>
-                        <label className="block text-xs font-bold text-[#475569] mb-1">Misc Charges (₹)</label>
+                        <label className="block text-xs font-bold text-[#6B4A28] mb-1">Misc Charges (₹)</label>
                         <input
                           type="number"
                           value={adminMisc}
@@ -2376,14 +2291,14 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                           placeholder="e.g. 3800"
                           min="0"
                           step="any"
-                          className="w-full p-2.5 bg-[#f8fafc] border border-[#cbd5e1] rounded-xl text-sm font-medium focus:outline-none focus:border-[#2563eb]"
+                          className="w-full p-2.5 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-sm font-medium focus:outline-none focus:border-[#F47A35]"
                         />
                       </div>
                     </div>
 
                     <button
                       type="submit"
-                      className="w-full py-3 bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                      className="w-full py-3 bg-[#F47A35] hover:bg-[#D45E1A] text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
                     >
                       <span className="material-symbols-outlined text-[18px]">add_circle</span>
                       Log Administrative Expense for {adminBillMonth} {adminBillYear}
@@ -2392,18 +2307,18 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 </div>
 
                 {/* History Table */}
-                <div className="bg-white rounded-2xl border border-[#e2e8f0] shadow-xs overflow-hidden">
-                  <div className="p-4 border-b border-[#e2e8f0] flex justify-between items-center">
-                    <h3 className="font-extrabold text-base text-[#0f172a] flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[#2563eb]">history</span>
+                <div className="bg-white rounded-2xl border border-[#EFDCB4] shadow-xs overflow-hidden">
+                  <div className="p-4 border-b border-[#EFDCB4] flex flex-wrap justify-between items-center gap-x-3 gap-y-1.5">
+                    <h3 className="font-extrabold text-base text-[#2D1A0E] flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[#F47A35]">history</span>
                       Administrative Expenses History Log (Month-Wise)
                     </h3>
-                    <span className="text-xs font-semibold text-[#64748b]">{adminMonthlyExpenses.length} records</span>
+                    <span className="text-xs font-semibold text-[#9B7B52]">{adminMonthlyExpenses.length} records</span>
                   </div>
 
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
-                      <thead className="bg-[#f8fafc] text-[#475569] font-bold text-xs uppercase border-b border-[#e2e8f0]">
+                    <table className="data-table text-left text-sm">
+                      <thead className="bg-[#FDF7EA] text-[#6B4A28] font-bold text-xs uppercase border-b border-[#EFDCB4]">
                         <tr>
                           <th className="py-3.5 px-4">Month</th>
                           <th className="py-3.5 px-4">Salary (₹)</th>
@@ -2414,10 +2329,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                           <th className="py-3.5 px-4 text-center">Action</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-[#e2e8f0]">
+                      <tbody className="divide-y divide-[#EFDCB4]">
                         {adminMonthlyExpenses.length === 0 ? (
                           <tr>
-                            <td colSpan={7} className="py-8 text-center text-[#64748b] text-sm">
+                            <td colSpan={7} className="py-8 text-center text-[#9B7B52] text-sm">
                               No administrative expenses logged yet.
                             </td>
                           </tr>
@@ -2425,13 +2340,13 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                           adminMonthlyExpenses.map((row) => {
                             const totalMonth = row.salary + row.allowance + row.stationary + row.misc;
                             return (
-                              <tr key={row.id} className="hover:bg-[#f8fafc] transition-colors">
-                                <td className="py-3 px-4 font-bold text-[#0f172a]">{row.month} {row.year}</td>
-                                <td className="py-3 px-4 font-semibold text-[#334155]">₹{row.salary.toLocaleString()}</td>
-                                <td className="py-3 px-4 font-semibold text-[#334155]">₹{row.allowance.toLocaleString()}</td>
-                                <td className="py-3 px-4 text-xs text-[#475569]">₹{row.stationary.toLocaleString()}</td>
-                                <td className="py-3 px-4 text-xs text-[#475569]">₹{row.misc.toLocaleString()}</td>
-                                <td className="py-3 px-4 font-extrabold text-[#2563eb]">₹{totalMonth.toLocaleString()}</td>
+                              <tr key={row.id} className="hover:bg-[#FDF7EA] transition-colors">
+                                <td className="py-3 px-4 font-bold text-[#2D1A0E]">{row.month} {row.year}</td>
+                                <td className="py-3 px-4 font-semibold text-[#5C3D1E]">₹{row.salary.toLocaleString()}</td>
+                                <td className="py-3 px-4 font-semibold text-[#5C3D1E]">₹{row.allowance.toLocaleString()}</td>
+                                <td className="py-3 px-4 text-xs text-[#6B4A28]">₹{row.stationary.toLocaleString()}</td>
+                                <td className="py-3 px-4 text-xs text-[#6B4A28]">₹{row.misc.toLocaleString()}</td>
+                                <td className="py-3 px-4 font-extrabold text-[#F47A35]">₹{totalMonth.toLocaleString()}</td>
                                 <td className="py-3 px-4 text-center">
                                   <button
                                     onClick={() => handleDeleteAdminExpense(row.id)}
@@ -2460,44 +2375,44 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               <div className="space-y-6 animate-fade-in">
                 
                 {/* Form Card: Add Item to Catalogue */}
-                <div className="bg-white p-5 rounded-2xl border border-[#e2e8f0] shadow-xs space-y-4">
-                  <h3 className="font-extrabold text-base text-[#0f172a] flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[#2563eb]">add_box</span>
+                <div className="bg-white p-5 rounded-2xl border border-[#EFDCB4] shadow-xs space-y-4">
+                  <h3 className="font-extrabold text-base text-[#2D1A0E] flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[#F47A35]">add_box</span>
                     Add New Inventory Item
                   </h3>
-                  <p className="text-xs text-[#64748b]">
+                  <p className="text-xs text-[#9B7B52]">
                     Items added here will be available in the dropdown menu when logging Food Purchases.
                   </p>
 
                   <form onSubmit={handleAddInventoryCatalogItem} className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     <div>
-                      <label className="block text-xs font-bold text-[#475569] mb-1">Item Name</label>
+                      <label className="block text-xs font-bold text-[#6B4A28] mb-1">Item Name</label>
                       <input
                         type="text"
                         value={newInvName}
                         onChange={(e) => setNewInvName(e.target.value)}
                         placeholder="e.g. Coconut Oil / Green Gram"
                         required
-                        className="w-full p-2.5 bg-[#f8fafc] border border-[#cbd5e1] rounded-xl text-sm font-medium focus:outline-none focus:border-[#2563eb]"
+                        className="w-full p-2.5 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-sm font-medium focus:outline-none focus:border-[#F47A35]"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-[#475569] mb-1">Unit</label>
+                      <label className="block text-xs font-bold text-[#6B4A28] mb-1">Unit</label>
                       <input
                         type="text"
                         value={newInvUnit}
                         onChange={(e) => setNewInvUnit(e.target.value)}
                         placeholder="e.g. kg, L, pcs, bags, tins"
                         required
-                        className="w-full p-2.5 bg-[#f8fafc] border border-[#cbd5e1] rounded-xl text-sm font-medium focus:outline-none focus:border-[#2563eb]"
+                        className="w-full p-2.5 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-sm font-medium focus:outline-none focus:border-[#F47A35]"
                       />
                     </div>
 
                     <div className="flex items-end">
                       <button
                         type="submit"
-                        className="w-full py-2.5 bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                        className="w-full py-2.5 bg-[#F47A35] hover:bg-[#D45E1A] text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
                       >
                         <span className="material-symbols-outlined text-[18px]">add_circle</span>
                         Add Item to Catalogue
@@ -2507,20 +2422,20 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 </div>
 
                 {/* Inventory Items Catalogue Table Card */}
-                <div className="bg-white rounded-2xl border border-[#e2e8f0] shadow-xs overflow-hidden">
-                  <div className="p-4 border-b border-[#e2e8f0] flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+                <div className="bg-white rounded-2xl border border-[#EFDCB4] shadow-xs overflow-hidden">
+                  <div className="p-4 border-b border-[#EFDCB4] flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
                     <div>
-                      <h3 className="font-extrabold text-base text-[#0f172a] flex items-center gap-2">
-                        <span className="material-symbols-outlined text-[#2563eb]">inventory_2</span>
+                      <h3 className="font-extrabold text-base text-[#2D1A0E] flex items-center gap-2">
+                        <span className="material-symbols-outlined text-[#F47A35]">inventory_2</span>
                         Inventory Items Catalogue
                       </h3>
-                      <p className="text-xs text-[#64748b]">
+                      <p className="text-xs text-[#9B7B52]">
                         Registered mess items ({inventoryCatalog.length} total)
                       </p>
                     </div>
 
                     <div className="relative w-full md:w-72">
-                      <span className="material-symbols-outlined absolute left-3 top-2 text-[#94a3b8] text-[18px]">
+                      <span className="material-symbols-outlined absolute left-3 top-2 text-[#BFA37A] text-[18px]">
                         search
                       </span>
                       <input
@@ -2528,24 +2443,24 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                         value={invSearch}
                         onChange={(e) => setInvSearch(e.target.value)}
                         placeholder="Search items by name..."
-                        className="w-full pl-9 pr-3 py-1.5 bg-[#f8fafc] border border-[#cbd5e1] rounded-xl text-xs font-medium focus:outline-none focus:border-[#2563eb]"
+                        className="w-full pl-9 pr-3 py-1.5 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-xs font-medium focus:outline-none focus:border-[#F47A35]"
                       />
                     </div>
                   </div>
 
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left text-sm">
-                      <thead className="bg-[#f8fafc] text-[#475569] font-bold text-xs uppercase border-b border-[#e2e8f0]">
+                    <table className="data-table text-left text-sm">
+                      <thead className="bg-[#FDF7EA] text-[#6B4A28] font-bold text-xs uppercase border-b border-[#EFDCB4]">
                         <tr>
                           <th className="py-3.5 px-4">Item Name</th>
                           <th className="py-3.5 px-4">Unit</th>
                           <th className="py-3.5 px-4 text-center">Action</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-[#e2e8f0]">
+                      <tbody className="divide-y divide-[#EFDCB4]">
                         {inventoryCatalog.filter(i => !invSearch || i.name.toLowerCase().includes(invSearch.toLowerCase())).length === 0 ? (
                           <tr>
-                            <td colSpan={3} className="py-8 text-center text-[#64748b] text-sm">
+                            <td colSpan={3} className="py-8 text-center text-[#9B7B52] text-sm">
                               No inventory items found. Add items above.
                             </td>
                           </tr>
@@ -2553,9 +2468,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                           inventoryCatalog
                             .filter(i => !invSearch || i.name.toLowerCase().includes(invSearch.toLowerCase()))
                             .map((row) => (
-                              <tr key={row.id} className="hover:bg-[#f8fafc] transition-colors">
-                                <td className="py-3.5 px-4 font-semibold text-[#0f172a]">{row.name}</td>
-                                <td className="py-3.5 px-4 font-mono text-xs font-bold text-[#2563eb]">{row.unit}</td>
+                              <tr key={row.id} className="hover:bg-[#FDF7EA] transition-colors">
+                                <td className="py-3.5 px-4 font-semibold text-[#2D1A0E]">{row.name}</td>
+                                <td className="py-3.5 px-4 font-mono text-xs font-bold text-[#F47A35]">{row.unit}</td>
                                 <td className="py-3.5 px-4 text-center">
                                   <button
                                     onClick={() => handleDeleteInventoryCatalogItem(row.id)}
@@ -2586,11 +2501,11 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           <section className="space-y-6 animate-fade-in">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div>
-                <h2 className="text-[20px] font-bold text-[#0f172a] flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[#2563eb]">badge</span>
+                <h2 className="text-[20px] font-bold text-[#2D1A0E] flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[#F47A35]">badge</span>
                   Master Student Directory & Records
                 </h2>
-                <p className="text-xs font-medium text-[#64748b]">
+                <p className="text-xs font-medium text-[#9B7B52]">
                   Preview student profiles, meal preferences, hostel categories, and upcoming meal statuses. Click any student to view full details.
                 </p>
               </div>
@@ -2598,7 +2513,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               <div className="flex gap-2">
                 <button
                   onClick={() => setShowCreateAdminModal(true)}
-                  className="px-4 py-2 bg-[#0f172a] hover:bg-[#1e293b] text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                  className="px-4 py-2 bg-[#2D1A0E] hover:bg-[#3E2718] text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[16px]">person_add</span>
                   Create Admin User
@@ -2607,9 +2522,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             </div>
 
             {/* Filter & Search Toolbar */}
-            <div className="bg-white p-4 rounded-2xl border border-[#e2e8f0] shadow-xs flex flex-col md:flex-row gap-3 items-center justify-between">
+            <div className="bg-white p-4 rounded-2xl border border-[#EFDCB4] shadow-xs flex flex-col md:flex-row gap-3 items-center justify-between">
               <div className="relative w-full md:w-96">
-                <span className="material-symbols-outlined absolute left-3 top-2.5 text-[#94a3b8] text-[20px]">
+                <span className="material-symbols-outlined absolute left-3 top-2.5 text-[#BFA37A] text-[20px]">
                   search
                 </span>
                 <input
@@ -2617,7 +2532,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                   value={studentSearch}
                   onChange={(e) => setStudentSearch(e.target.value)}
                   placeholder="Search student name, reg no, mess ID, room..."
-                  className="w-full pl-10 pr-4 py-2 bg-[#f8fafc] border border-[#cbd5e1] rounded-xl text-sm font-medium focus:outline-none focus:border-[#2563eb]"
+                  className="w-full pl-10 pr-4 py-2 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-sm font-medium focus:outline-none focus:border-[#F47A35]"
                 />
               </div>
 
@@ -2625,7 +2540,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 <select
                   value={studentCampusFilter}
                   onChange={(e) => setStudentCampusFilter(e.target.value)}
-                  className="px-3 py-2 bg-[#f8fafc] border border-[#cbd5e1] rounded-xl text-xs font-semibold text-[#334155]"
+                  className="px-3 py-2 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-xs font-semibold text-[#5C3D1E]"
                 >
                   <option value="ALL">All Categories</option>
                   <option value="Inmate">Inmate</option>
@@ -2636,10 +2551,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             </div>
 
             {/* Master Student Data Table */}
-            <div className="bg-white rounded-2xl border border-[#e2e8f0] shadow-xs overflow-hidden">
+            <div className="bg-white rounded-2xl border border-[#EFDCB4] shadow-xs overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-[#f8fafc] text-[#475569] font-bold text-xs uppercase border-b border-[#e2e8f0]">
+                <table className="data-table text-left text-sm">
+                  <thead className="bg-[#FDF7EA] text-[#6B4A28] font-bold text-xs uppercase border-b border-[#EFDCB4]">
                     <tr>
                       <th className="py-3.5 px-4">Photo</th>
                       <th className="py-3.5 px-4">Mess ID</th>
@@ -2650,7 +2565,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                       <th className="py-3.5 px-4 text-center">Action</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#e2e8f0]">
+                  <tbody className="divide-y divide-[#EFDCB4]">
                     {masterStudents
                       .filter((row) => {
                         if (studentCampusFilter !== 'ALL' && row.category !== studentCampusFilter) return false;
@@ -2668,19 +2583,19 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                         <tr
                           key={row.id}
                           onClick={() => handleOpenMasterStudentModal(row)}
-                          className="hover:bg-[#f8fafc] transition-colors cursor-pointer"
+                          className="hover:bg-[#FDF7EA] transition-colors cursor-pointer"
                         >
                           <td className="py-3 px-4">
                             <img
                               src={row.photo}
                               alt={row.name}
-                              className="w-10 h-10 rounded-full object-cover border border-[#cbd5e1]"
+                              className="w-10 h-10 rounded-full object-cover border border-[#E3CB9B]"
                             />
                           </td>
-                          <td className="py-3 px-4 font-mono text-xs font-bold text-[#2563eb]">{row.messId}</td>
-                          <td className="py-3 px-4 font-bold text-[#0f172a]">
+                          <td className="py-3 px-4 font-mono text-xs font-bold text-[#F47A35]">{row.messId}</td>
+                          <td className="py-3 px-4 font-bold text-[#2D1A0E]">
                             {row.name}
-                            <span className="block text-[11px] font-normal text-[#64748b]">Reg: {row.regNo}</span>
+                            <span className="block text-[11px] font-normal text-[#9B7B52]">Reg: {row.regNo}</span>
                           </td>
                           <td className="py-3 px-4 text-xs font-bold">
                             {row.dietaryPref === 'Veg' ? (
@@ -2693,8 +2608,8 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                               </span>
                             )}
                           </td>
-                          <td className="py-3 px-4 text-xs font-semibold text-[#334155]">
-                            <span className="px-2.5 py-1 bg-[#f1f5f9] text-[#0f172a] rounded-lg border border-[#cbd5e1]">
+                          <td className="py-3 px-4 text-xs font-semibold text-[#5C3D1E]">
+                            <span className="px-2.5 py-1 bg-[#F7EEDA] text-[#2D1A0E] rounded-lg border border-[#E3CB9B]">
                               {row.category}
                             </span>
                           </td>
@@ -2721,7 +2636,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                                 e.stopPropagation();
                                 handleOpenMasterStudentModal(row);
                               }}
-                              className="px-3 py-1 bg-[#2563eb]/10 hover:bg-[#2563eb] text-[#2563eb] hover:text-white font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1 mx-auto"
+                              className="px-3 py-1 bg-[#F47A35]/10 hover:bg-[#F47A35] text-[#F47A35] hover:text-white font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1 mx-auto"
                             >
                               <span className="material-symbols-outlined text-[16px]">visibility</span>
                               View Details
@@ -2742,13 +2657,13 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
         {activeModuleTab === 'billing' && (
           <section className="space-y-6 animate-fade-in">
             {/* Header & Controls Toolbar */}
-            <div className="bg-white p-5 rounded-2xl border border-[#e2e8f0] shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="bg-white p-5 rounded-2xl border border-[#EFDCB4] shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div>
-                <h2 className="text-[22px] font-extrabold text-[#0f172a] flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[#2563eb]">receipt_long</span>
+                <h2 className="text-[22px] font-extrabold text-[#2D1A0E] flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[#F47A35]">receipt_long</span>
                   Monthly Mess Rate & Billing Calculation
                 </h2>
-                <p className="text-xs font-medium text-[#64748b] mt-0.5">
+                <p className="text-xs font-medium text-[#9B7B52] mt-0.5">
                   Select billing period to calculate actual mess expenditure, chargeable days, and daily rate. Click any line item to inspect month purchases & logs.
                 </p>
               </div>
@@ -2756,11 +2671,11 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
                 {/* Month Selector */}
                 <div>
-                  <label className="block text-[10px] font-extrabold uppercase text-[#64748b] mb-1">Billing Month</label>
+                  <label className="block text-[10px] font-extrabold uppercase text-[#9B7B52] mb-1">Billing Month</label>
                   <select
                     value={billingMonth}
                     onChange={(e) => setBillingMonth(e.target.value)}
-                    className="px-3.5 py-2 bg-[#f8fafc] border border-[#cbd5e1] rounded-xl text-xs font-bold text-[#0f172a] focus:outline-none focus:border-[#2563eb] cursor-pointer"
+                    className="px-3.5 py-2 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-xs font-bold text-[#2D1A0E] focus:outline-none focus:border-[#F47A35] cursor-pointer"
                   >
                     {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map(m => (
                       <option key={m} value={m}>{m}</option>
@@ -2770,11 +2685,11 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
                 {/* Year Selector */}
                 <div>
-                  <label className="block text-[10px] font-extrabold uppercase text-[#64748b] mb-1">Billing Year</label>
+                  <label className="block text-[10px] font-extrabold uppercase text-[#9B7B52] mb-1">Billing Year</label>
                   <select
                     value={billingYear}
                     onChange={(e) => setBillingYear(e.target.value)}
-                    className="px-3.5 py-2 bg-[#f8fafc] border border-[#cbd5e1] rounded-xl text-xs font-bold text-[#0f172a] focus:outline-none focus:border-[#2563eb] cursor-pointer"
+                    className="px-3.5 py-2 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-xs font-bold text-[#2D1A0E] focus:outline-none focus:border-[#F47A35] cursor-pointer"
                   >
                     {['2026', '2025', '2024'].map(y => (
                       <option key={y} value={y}>{y}</option>
@@ -2786,14 +2701,14 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 <div className="flex items-end gap-2">
                   <button
                     onClick={handleDownloadBillingPdf}
-                    className="px-3.5 py-2 bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                    className="px-3.5 py-2 bg-[#F47A35] hover:bg-[#D45E1A] text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
                   >
                     <span className="material-symbols-outlined text-[18px]">picture_as_pdf</span>
                     <span>Mess Rate Summary PDF</span>
                   </button>
                   <button
                     onClick={handleDownloadBreakdownPdf}
-                    className="px-3.5 py-2 bg-[#0f172a] hover:bg-[#1e293b] text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                    className="px-3.5 py-2 bg-[#2D1A0E] hover:bg-[#3E2718] text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
                   >
                     <span className="material-symbols-outlined text-[18px]">download</span>
                     <span>Download Breakdown PDF</span>
@@ -2803,26 +2718,26 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             </div>
 
             {/* Calculation of Daily Mess Rate Card */}
-            <div className="bg-white rounded-2xl border border-[#e2e8f0] shadow-xs overflow-hidden">
-              <div className="p-5 border-b border-[#e2e8f0] bg-[#f8fafc] flex justify-between items-center">
+            <div className="bg-white rounded-2xl border border-[#EFDCB4] shadow-xs overflow-hidden">
+              <div className="p-5 border-b border-[#EFDCB4] bg-[#FDF7EA] flex justify-between items-center">
                 <div>
-                  <h3 className="text-base font-extrabold text-[#0f172a] flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[#2563eb]">calculate</span>
+                  <h3 className="text-base font-extrabold text-[#2D1A0E] flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[#F47A35]">calculate</span>
                     Calculation of Daily Mess Rate
                   </h3>
-                  <p className="text-xs text-[#64748b] mt-0.5">
-                    Official breakdown for <span className="font-bold text-[#0f172a]">{billingMonth} {billingYear}</span>
+                  <p className="text-xs text-[#9B7B52] mt-0.5">
+                    Official breakdown for <span className="font-bold text-[#2D1A0E]">{billingMonth} {billingYear}</span>
                   </p>
                 </div>
-                <span className="px-3 py-1 bg-[#2563eb]/10 text-[#2563eb] text-xs font-bold rounded-full border border-[#2563eb]/20">
+                <span className="px-3 py-1 bg-[#F47A35]/10 text-[#F47A35] text-xs font-bold rounded-full border border-[#F47A35]/20">
                   {billingMonth} {billingYear} Cycle
                 </span>
               </div>
 
               <div className="p-5 space-y-4">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                    <thead className="bg-[#f8fafc] text-[#475569] font-bold text-xs uppercase border-b border-[#e2e8f0]">
+                  <table className="data-table text-left text-sm">
+                    <thead className="bg-[#FDF7EA] text-[#6B4A28] font-bold text-xs uppercase border-b border-[#EFDCB4]">
                       <tr>
                         <th className="py-3 px-4">Line Item / Expense Head</th>
                         <th className="py-3 px-4 text-center">Source Details</th>
@@ -2830,21 +2745,21 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                         <th className="py-3 px-4 text-center">Action</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#e2e8f0]">
+                    <tbody className="divide-y divide-[#EFDCB4]">
                       
                       {/* 1. Opening Stock */}
                       <tr
                         onClick={() => setBillingModal({ isOpen: true, title: `Opening Stock Valuation (${billingMonth} ${billingYear})`, type: 'STOCK' })}
-                        className="hover:bg-[#f8fafc] transition-colors cursor-pointer group"
+                        className="hover:bg-[#FDF7EA] transition-colors cursor-pointer group"
                       >
-                        <td className="py-3.5 px-4 font-bold text-[#0f172a] flex items-center gap-2">
-                          <span className="w-6 h-6 rounded-full bg-[#f1f5f9] text-[#2563eb] text-xs font-black flex items-center justify-center">1</span>
+                        <td className="py-3.5 px-4 font-bold text-[#2D1A0E] flex items-center gap-2">
+                          <span className="w-6 h-6 rounded-full bg-[#F7EEDA] text-[#F47A35] text-xs font-black flex items-center justify-center">1</span>
                           <span>Opening Stock</span>
                         </td>
-                        <td className="py-3.5 px-4 text-center text-xs text-[#64748b]">Beginning stock inventory value</td>
-                        <td className="py-3.5 px-4 text-right font-mono font-bold text-[#0f172a]">₹{billingOpeningStock.toLocaleString()}</td>
+                        <td className="py-3.5 px-4 text-center text-xs text-[#9B7B52]">Beginning stock inventory value</td>
+                        <td className="py-3.5 px-4 text-right font-mono font-bold text-[#2D1A0E]">₹{billingOpeningStock.toLocaleString()}</td>
                         <td className="py-3.5 px-4 text-center">
-                          <span className="text-xs font-bold text-[#2563eb] group-hover:underline flex items-center justify-center gap-1">
+                          <span className="text-xs font-bold text-[#F47A35] group-hover:underline flex items-center justify-center gap-1">
                             <span>Inspect</span>
                             <span className="material-symbols-outlined text-[14px]">chevron_right</span>
                           </span>
@@ -2854,16 +2769,16 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                       {/* 2. Food Purchase */}
                       <tr
                         onClick={() => setBillingModal({ isOpen: true, title: `Food Purchases Log (${billingMonth} ${billingYear})`, type: 'FOOD' })}
-                        className="hover:bg-[#f8fafc] transition-colors cursor-pointer group"
+                        className="hover:bg-[#FDF7EA] transition-colors cursor-pointer group"
                       >
-                        <td className="py-3.5 px-4 font-bold text-[#0f172a] flex items-center gap-2">
-                          <span className="w-6 h-6 rounded-full bg-[#f1f5f9] text-[#2563eb] text-xs font-black flex items-center justify-center">2</span>
+                        <td className="py-3.5 px-4 font-bold text-[#2D1A0E] flex items-center gap-2">
+                          <span className="w-6 h-6 rounded-full bg-[#F7EEDA] text-[#F47A35] text-xs font-black flex items-center justify-center">2</span>
                           <span>Food Purchase</span>
                         </td>
-                        <td className="py-3.5 px-4 text-center text-xs text-[#64748b]">{monthFoodPurchases.length} food purchase entries logged</td>
-                        <td className="py-3.5 px-4 text-right font-mono font-bold text-[#0f172a]">₹{totalFoodPurchasesAmount.toLocaleString()}</td>
+                        <td className="py-3.5 px-4 text-center text-xs text-[#9B7B52]">{monthFoodPurchases.length} food purchase entries logged</td>
+                        <td className="py-3.5 px-4 text-right font-mono font-bold text-[#2D1A0E]">₹{totalFoodPurchasesAmount.toLocaleString()}</td>
                         <td className="py-3.5 px-4 text-center">
-                          <span className="text-xs font-bold text-[#2563eb] group-hover:underline flex items-center justify-center gap-1">
+                          <span className="text-xs font-bold text-[#F47A35] group-hover:underline flex items-center justify-center gap-1">
                             <span>View All Purchases</span>
                             <span className="material-symbols-outlined text-[14px]">chevron_right</span>
                           </span>
@@ -2873,16 +2788,16 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                       {/* 3. Gas/Fuel Operational */}
                       <tr
                         onClick={() => setBillingModal({ isOpen: true, title: `Gas/Fuel Operational Expenses (${billingMonth} ${billingYear})`, type: 'GAS' })}
-                        className="hover:bg-[#f8fafc] transition-colors cursor-pointer group"
+                        className="hover:bg-[#FDF7EA] transition-colors cursor-pointer group"
                       >
-                        <td className="py-3.5 px-4 font-bold text-[#0f172a] flex items-center gap-2">
-                          <span className="w-6 h-6 rounded-full bg-[#f1f5f9] text-[#2563eb] text-xs font-black flex items-center justify-center">3</span>
+                        <td className="py-3.5 px-4 font-bold text-[#2D1A0E] flex items-center gap-2">
+                          <span className="w-6 h-6 rounded-full bg-[#F7EEDA] text-[#F47A35] text-xs font-black flex items-center justify-center">3</span>
                           <span>Gas / Fuel Operational</span>
                         </td>
-                        <td className="py-3.5 px-4 text-center text-xs text-[#64748b]">LPG Cylinders & kitchen fuel expenses</td>
-                        <td className="py-3.5 px-4 text-right font-mono font-bold text-[#0f172a]">₹{totalGasExpensesAmount.toLocaleString()}</td>
+                        <td className="py-3.5 px-4 text-center text-xs text-[#9B7B52]">LPG Cylinders & kitchen fuel expenses</td>
+                        <td className="py-3.5 px-4 text-right font-mono font-bold text-[#2D1A0E]">₹{totalGasExpensesAmount.toLocaleString()}</td>
                         <td className="py-3.5 px-4 text-center">
-                          <span className="text-xs font-bold text-[#2563eb] group-hover:underline flex items-center justify-center gap-1">
+                          <span className="text-xs font-bold text-[#F47A35] group-hover:underline flex items-center justify-center gap-1">
                             <span>View Gas Expenses</span>
                             <span className="material-symbols-outlined text-[14px]">chevron_right</span>
                           </span>
@@ -2892,16 +2807,16 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                       {/* 4. Administration */}
                       <tr
                         onClick={() => setBillingModal({ isOpen: true, title: `Administrative Expenses Breakdown (${billingMonth} ${billingYear})`, type: 'ADMIN' })}
-                        className="hover:bg-[#f8fafc] transition-colors cursor-pointer group"
+                        className="hover:bg-[#FDF7EA] transition-colors cursor-pointer group"
                       >
-                        <td className="py-3.5 px-4 font-bold text-[#0f172a] flex items-center gap-2">
-                          <span className="w-6 h-6 rounded-full bg-[#f1f5f9] text-[#2563eb] text-xs font-black flex items-center justify-center">4</span>
+                        <td className="py-3.5 px-4 font-bold text-[#2D1A0E] flex items-center gap-2">
+                          <span className="w-6 h-6 rounded-full bg-[#F7EEDA] text-[#F47A35] text-xs font-black flex items-center justify-center">4</span>
                           <span>Administration</span>
                         </td>
-                        <td className="py-3.5 px-4 text-center text-xs text-[#64748b]">Workers Salary, Allowance, Stationary & Misc</td>
-                        <td className="py-3.5 px-4 text-right font-mono font-bold text-[#0f172a]">₹{totalAdminExpenseAmount.toLocaleString()}</td>
+                        <td className="py-3.5 px-4 text-center text-xs text-[#9B7B52]">Workers Salary, Allowance, Stationary & Misc</td>
+                        <td className="py-3.5 px-4 text-right font-mono font-bold text-[#2D1A0E]">₹{totalAdminExpenseAmount.toLocaleString()}</td>
                         <td className="py-3.5 px-4 text-center">
-                          <span className="text-xs font-bold text-[#2563eb] group-hover:underline flex items-center justify-center gap-1">
+                          <span className="text-xs font-bold text-[#F47A35] group-hover:underline flex items-center justify-center gap-1">
                             <span>View Breakdown</span>
                             <span className="material-symbols-outlined text-[14px]">chevron_right</span>
                           </span>
@@ -2911,16 +2826,16 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                       {/* 5. Closing Stock */}
                       <tr
                         onClick={() => setBillingModal({ isOpen: true, title: `Closing Stock Valuation (${billingMonth} ${billingYear})`, type: 'STOCK' })}
-                        className="hover:bg-[#f8fafc] transition-colors cursor-pointer group"
+                        className="hover:bg-[#FDF7EA] transition-colors cursor-pointer group"
                       >
-                        <td className="py-3.5 px-4 font-bold text-[#0f172a] flex items-center gap-2">
-                          <span className="w-6 h-6 rounded-full bg-[#f1f5f9] text-[#dc2626] text-xs font-black flex items-center justify-center">5</span>
+                        <td className="py-3.5 px-4 font-bold text-[#2D1A0E] flex items-center gap-2">
+                          <span className="w-6 h-6 rounded-full bg-[#F7EEDA] text-[#dc2626] text-xs font-black flex items-center justify-center">5</span>
                           <span>Closing Stock</span>
                         </td>
-                        <td className="py-3.5 px-4 text-center text-xs text-[#64748b]">End-of-month remaining inventory stock</td>
+                        <td className="py-3.5 px-4 text-center text-xs text-[#9B7B52]">End-of-month remaining inventory stock</td>
                         <td className="py-3.5 px-4 text-right font-mono font-bold text-[#dc2626]">- ₹{billingClosingStock.toLocaleString()}</td>
                         <td className="py-3.5 px-4 text-center">
-                          <span className="text-xs font-bold text-[#2563eb] group-hover:underline flex items-center justify-center gap-1">
+                          <span className="text-xs font-bold text-[#F47A35] group-hover:underline flex items-center justify-center gap-1">
                             <span>Inspect</span>
                             <span className="material-symbols-outlined text-[14px]">chevron_right</span>
                           </span>
@@ -2928,20 +2843,20 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                       </tr>
 
                       {/* Actual Expenditure Row */}
-                      <tr className="bg-[#f8fafc] font-extrabold border-t-2 border-[#cbd5e1]">
-                        <td colSpan={2} className="py-4 px-4 text-[#0f172a]">
-                          Actual Expenditure <span className="text-xs font-normal text-[#64748b]">(1 + 2 + 3 + 4 - 5)</span>
+                      <tr className="bg-[#FDF7EA] font-extrabold border-t-2 border-[#E3CB9B]">
+                        <td colSpan={2} className="py-4 px-4 text-[#2D1A0E]">
+                          Actual Expenditure <span className="text-xs font-normal text-[#9B7B52]">(1 + 2 + 3 + 4 - 5)</span>
                         </td>
-                        <td className="py-4 px-4 text-right font-mono text-base text-[#2563eb]">₹{actualCost.toLocaleString()}</td>
+                        <td className="py-4 px-4 text-right font-mono text-base text-[#F47A35]">₹{actualCost.toLocaleString()}</td>
                         <td></td>
                       </tr>
 
                       {/* Chargeable Days Row */}
                       <tr className="bg-white font-bold">
-                        <td colSpan={2} className="py-4 px-4 text-[#0f172a]">
-                          Chargeable Days <span className="text-xs font-normal text-[#64748b]">(Sum of all students' opted-in days overall)</span>
+                        <td colSpan={2} className="py-4 px-4 text-[#2D1A0E]">
+                          Chargeable Days <span className="text-xs font-normal text-[#9B7B52]">(Sum of all students' opted-in days overall)</span>
                         </td>
-                        <td className="py-4 px-4 text-right font-mono text-sm text-[#0f172a]">{billingChargeableDays.toLocaleString()} Days</td>
+                        <td className="py-4 px-4 text-right font-mono text-sm text-[#2D1A0E]">{billingChargeableDays.toLocaleString()} Days</td>
                         <td></td>
                       </tr>
 
@@ -2950,7 +2865,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 </div>
 
                 {/* Highlighted Blue Box for Mess Daily Rate */}
-                <div className="bg-[#2563eb] text-white p-6 rounded-2xl shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="bg-[#F47A35] text-white p-6 rounded-2xl shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4">
                   <div className="space-y-1 text-center sm:text-left">
                     <span className="text-xs font-bold uppercase tracking-wider bg-white/20 px-3 py-1 rounded-full text-white inline-block">
                       Final Calculation Result
@@ -2973,22 +2888,22 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             {/* ------------------------------------------------------------- */}
             {/* BREAKDOWN EXPENSES STATEMENT                                  */}
             {/* ------------------------------------------------------------- */}
-            <div className="bg-white rounded-2xl border border-[#e2e8f0] shadow-xs p-6 space-y-6">
+            <div className="bg-white rounded-2xl border border-[#EFDCB4] shadow-xs p-6 space-y-6">
               
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-[#e2e8f0] pb-4">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border-b border-[#EFDCB4] pb-4">
                 <div>
-                  <h3 className="text-lg font-extrabold text-[#0f172a] flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[#2563eb]">receipt_long</span>
+                  <h3 className="text-lg font-extrabold text-[#2D1A0E] flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[#F47A35]">receipt_long</span>
                     Breakdown Expenses Statement - {billingMonth} {billingYear}
                   </h3>
-                  <p className="text-xs text-[#64748b] mt-0.5">
+                  <p className="text-xs text-[#9B7B52] mt-0.5">
                     Itemized breakdown statements of food purchases, stock valuations, operational & administrative expenses
                   </p>
                 </div>
 
                 <button
                   onClick={handleDownloadBreakdownPdf}
-                  className="px-4 py-2 bg-[#0f172a] hover:bg-[#1e293b] text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                  className="px-4 py-2 bg-[#2D1A0E] hover:bg-[#3E2718] text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
                 >
                   <span className="material-symbols-outlined text-[16px]">picture_as_pdf</span>
                   <span>Download Breakdown PDF</span>
@@ -2997,13 +2912,13 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
               {/* 1. Food & Grocery Purchase */}
               <div className="space-y-3">
-                <h4 className="font-extrabold text-sm text-[#0f172a] flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-[#2563eb]/10 text-[#2563eb] text-xs flex items-center justify-center font-bold">1</span>
+                <h4 className="font-extrabold text-sm text-[#2D1A0E] flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-[#F47A35]/10 text-[#F47A35] text-xs flex items-center justify-center font-bold">1</span>
                   Food & Grocery Purchase
                 </h4>
-                <div className="overflow-x-auto border border-[#e2e8f0] rounded-xl">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-[#f8fafc] text-[#475569] font-bold uppercase border-b border-[#e2e8f0]">
+                <div className="overflow-x-auto border border-[#EFDCB4] rounded-xl">
+                  <table className="data-table text-left text-xs">
+                    <thead className="bg-[#FDF7EA] text-[#6B4A28] font-bold uppercase border-b border-[#EFDCB4]">
                       <tr>
                         <th className="py-2.5 px-3">Sl No</th>
                         <th className="py-2.5 px-3">Date</th>
@@ -3012,19 +2927,19 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                         <th className="py-2.5 px-3 text-right">Amount (₹)</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#e2e8f0]">
+                    <tbody className="divide-y divide-[#EFDCB4]">
                       {monthFoodPurchases.map((fp, idx) => (
-                        <tr key={fp.id} className="hover:bg-[#f8fafc]">
-                          <td className="py-2.5 px-3 text-[#64748b]">{idx + 1}</td>
-                          <td className="py-2.5 px-3 font-mono text-[#334155]">{fp.date}</td>
-                          <td className="py-2.5 px-3 font-bold text-[#0f172a]">{fp.item}</td>
-                          <td className="py-2.5 px-3 font-mono text-[#475569]">{fp.qty}</td>
-                          <td className="py-2.5 px-3 text-right font-mono font-bold text-[#0f172a]">₹{fp.amount.toLocaleString()}</td>
+                        <tr key={fp.id} className="hover:bg-[#FDF7EA]">
+                          <td className="py-2.5 px-3 text-[#9B7B52]">{idx + 1}</td>
+                          <td className="py-2.5 px-3 font-mono text-[#5C3D1E]">{fp.date}</td>
+                          <td className="py-2.5 px-3 font-bold text-[#2D1A0E]">{fp.item}</td>
+                          <td className="py-2.5 px-3 font-mono text-[#6B4A28]">{fp.qty}</td>
+                          <td className="py-2.5 px-3 text-right font-mono font-bold text-[#2D1A0E]">₹{fp.amount.toLocaleString()}</td>
                         </tr>
                       ))}
-                      <tr className="bg-[#f8fafc] font-bold border-t border-[#cbd5e1]">
-                        <td colSpan={4} className="py-3 px-3 text-[#0f172a]">Total Food & Grocery Purchase</td>
-                        <td className="py-3 px-3 text-right font-mono text-sm text-[#2563eb]">₹{totalFoodPurchasesAmount.toLocaleString()}</td>
+                      <tr className="bg-[#FDF7EA] font-bold border-t border-[#E3CB9B]">
+                        <td colSpan={4} className="py-3 px-3 text-[#2D1A0E]">Total Food & Grocery Purchase</td>
+                        <td className="py-3 px-3 text-right font-mono text-sm text-[#F47A35]">₹{totalFoodPurchasesAmount.toLocaleString()}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -3034,17 +2949,17 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               {/* 2. Opening Stock */}
               <div className="space-y-3">
                 <div className="flex justify-between items-center">
-                  <h4 className="font-extrabold text-sm text-[#0f172a] flex items-center gap-2">
-                    <span className="w-5 h-5 rounded-full bg-[#2563eb]/10 text-[#2563eb] text-xs flex items-center justify-center font-bold">2</span>
+                  <h4 className="font-extrabold text-sm text-[#2D1A0E] flex items-center gap-2">
+                    <span className="w-5 h-5 rounded-full bg-[#F47A35]/10 text-[#F47A35] text-xs flex items-center justify-center font-bold">2</span>
                     Opening Stock
                   </h4>
                   <span className="text-[11px] font-semibold text-[#16a34a] bg-[#16a34a]/10 px-2.5 py-0.5 rounded-full border border-[#16a34a]/30">
                     ⚡ Directly taken by app from previous month closing
                   </span>
                 </div>
-                <div className="overflow-x-auto border border-[#e2e8f0] rounded-xl">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-[#f8fafc] text-[#475569] font-bold uppercase border-b border-[#e2e8f0]">
+                <div className="overflow-x-auto border border-[#EFDCB4] rounded-xl">
+                  <table className="data-table text-left text-xs">
+                    <thead className="bg-[#FDF7EA] text-[#6B4A28] font-bold uppercase border-b border-[#EFDCB4]">
                       <tr>
                         <th className="py-2.5 px-3">Sl No</th>
                         <th className="py-2.5 px-3">Item Name</th>
@@ -3053,19 +2968,19 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                         <th className="py-2.5 px-3 text-right">Value (₹)</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#e2e8f0]">
+                    <tbody className="divide-y divide-[#EFDCB4]">
                       {openingStockItems.map((op, idx) => (
-                        <tr key={op.id} className="hover:bg-[#f8fafc]">
-                          <td className="py-2.5 px-3 text-[#64748b]">{idx + 1}</td>
-                          <td className="py-2.5 px-3 font-bold text-[#0f172a]">{op.itemName}</td>
-                          <td className="py-2.5 px-3 font-mono text-[#475569]">{op.qty}</td>
-                          <td className="py-2.5 px-3 text-right font-mono text-[#475569]">₹{op.wacPrice}</td>
-                          <td className="py-2.5 px-3 text-right font-mono font-bold text-[#0f172a]">₹{(op.qty * op.wacPrice).toLocaleString()}</td>
+                        <tr key={op.id} className="hover:bg-[#FDF7EA]">
+                          <td className="py-2.5 px-3 text-[#9B7B52]">{idx + 1}</td>
+                          <td className="py-2.5 px-3 font-bold text-[#2D1A0E]">{op.itemName}</td>
+                          <td className="py-2.5 px-3 font-mono text-[#6B4A28]">{op.qty}</td>
+                          <td className="py-2.5 px-3 text-right font-mono text-[#6B4A28]">₹{op.wacPrice}</td>
+                          <td className="py-2.5 px-3 text-right font-mono font-bold text-[#2D1A0E]">₹{(op.qty * op.wacPrice).toLocaleString()}</td>
                         </tr>
                       ))}
-                      <tr className="bg-[#f8fafc] font-bold border-t border-[#cbd5e1]">
-                        <td colSpan={4} className="py-3 px-3 text-[#0f172a]">Total Opening Stock</td>
-                        <td className="py-3 px-3 text-right font-mono text-sm text-[#2563eb]">₹{billingOpeningStock.toLocaleString()}</td>
+                      <tr className="bg-[#FDF7EA] font-bold border-t border-[#E3CB9B]">
+                        <td colSpan={4} className="py-3 px-3 text-[#2D1A0E]">Total Opening Stock</td>
+                        <td className="py-3 px-3 text-right font-mono text-sm text-[#F47A35]">₹{billingOpeningStock.toLocaleString()}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -3075,11 +2990,11 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               {/* 3. Closing Stock */}
               <div className="space-y-3">
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1">
-                  <h4 className="font-extrabold text-sm text-[#0f172a] flex items-center gap-2">
+                  <h4 className="font-extrabold text-sm text-[#2D1A0E] flex items-center gap-2">
                     <span className="w-5 h-5 rounded-full bg-[#dc2626]/10 text-[#dc2626] text-xs flex items-center justify-center font-bold">3</span>
                     Closing Stock
                   </h4>
-                  <span className="text-[11px] font-semibold text-[#64748b]">
+                  <span className="text-[11px] font-semibold text-[#9B7B52]">
                     (Added by admin after physical stock count at month end)
                   </span>
                 </div>
@@ -3105,7 +3020,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                   };
 
                   return (
-                    <form onSubmit={handleAddClosingStockItem} className="bg-[#f8fafc] p-3 rounded-xl border border-[#cbd5e1] grid grid-cols-1 md:grid-cols-4 gap-2 relative">
+                    <form onSubmit={handleAddClosingStockItem} className="bg-[#FDF7EA] p-3 rounded-xl border border-[#E3CB9B] grid grid-cols-1 md:grid-cols-4 gap-2 relative">
                       
                       {/* Item Name Input with Floating Suggestions Dropdown */}
                       <div className="relative">
@@ -3118,13 +3033,13 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                           }}
                           onFocus={() => setShowClosingSuggestions(true)}
                           placeholder="Item Name (e.g. Rice, Beef...)"
-                          className="w-full p-2 bg-white border border-[#cbd5e1] rounded-lg text-xs font-bold text-[#0f172a] focus:outline-none focus:border-[#2563eb]"
+                          className="w-full p-2 bg-white border border-[#E3CB9B] rounded-lg text-xs font-bold text-[#2D1A0E] focus:outline-none focus:border-[#F47A35]"
                         />
 
                         {/* Floating Dropdown Suggestion Menu */}
                         {showClosingSuggestions && closingSuggestions.length > 0 && (
-                          <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border-2 border-[#2563eb] rounded-xl shadow-2xl z-50 overflow-hidden divide-y divide-[#e2e8f0] animate-fade-in">
-                            <div className="bg-[#2563eb] px-3 py-1.5 text-white text-[10px] font-black uppercase tracking-wider flex justify-between items-center">
+                          <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border-2 border-[#F47A35] rounded-xl shadow-2xl z-50 overflow-hidden divide-y divide-[#EFDCB4] animate-fade-in">
+                            <div className="bg-[#F47A35] px-3 py-1.5 text-white text-[10px] font-black uppercase tracking-wider flex justify-between items-center">
                               <span>Select Stock Item Suggestion</span>
                               <span>{closingSuggestions.length} Matches</span>
                             </div>
@@ -3139,18 +3054,18 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                                       setNewClosingWac(wacPrice.toString());
                                       setShowClosingSuggestions(false);
                                     }}
-                                    className="px-3 py-2 hover:bg-[#2563eb]/10 cursor-pointer transition-colors flex items-center justify-between group"
+                                    className="px-3 py-2 hover:bg-[#F47A35]/10 cursor-pointer transition-colors flex items-center justify-between group"
                                   >
                                     <div className="flex items-center gap-2">
-                                      <span className="material-symbols-outlined text-[16px] text-[#2563eb] group-hover:scale-110 transition-transform">
+                                      <span className="material-symbols-outlined text-[16px] text-[#F47A35] group-hover:scale-110 transition-transform">
                                         inventory_2
                                       </span>
-                                      <span className="font-extrabold text-xs text-[#0f172a] group-hover:text-[#2563eb]">
+                                      <span className="font-extrabold text-xs text-[#2D1A0E] group-hover:text-[#F47A35]">
                                         {item.name}
                                       </span>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                      <span className="text-[10px] font-mono font-semibold text-[#64748b] bg-[#f1f5f9] px-1.5 py-0.5 rounded">
+                                      <span className="text-[10px] font-mono font-semibold text-[#9B7B52] bg-[#F7EEDA] px-1.5 py-0.5 rounded">
                                         {item.unit}
                                       </span>
                                       <span className="text-[11px] font-mono font-black text-[#16a34a]">
@@ -3170,18 +3085,18 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                         value={newClosingQty}
                         onChange={(e) => setNewClosingQty(e.target.value)}
                         placeholder="Physical Qty"
-                        className="p-2 bg-white border border-[#cbd5e1] rounded-lg text-xs font-bold text-[#0f172a] focus:outline-none focus:border-[#2563eb]"
+                        className="p-2 bg-white border border-[#E3CB9B] rounded-lg text-xs font-bold text-[#2D1A0E] focus:outline-none focus:border-[#F47A35]"
                       />
                       <input
                         type="number"
                         value={newClosingWac}
                         onChange={(e) => setNewClosingWac(e.target.value)}
                         placeholder="WAC Price (₹)"
-                        className="p-2 bg-white border border-[#cbd5e1] rounded-lg text-xs font-bold text-[#0f172a] focus:outline-none focus:border-[#2563eb]"
+                        className="p-2 bg-white border border-[#E3CB9B] rounded-lg text-xs font-bold text-[#2D1A0E] focus:outline-none focus:border-[#F47A35]"
                       />
                       <button
                         type="submit"
-                        className="py-2 bg-[#2563eb] text-white font-bold text-xs rounded-lg hover:bg-[#1d4ed8] cursor-pointer flex items-center justify-center gap-1 shadow-xs"
+                        className="py-2 bg-[#F47A35] text-white font-bold text-xs rounded-lg hover:bg-[#D45E1A] cursor-pointer flex items-center justify-center gap-1 shadow-xs"
                       >
                         <span className="material-symbols-outlined text-[16px]">add</span>
                         Add Closing Item
@@ -3190,9 +3105,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                   );
                 })()}
 
-                <div className="overflow-x-auto border border-[#e2e8f0] rounded-xl">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-[#f8fafc] text-[#475569] font-bold uppercase border-b border-[#e2e8f0]">
+                <div className="overflow-x-auto border border-[#EFDCB4] rounded-xl">
+                  <table className="data-table text-left text-xs">
+                    <thead className="bg-[#FDF7EA] text-[#6B4A28] font-bold uppercase border-b border-[#EFDCB4]">
                       <tr>
                         <th className="py-2.5 px-3">Sl No</th>
                         <th className="py-2.5 px-3">Item Name</th>
@@ -3202,13 +3117,13 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                         <th className="py-2.5 px-3 text-center">Action</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#e2e8f0]">
+                    <tbody className="divide-y divide-[#EFDCB4]">
                       {closingStockItems.map((cl, idx) => (
-                        <tr key={cl.id} className="hover:bg-[#f8fafc]">
-                          <td className="py-2.5 px-3 text-[#64748b]">{idx + 1}</td>
-                          <td className="py-2.5 px-3 font-bold text-[#0f172a]">{cl.itemName}</td>
-                          <td className="py-2.5 px-3 font-mono text-[#475569]">{cl.qty}</td>
-                          <td className="py-2.5 px-3 text-right font-mono text-[#475569]">₹{cl.wacPrice}</td>
+                        <tr key={cl.id} className="hover:bg-[#FDF7EA]">
+                          <td className="py-2.5 px-3 text-[#9B7B52]">{idx + 1}</td>
+                          <td className="py-2.5 px-3 font-bold text-[#2D1A0E]">{cl.itemName}</td>
+                          <td className="py-2.5 px-3 font-mono text-[#6B4A28]">{cl.qty}</td>
+                          <td className="py-2.5 px-3 text-right font-mono text-[#6B4A28]">₹{cl.wacPrice}</td>
                           <td className="py-2.5 px-3 text-right font-mono font-bold text-[#dc2626]">₹{(cl.qty * cl.wacPrice).toLocaleString()}</td>
                           <td className="py-2.5 px-3 text-center">
                             <button
@@ -3221,8 +3136,8 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                           </td>
                         </tr>
                       ))}
-                      <tr className="bg-[#f8fafc] font-bold border-t border-[#cbd5e1]">
-                        <td colSpan={4} className="py-3 px-3 text-[#0f172a]">Total Closing Stock</td>
+                      <tr className="bg-[#FDF7EA] font-bold border-t border-[#E3CB9B]">
+                        <td colSpan={4} className="py-3 px-3 text-[#2D1A0E]">Total Closing Stock</td>
                         <td className="py-3 px-3 text-right font-mono text-sm text-[#dc2626]">₹{billingClosingStock.toLocaleString()}</td>
                         <td></td>
                       </tr>
@@ -3233,39 +3148,39 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
               {/* 4. Actual Food Cost Calculation */}
               <div className="space-y-3">
-                <h4 className="font-extrabold text-sm text-[#0f172a] flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-[#2563eb]/10 text-[#2563eb] text-xs flex items-center justify-center font-bold">4</span>
+                <h4 className="font-extrabold text-sm text-[#2D1A0E] flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-[#F47A35]/10 text-[#F47A35] text-xs flex items-center justify-center font-bold">4</span>
                   Actual Food Cost Calculation
                 </h4>
-                <div className="bg-[#f8fafc] p-4 rounded-xl border border-[#cbd5e1] space-y-2 text-xs">
+                <div className="bg-[#FDF7EA] p-4 rounded-xl border border-[#E3CB9B] space-y-2 text-xs">
                   <div className="flex justify-between items-center">
-                    <span className="text-[#475569]">1. Total Food Purchase Amount:</span>
-                    <span className="font-mono font-bold text-[#0f172a]">₹{totalFoodPurchasesAmount.toLocaleString()}</span>
+                    <span className="text-[#6B4A28]">1. Total Food Purchase Amount:</span>
+                    <span className="font-mono font-bold text-[#2D1A0E]">₹{totalFoodPurchasesAmount.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-[#475569]">2. Add Opening Stock Amount:</span>
+                    <span className="text-[#6B4A28]">2. Add Opening Stock Amount:</span>
                     <span className="font-mono font-bold text-[#16a34a]">+ ₹{billingOpeningStock.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between items-center">
-                    <span className="text-[#475569]">3. Less Closing Stock Amount:</span>
+                    <span className="text-[#6B4A28]">3. Less Closing Stock Amount:</span>
                     <span className="font-mono font-bold text-[#dc2626]">- ₹{billingClosingStock.toLocaleString()}</span>
                   </div>
-                  <div className="pt-2 border-t border-[#cbd5e1] flex justify-between items-center font-extrabold text-sm">
-                    <span className="text-[#0f172a]">Actual Food Cost of Month (1 + 2 - 3):</span>
-                    <span className="font-mono text-[#2563eb]">₹{actualFoodCost.toLocaleString()}</span>
+                  <div className="pt-2 border-t border-[#E3CB9B] flex justify-between items-center font-extrabold text-sm">
+                    <span className="text-[#2D1A0E]">Actual Food Cost of Month (1 + 2 - 3):</span>
+                    <span className="font-mono text-[#F47A35]">₹{actualFoodCost.toLocaleString()}</span>
                   </div>
                 </div>
               </div>
 
               {/* 5. Operational Expenses */}
               <div className="space-y-3">
-                <h4 className="font-extrabold text-sm text-[#0f172a] flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-[#2563eb]/10 text-[#2563eb] text-xs flex items-center justify-center font-bold">5</span>
+                <h4 className="font-extrabold text-sm text-[#2D1A0E] flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-[#F47A35]/10 text-[#F47A35] text-xs flex items-center justify-center font-bold">5</span>
                   Operational Expenses
                 </h4>
-                <div className="overflow-x-auto border border-[#e2e8f0] rounded-xl">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-[#f8fafc] text-[#475569] font-bold uppercase border-b border-[#e2e8f0]">
+                <div className="overflow-x-auto border border-[#EFDCB4] rounded-xl">
+                  <table className="data-table text-left text-xs">
+                    <thead className="bg-[#FDF7EA] text-[#6B4A28] font-bold uppercase border-b border-[#EFDCB4]">
                       <tr>
                         <th className="py-2.5 px-3">Sl No</th>
                         <th className="py-2.5 px-3">Date</th>
@@ -3273,11 +3188,11 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                         <th className="py-2.5 px-3 text-right">Amount (₹)</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#e2e8f0]">
+                    <tbody className="divide-y divide-[#EFDCB4]">
                       {monthOperationalExpenses.map((op, idx) => (
-                        <tr key={op.id} className="hover:bg-[#f8fafc]">
-                          <td className="py-2.5 px-3 text-[#64748b]">{idx + 1}</td>
-                          <td className="py-2.5 px-3 font-mono text-[#334155]">{op.date}</td>
+                        <tr key={op.id} className="hover:bg-[#FDF7EA]">
+                          <td className="py-2.5 px-3 text-[#9B7B52]">{idx + 1}</td>
+                          <td className="py-2.5 px-3 font-mono text-[#5C3D1E]">{op.date}</td>
                           <td className="py-2.5 px-3">
                             <select
                               value={op.category}
@@ -3285,7 +3200,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                                 const newCat = e.target.value as any;
                                 setOpExpenses(opExpenses.map(o => o.id === op.id ? { ...o, category: newCat } : o));
                               }}
-                              className="bg-white border border-[#cbd5e1] rounded-lg px-2 py-1 text-xs font-bold text-[#0f172a] cursor-pointer"
+                              className="bg-white border border-[#E3CB9B] rounded-lg px-2 py-1 text-xs font-bold text-[#2D1A0E] cursor-pointer"
                             >
                               <option value="Gas/Fuel">Gas/Fuel</option>
                               <option value="Maintenance">Maintenance</option>
@@ -3293,14 +3208,14 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                               <option value="Miscellaneous">Miscellaneous</option>
                               <option value="Other">Other</option>
                             </select>
-                            <span className="ml-2 text-xs text-[#64748b]">({op.title})</span>
+                            <span className="ml-2 text-xs text-[#9B7B52]">({op.title})</span>
                           </td>
-                          <td className="py-2.5 px-3 text-right font-mono font-bold text-[#0f172a]">₹{op.amount.toLocaleString()}</td>
+                          <td className="py-2.5 px-3 text-right font-mono font-bold text-[#2D1A0E]">₹{op.amount.toLocaleString()}</td>
                         </tr>
                       ))}
-                      <tr className="bg-[#f8fafc] font-bold border-t border-[#cbd5e1]">
-                        <td colSpan={3} className="py-3 px-3 text-[#0f172a]">Total Operational Expenses</td>
-                        <td className="py-3 px-3 text-right font-mono text-sm text-[#2563eb]">₹{totalOperationalExpensesAmount.toLocaleString()}</td>
+                      <tr className="bg-[#FDF7EA] font-bold border-t border-[#E3CB9B]">
+                        <td colSpan={3} className="py-3 px-3 text-[#2D1A0E]">Total Operational Expenses</td>
+                        <td className="py-3 px-3 text-right font-mono text-sm text-[#F47A35]">₹{totalOperationalExpensesAmount.toLocaleString()}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -3309,43 +3224,43 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
               {/* 6. Administrational Expenses */}
               <div className="space-y-3">
-                <h4 className="font-extrabold text-sm text-[#0f172a] flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-[#2563eb]/10 text-[#2563eb] text-xs flex items-center justify-center font-bold">6</span>
+                <h4 className="font-extrabold text-sm text-[#2D1A0E] flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-[#F47A35]/10 text-[#F47A35] text-xs flex items-center justify-center font-bold">6</span>
                   Administrational Expenses
                 </h4>
-                <div className="overflow-x-auto border border-[#e2e8f0] rounded-xl">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-[#f8fafc] text-[#475569] font-bold uppercase border-b border-[#e2e8f0]">
+                <div className="overflow-x-auto border border-[#EFDCB4] rounded-xl">
+                  <table className="data-table text-left text-xs">
+                    <thead className="bg-[#FDF7EA] text-[#6B4A28] font-bold uppercase border-b border-[#EFDCB4]">
                       <tr>
                         <th className="py-2.5 px-3">Sl No</th>
                         <th className="py-2.5 px-3">Description</th>
                         <th className="py-2.5 px-3 text-right">Amount (₹)</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#e2e8f0]">
+                    <tbody className="divide-y divide-[#EFDCB4]">
                       <tr>
-                        <td className="py-2.5 px-3 text-[#64748b]">1</td>
-                        <td className="py-2.5 px-3 font-bold text-[#0f172a]">Workers Salary</td>
-                        <td className="py-2.5 px-3 text-right font-mono font-bold text-[#0f172a]">₹{monthAdminRecord.salary.toLocaleString()}</td>
+                        <td className="py-2.5 px-3 text-[#9B7B52]">1</td>
+                        <td className="py-2.5 px-3 font-bold text-[#2D1A0E]">Workers Salary</td>
+                        <td className="py-2.5 px-3 text-right font-mono font-bold text-[#2D1A0E]">₹{monthAdminRecord.salary.toLocaleString()}</td>
                       </tr>
                       <tr>
-                        <td className="py-2.5 px-3 text-[#64748b]">2</td>
-                        <td className="py-2.5 px-3 font-bold text-[#0f172a]">Committee Allowance</td>
-                        <td className="py-2.5 px-3 text-right font-mono font-bold text-[#0f172a]">₹{monthAdminRecord.allowance.toLocaleString()}</td>
+                        <td className="py-2.5 px-3 text-[#9B7B52]">2</td>
+                        <td className="py-2.5 px-3 font-bold text-[#2D1A0E]">Committee Allowance</td>
+                        <td className="py-2.5 px-3 text-right font-mono font-bold text-[#2D1A0E]">₹{monthAdminRecord.allowance.toLocaleString()}</td>
                       </tr>
                       <tr>
-                        <td className="py-2.5 px-3 text-[#64748b]">3</td>
-                        <td className="py-2.5 px-3 font-bold text-[#0f172a]">Stationary Charges</td>
-                        <td className="py-2.5 px-3 text-right font-mono font-bold text-[#0f172a]">₹{monthAdminRecord.stationary.toLocaleString()}</td>
+                        <td className="py-2.5 px-3 text-[#9B7B52]">3</td>
+                        <td className="py-2.5 px-3 font-bold text-[#2D1A0E]">Stationary Charges</td>
+                        <td className="py-2.5 px-3 text-right font-mono font-bold text-[#2D1A0E]">₹{monthAdminRecord.stationary.toLocaleString()}</td>
                       </tr>
                       <tr>
-                        <td className="py-2.5 px-3 text-[#64748b]">4</td>
-                        <td className="py-2.5 px-3 font-bold text-[#0f172a]">Miscellaneous Charges</td>
-                        <td className="py-2.5 px-3 text-right font-mono font-bold text-[#0f172a]">₹{monthAdminRecord.misc.toLocaleString()}</td>
+                        <td className="py-2.5 px-3 text-[#9B7B52]">4</td>
+                        <td className="py-2.5 px-3 font-bold text-[#2D1A0E]">Miscellaneous Charges</td>
+                        <td className="py-2.5 px-3 text-right font-mono font-bold text-[#2D1A0E]">₹{monthAdminRecord.misc.toLocaleString()}</td>
                       </tr>
-                      <tr className="bg-[#f8fafc] font-bold border-t border-[#cbd5e1]">
-                        <td colSpan={2} className="py-3 px-3 text-[#0f172a]">Total Administrational Expenses</td>
-                        <td className="py-3 px-3 text-right font-mono text-sm text-[#2563eb]">₹{totalAdminExpenseAmount.toLocaleString()}</td>
+                      <tr className="bg-[#FDF7EA] font-bold border-t border-[#E3CB9B]">
+                        <td colSpan={2} className="py-3 px-3 text-[#2D1A0E]">Total Administrational Expenses</td>
+                        <td className="py-3 px-3 text-right font-mono text-sm text-[#F47A35]">₹{totalAdminExpenseAmount.toLocaleString()}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -3353,7 +3268,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               </div>
 
               {/* HIGHLIGHTED GRAND TOTAL EXPENSE OF MONTH */}
-              <div className="bg-gradient-to-br from-[#1e3a8a] to-[#2563eb] text-white p-6 rounded-2xl shadow-xl space-y-4">
+              <div className="bg-gradient-to-br from-[#1e3a8a] to-[#F47A35] text-white p-6 rounded-2xl shadow-xl space-y-4">
                 <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-white/20 pb-4">
                   <div>
                     <span className="px-3 py-1 bg-white/20 text-white text-xs font-extrabold uppercase tracking-wider rounded-full inline-block mb-1">
@@ -3476,15 +3391,15 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 };
 
                 return (
-                  <div className="bg-white rounded-2xl border border-[#e2e8f0] shadow-xs overflow-hidden space-y-4 p-5">
-                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-[#e2e8f0] pb-4">
+                  <div className="bg-white rounded-2xl border border-[#EFDCB4] shadow-xs overflow-hidden space-y-4 p-5">
+                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-[#EFDCB4] pb-4">
                       <div>
-                        <h3 className="text-xl font-extrabold text-[#0f172a] flex items-center gap-2">
-                          <span className="material-symbols-outlined text-[#2563eb]">groups</span>
+                        <h3 className="text-xl font-extrabold text-[#2D1A0E] flex items-center gap-2">
+                          <span className="material-symbols-outlined text-[#F47A35]">groups</span>
                           Individual Monthly Student Billing ({billingMonth} {billingYear})
                         </h3>
-                        <p className="text-xs font-medium text-[#64748b] mt-0.5">
-                          Calculated as: <span className="font-mono text-[#0f172a] font-bold">(Effective Days × Per Day Rate) + Fine</span>. Mess cut is granted ONLY when all 3 meals are skipped on a day.
+                        <p className="text-xs font-medium text-[#9B7B52] mt-0.5">
+                          Calculated as: <span className="font-mono text-[#2D1A0E] font-bold">(Effective Days × Per Day Rate) + Fine</span>. Mess cut is granted ONLY when all 3 meals are skipped on a day.
                         </p>
                       </div>
 
@@ -3497,9 +3412,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                       </button>
                     </div>
 
-                    <div className="overflow-x-auto border border-[#e2e8f0] rounded-xl">
-                      <table className="w-full text-left text-xs">
-                        <thead className="bg-[#f8fafc] text-[#475569] font-extrabold uppercase border-b border-[#e2e8f0]">
+                    <div className="overflow-x-auto border border-[#EFDCB4] rounded-xl">
+                      <table className="data-table text-left text-xs">
+                        <thead className="bg-[#FDF7EA] text-[#6B4A28] font-extrabold uppercase border-b border-[#EFDCB4]">
                           <tr>
                             <th className="py-3.5 px-3 text-center">Sl No</th>
                             <th className="py-3.5 px-3">ID</th>
@@ -3512,37 +3427,37 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                             <th className="py-3.5 px-3 text-center text-[#16a34a]">Effective Days</th>
                             <th className="py-3.5 px-3 text-right">Per Day (₹)</th>
                             <th className="py-3.5 px-3 text-right text-[#dc2626]">Fine (₹)</th>
-                            <th className="py-3.5 px-4 text-right bg-[#2563eb]/5 text-[#2563eb]">Total Bill (₹)</th>
+                            <th className="py-3.5 px-4 text-right bg-[#F47A35]/5 text-[#F47A35]">Total Bill (₹)</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-[#e2e8f0]">
+                        <tbody className="divide-y divide-[#EFDCB4]">
                           {studentBillingData.map((r) => (
-                            <tr key={r.id} className="hover:bg-[#f8fafc] transition-colors">
-                              <td className="py-3 px-3 text-center font-mono font-bold text-[#64748b]">{r.slNo}</td>
-                              <td className="py-3 px-3 font-mono font-bold text-[#2563eb]">{r.id}</td>
-                              <td className="py-3 px-4 font-extrabold text-[#0f172a]">{r.name}</td>
-                              <td className="py-3 px-3 font-medium text-[#475569]">{r.department}</td>
+                            <tr key={r.id} className="hover:bg-[#FDF7EA] transition-colors">
+                              <td className="py-3 px-3 text-center font-mono font-bold text-[#9B7B52]">{r.slNo}</td>
+                              <td className="py-3 px-3 font-mono font-bold text-[#F47A35]">{r.id}</td>
+                              <td className="py-3 px-4 font-extrabold text-[#2D1A0E]">{r.name}</td>
+                              <td className="py-3 px-3 font-medium text-[#6B4A28]">{r.department}</td>
                               
                               {/* Read-Only Category Badge (Editable only in Student Data Tab) */}
                               <td className="py-3 px-3 text-center">
-                                <span className="px-2.5 py-1 bg-[#f1f5f9] text-[#0f172a] font-bold text-xs rounded-lg border border-[#cbd5e1] inline-block">
+                                <span className="px-2.5 py-1 bg-[#F7EEDA] text-[#2D1A0E] font-bold text-xs rounded-lg border border-[#E3CB9B] inline-block">
                                   {r.category}
                                 </span>
                               </td>
 
-                              <td className="py-3 px-3 text-center font-mono font-semibold text-[#334155]">{r.totalDays}</td>
-                              <td className="py-3 px-3 text-center font-mono font-semibold text-[#334155]">{r.messOpened}</td>
+                              <td className="py-3 px-3 text-center font-mono font-semibold text-[#5C3D1E]">{r.totalDays}</td>
+                              <td className="py-3 px-3 text-center font-mono font-semibold text-[#5C3D1E]">{r.messOpened}</td>
                               <td className="py-3 px-3 text-center font-mono font-bold text-[#dc2626] bg-[#dc2626]/5">{r.messCut}</td>
                               <td className="py-3 px-3 text-center font-mono font-bold text-[#16a34a] bg-[#16a34a]/5">{r.effectiveDays}</td>
-                              <td className="py-3 px-3 text-right font-mono font-bold text-[#2563eb]">₹{r.perDay}</td>
+                              <td className="py-3 px-3 text-right font-mono font-bold text-[#F47A35]">₹{r.perDay}</td>
                               <td className="py-3 px-3 text-right font-mono font-bold text-[#dc2626]">₹{r.fine}</td>
-                              <td className="py-3 px-4 text-right font-mono font-black text-sm text-[#2563eb] bg-[#2563eb]/5">
+                              <td className="py-3 px-4 text-right font-mono font-black text-sm text-[#F47A35] bg-[#F47A35]/5">
                                 ₹{r.totalBill.toLocaleString()}
                               </td>
                             </tr>
                           ))}
                         </tbody>
-                        <tfoot className="bg-[#f8fafc] font-black text-xs border-t-2 border-[#cbd5e1] text-[#0f172a]">
+                        <tfoot className="bg-[#FDF7EA] font-black text-xs border-t-2 border-[#E3CB9B] text-[#2D1A0E]">
                           <tr>
                             <td colSpan={5} className="py-4 px-4 uppercase tracking-wider">MONTHLY STUDENT BILLING TOTALS:</td>
                             <td className="py-4 px-3 text-center font-mono">-</td>
@@ -3553,11 +3468,11 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                             <td className="py-4 px-3 text-center font-mono text-[#16a34a]">
                               {studentBillingData.reduce((acc, r) => acc + r.effectiveDays, 0)} days
                             </td>
-                            <td className="py-4 px-3 text-right font-mono text-[#2563eb]">₹{perDayRate}</td>
+                            <td className="py-4 px-3 text-right font-mono text-[#F47A35]">₹{perDayRate}</td>
                             <td className="py-4 px-3 text-right font-mono text-[#dc2626]">
                               ₹{studentBillingData.reduce((acc, r) => acc + r.fine, 0).toLocaleString()}
                             </td>
-                            <td className="py-4 px-4 text-right font-mono text-sm text-[#2563eb] bg-[#2563eb]/10">
+                            <td className="py-4 px-4 text-right font-mono text-sm text-[#F47A35] bg-[#F47A35]/10">
                               ₹{studentBillingData.reduce((acc, r) => acc + r.totalBill, 0).toLocaleString()}
                             </td>
                           </tr>
@@ -3586,15 +3501,15 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             <section className="space-y-6 animate-fade-in">
               
               {/* Controls Toolbar */}
-              <div className="bg-white p-5 rounded-2xl border border-[#e2e8f0] shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="bg-white p-5 rounded-2xl border border-[#EFDCB4] shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-[22px] font-extrabold text-[#0f172a] flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[#2563eb]">payments</span>
+                    <h2 className="text-[22px] font-extrabold text-[#2D1A0E] flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[#F47A35]">payments</span>
                       Student Monthly Payments & Status
                     </h2>
                     {isLocked ? (
-                      <span className="px-3 py-1 bg-[#64748b]/10 text-[#475569] border border-[#64748b]/30 text-xs font-black rounded-full flex items-center gap-1">
+                      <span className="px-3 py-1 bg-[#9B7B52]/10 text-[#6B4A28] border border-[#9B7B52]/30 text-xs font-black rounded-full flex items-center gap-1">
                         🔒 Published & Frozen
                       </span>
                     ) : isPublished ? (
@@ -3607,7 +3522,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                       </span>
                     )}
                   </div>
-                  <p className="text-xs font-medium text-[#64748b] mt-0.5">
+                  <p className="text-xs font-medium text-[#9B7B52] mt-0.5">
                     Track student payment completion, verify UTR reference numbers, toggle bill publication, and export billing spreadsheets.
                   </p>
                 </div>
@@ -3615,11 +3530,11 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
                   {/* Billing Period Selectors */}
                   <div>
-                    <label className="block text-[10px] font-extrabold uppercase text-[#64748b] mb-1">Billing Month</label>
+                    <label className="block text-[10px] font-extrabold uppercase text-[#9B7B52] mb-1">Billing Month</label>
                     <select
                       value={billingMonth}
                       onChange={(e) => setBillingMonth(e.target.value)}
-                      className="px-3.5 py-2 bg-[#f8fafc] border border-[#cbd5e1] rounded-xl text-xs font-bold text-[#0f172a] focus:outline-none focus:border-[#2563eb] cursor-pointer"
+                      className="px-3.5 py-2 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-xs font-bold text-[#2D1A0E] focus:outline-none focus:border-[#F47A35] cursor-pointer"
                     >
                       {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map(m => (
                         <option key={m} value={m}>{m}</option>
@@ -3628,11 +3543,11 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-extrabold uppercase text-[#64748b] mb-1">Billing Year</label>
+                    <label className="block text-[10px] font-extrabold uppercase text-[#9B7B52] mb-1">Billing Year</label>
                     <select
                       value={billingYear}
                       onChange={(e) => setBillingYear(e.target.value)}
-                      className="px-3.5 py-2 bg-[#f8fafc] border border-[#cbd5e1] rounded-xl text-xs font-bold text-[#0f172a] focus:outline-none focus:border-[#2563eb] cursor-pointer"
+                      className="px-3.5 py-2 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-xs font-bold text-[#2D1A0E] focus:outline-none focus:border-[#F47A35] cursor-pointer"
                     >
                       {['2026', '2025', '2024'].map(y => (
                         <option key={y} value={y}>{y}</option>
@@ -3654,7 +3569,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                     ) : (
                       <button
                         onClick={handleTogglePublishBill}
-                        className="px-3.5 py-2 bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
+                        className="px-3.5 py-2 bg-[#F47A35] hover:bg-[#D45E1A] text-white font-bold text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center gap-1.5"
                       >
                         <span className="material-symbols-outlined text-[18px]">campaign</span>
                         <span>Publish Bill to Students</span>
@@ -3663,7 +3578,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
                     <button
                       onClick={handleExportBillingExcel}
-                      className="px-3.5 py-2 bg-[#0f172a] hover:bg-[#1e293b] text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                      className="px-3.5 py-2 bg-[#2D1A0E] hover:bg-[#3E2718] text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
                     >
                       <span className="material-symbols-outlined text-[18px]">table_chart</span>
                       <span>Export Excel</span>
@@ -3675,25 +3590,25 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               {/* Overview Summary Cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {/* Total Students */}
-                <div className="bg-white p-4 rounded-2xl border border-[#e2e8f0] shadow-xs flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#2563eb]/10 text-[#2563eb] flex items-center justify-center font-bold">
+                <div className="bg-white p-4 rounded-2xl border border-[#EFDCB4] shadow-xs flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#F47A35]/10 text-[#F47A35] flex items-center justify-center font-bold">
                     <span className="material-symbols-outlined">groups</span>
                   </div>
                   <div>
-                    <span className="text-[10px] font-extrabold uppercase text-[#64748b] block">Total Eligible Students</span>
-                    <span className="text-xl font-black text-[#0f172a]">
+                    <span className="text-[10px] font-extrabold uppercase text-[#9B7B52] block">Total Eligible Students</span>
+                    <span className="text-xl font-black text-[#2D1A0E]">
                       {studentPaymentRecords.filter(r => r.month === billingMonth && r.year === billingYear).length}
                     </span>
                   </div>
                 </div>
 
                 {/* Total Paid */}
-                <div className="bg-white p-4 rounded-2xl border border-[#e2e8f0] shadow-xs flex items-center gap-3">
+                <div className="bg-white p-4 rounded-2xl border border-[#EFDCB4] shadow-xs flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-[#16a34a]/10 text-[#16a34a] flex items-center justify-center font-bold">
                     <span className="material-symbols-outlined">check_circle</span>
                   </div>
                   <div>
-                    <span className="text-[10px] font-extrabold uppercase text-[#64748b] block">Paid Students</span>
+                    <span className="text-[10px] font-extrabold uppercase text-[#9B7B52] block">Paid Students</span>
                     <span className="text-xl font-black text-[#16a34a]">
                       {studentPaymentRecords.filter(r => r.month === billingMonth && r.year === billingYear && r.status === 'PAID').length}
                     </span>
@@ -3701,12 +3616,12 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 </div>
 
                 {/* Total Pending */}
-                <div className="bg-white p-4 rounded-2xl border border-[#e2e8f0] shadow-xs flex items-center gap-3">
+                <div className="bg-white p-4 rounded-2xl border border-[#EFDCB4] shadow-xs flex items-center gap-3">
                   <div className="w-10 h-10 rounded-xl bg-[#ea580c]/10 text-[#ea580c] flex items-center justify-center font-bold">
                     <span className="material-symbols-outlined">pending_actions</span>
                   </div>
                   <div>
-                    <span className="text-[10px] font-extrabold uppercase text-[#64748b] block">Pending Students</span>
+                    <span className="text-[10px] font-extrabold uppercase text-[#9B7B52] block">Pending Students</span>
                     <span className="text-xl font-black text-[#ea580c]">
                       {studentPaymentRecords.filter(r => r.month === billingMonth && r.year === billingYear && r.status === 'PENDING').length}
                     </span>
@@ -3714,13 +3629,13 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 </div>
 
                 {/* Bill Status */}
-                <div className="bg-white p-4 rounded-2xl border border-[#e2e8f0] shadow-xs flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[#64748b]/10 text-[#0f172a] flex items-center justify-center font-bold">
+                <div className="bg-white p-4 rounded-2xl border border-[#EFDCB4] shadow-xs flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-[#9B7B52]/10 text-[#2D1A0E] flex items-center justify-center font-bold">
                     <span className="material-symbols-outlined">campaign</span>
                   </div>
                   <div>
-                    <span className="text-[10px] font-extrabold uppercase text-[#64748b] block">Bill Status</span>
-                    <span className="text-xs font-black text-[#0f172a]">
+                    <span className="text-[10px] font-extrabold uppercase text-[#9B7B52] block">Bill Status</span>
+                    <span className="text-xs font-black text-[#2D1A0E]">
                       {isLocked ? '🔒 LOCKED' : isPublished ? '🟢 PUBLISHED' : '🟠 DRAFT'}
                     </span>
                   </div>
@@ -3728,25 +3643,25 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               </div>
 
             {/* Search & Filter Toolbar */}
-            <div className="bg-white p-4 rounded-2xl border border-[#e2e8f0] shadow-xs flex flex-col md:flex-row items-center justify-between gap-3">
+            <div className="bg-white p-4 rounded-2xl border border-[#EFDCB4] shadow-xs flex flex-col md:flex-row items-center justify-between gap-3">
               <div className="relative w-full md:w-80">
-                <span className="material-symbols-outlined absolute left-3 top-2.5 text-[#64748b] text-[18px]">search</span>
+                <span className="material-symbols-outlined absolute left-3 top-2.5 text-[#9B7B52] text-[18px]">search</span>
                 <input
                   type="text"
                   value={paymentSearchQuery}
                   onChange={(e) => setPaymentSearchQuery(e.target.value)}
                   placeholder="Search Name, ID, Dept, UTR..."
-                  className="w-full pl-9 pr-4 py-2 bg-[#f8fafc] border border-[#cbd5e1] rounded-xl text-xs font-medium focus:outline-none focus:border-[#2563eb]"
+                  className="w-full pl-9 pr-4 py-2 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-xs font-medium focus:outline-none focus:border-[#F47A35]"
                 />
               </div>
 
               <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
                 <div>
-                  <label className="text-[10px] font-extrabold uppercase text-[#64748b] mr-2">Category:</label>
+                  <label className="text-[10px] font-extrabold uppercase text-[#9B7B52] mr-2">Category:</label>
                   <select
                     value={paymentCategoryFilter}
                     onChange={(e) => setPaymentCategoryFilter(e.target.value as any)}
-                    className="px-3 py-1.5 bg-[#f8fafc] border border-[#cbd5e1] rounded-xl text-xs font-bold text-[#0f172a] cursor-pointer"
+                    className="px-3 py-1.5 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-xs font-bold text-[#2D1A0E] cursor-pointer"
                   >
                     <option value="ALL">All Categories</option>
                     <option value="Inmate">Inmate</option>
@@ -3756,11 +3671,11 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 </div>
 
                 <div>
-                  <label className="text-[10px] font-extrabold uppercase text-[#64748b] mr-2">Payment Status:</label>
+                  <label className="text-[10px] font-extrabold uppercase text-[#9B7B52] mr-2">Payment Status:</label>
                   <select
                     value={paymentStatusFilter}
                     onChange={(e) => setPaymentStatusFilter(e.target.value as any)}
-                    className="px-3 py-1.5 bg-[#f8fafc] border border-[#cbd5e1] rounded-xl text-xs font-bold text-[#0f172a] cursor-pointer"
+                    className="px-3 py-1.5 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-xs font-bold text-[#2D1A0E] cursor-pointer"
                   >
                     <option value="ALL">All Statuses</option>
                     <option value="PAID">Paid 🟢</option>
@@ -3771,10 +3686,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             </div>
 
             {/* Students Payment Table */}
-            <div className="bg-white rounded-2xl border border-[#e2e8f0] shadow-xs overflow-hidden">
+            <div className="bg-white rounded-2xl border border-[#EFDCB4] shadow-xs overflow-hidden">
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="bg-[#f8fafc] text-[#475569] font-bold uppercase border-b border-[#e2e8f0]">
+                <table className="data-table text-left text-xs">
+                  <thead className="bg-[#FDF7EA] text-[#6B4A28] font-bold uppercase border-b border-[#EFDCB4]">
                     <tr>
                       <th className="py-3 px-4">Sl No</th>
                       <th className="py-3 px-4">Mess ID</th>
@@ -3787,7 +3702,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                       <th className="py-3 px-4 text-center">Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#e2e8f0]">
+                  <tbody className="divide-y divide-[#EFDCB4]">
                     {studentPaymentRecords
                       .filter(r => r.month === billingMonth && r.year === billingYear)
                       .filter(r => {
@@ -3805,17 +3720,17 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                         return true;
                       })
                       .map((row, idx) => (
-                        <tr key={row.id} className="hover:bg-[#f8fafc] transition-colors">
-                          <td className="py-3 px-4 text-[#64748b]">{idx + 1}</td>
-                          <td className="py-3 px-4 font-mono font-bold text-[#2563eb]">{row.messId}</td>
-                          <td className="py-3 px-4 font-bold text-[#0f172a]">{row.name}</td>
-                          <td className="py-3 px-4 font-semibold text-[#475569]">
-                            <span className="px-2.5 py-0.5 bg-[#f1f5f9] rounded-md border border-[#cbd5e1]">
+                        <tr key={row.id} className="hover:bg-[#FDF7EA] transition-colors">
+                          <td className="py-3 px-4 text-[#9B7B52]">{idx + 1}</td>
+                          <td className="py-3 px-4 font-mono font-bold text-[#F47A35]">{row.messId}</td>
+                          <td className="py-3 px-4 font-bold text-[#2D1A0E]">{row.name}</td>
+                          <td className="py-3 px-4 font-semibold text-[#6B4A28]">
+                            <span className="px-2.5 py-0.5 bg-[#F7EEDA] rounded-md border border-[#E3CB9B]">
                               {row.category}
                             </span>
                           </td>
-                          <td className="py-3 px-4 text-[#475569]">{row.department}</td>
-                          <td className="py-3 px-4 text-right font-mono font-extrabold text-[#0f172a]">
+                          <td className="py-3 px-4 text-[#6B4A28]">{row.department}</td>
+                          <td className="py-3 px-4 text-right font-mono font-extrabold text-[#2D1A0E]">
                             ₹{row.totalBill.toLocaleString()}
                           </td>
                           <td className="py-3 px-4 text-center">
@@ -3848,20 +3763,20 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                                 );
                               }}
                               placeholder="Type UTR (e.g. UPI/123)"
-                              className="px-2.5 py-1 bg-white border border-[#cbd5e1] rounded-lg font-mono text-xs font-medium w-36 focus:outline-none focus:border-[#2563eb]"
+                              className="px-2.5 py-1 bg-white border border-[#E3CB9B] rounded-lg font-mono text-xs font-medium w-36 focus:outline-none focus:border-[#F47A35]"
                             />
                           </td>
                           <td className="py-3 px-4 text-center">
                             <div className="flex items-center justify-center gap-1.5">
                               <button
                                 onClick={() => handleSavePaymentRow(row.id, row.status, row.utrRef)}
-                                className="px-2.5 py-1 bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-bold text-xs rounded-lg transition-colors cursor-pointer"
+                                className="px-2.5 py-1 bg-[#F47A35] hover:bg-[#D45E1A] text-white font-bold text-xs rounded-lg transition-colors cursor-pointer"
                               >
                                 Save
                               </button>
                               <button
                                 onClick={() => handleGenerateStudentBillPdf(row)}
-                                className="px-2.5 py-1 bg-[#f1f5f9] hover:bg-[#e2e8f0] text-[#0f172a] font-bold text-xs rounded-lg transition-colors cursor-pointer flex items-center gap-1"
+                                className="px-2.5 py-1 bg-[#F7EEDA] hover:bg-[#EFDCB4] text-[#2D1A0E] font-bold text-xs rounded-lg transition-colors cursor-pointer flex items-center gap-1"
                                 title="Print PDF Bill"
                               >
                                 <span className="material-symbols-outlined text-[14px]">picture_as_pdf</span>
@@ -4022,15 +3937,15 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             <section className="space-y-6 animate-fade-in">
               
               {/* Controls Toolbar */}
-              <div className="bg-white p-5 rounded-2xl border border-[#e2e8f0] shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+              <div className="bg-white p-5 rounded-2xl border border-[#EFDCB4] shadow-xs flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 <div>
                   <div className="flex flex-wrap items-center gap-2">
-                    <h2 className="text-[22px] font-extrabold text-[#0f172a] flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[#2563eb]">inventory_2</span>
+                    <h2 className="text-[22px] font-extrabold text-[#2D1A0E] flex items-center gap-2">
+                      <span className="material-symbols-outlined text-[#F47A35]">inventory_2</span>
                       Stocks & Weighted Average Cost (WAC) Ledger
                     </h2>
                     {isStocksReadOnly ? (
-                      <span className="px-3 py-1 bg-[#64748b]/10 text-[#475569] border border-[#64748b]/30 text-xs font-black rounded-full flex items-center gap-1">
+                      <span className="px-3 py-1 bg-[#9B7B52]/10 text-[#6B4A28] border border-[#9B7B52]/30 text-xs font-black rounded-full flex items-center gap-1">
                         🔒 Read-Only (Bill {isStocksLocked ? 'Locked' : 'Published'})
                       </span>
                     ) : (
@@ -4039,7 +3954,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                       </span>
                     )}
                   </div>
-                  <p className="text-xs font-medium text-[#64748b] mt-0.5">
+                  <p className="text-xs font-medium text-[#9B7B52] mt-0.5">
                     Opening & Purchase stock auto-calculated. Admins log Physical Closing Qty; WAC & Consumed Costs update automatically.
                   </p>
                 </div>
@@ -4047,11 +3962,11 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
                   {/* Period Dropdowns: Month & Year (Default = Current Month) */}
                   <div>
-                    <label className="block text-[10px] font-extrabold uppercase text-[#64748b] mb-1">Stock Month</label>
+                    <label className="block text-[10px] font-extrabold uppercase text-[#9B7B52] mb-1">Stock Month</label>
                     <select
                       value={stocksMonth}
                       onChange={(e) => setStocksMonth(e.target.value)}
-                      className="px-3.5 py-2 bg-[#f8fafc] border border-[#cbd5e1] rounded-xl text-xs font-bold text-[#0f172a] focus:outline-none focus:border-[#2563eb] cursor-pointer"
+                      className="px-3.5 py-2 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-xs font-bold text-[#2D1A0E] focus:outline-none focus:border-[#F47A35] cursor-pointer"
                     >
                       {MONTH_NAMES.map(m => (
                         <option key={m} value={m}>{m}</option>
@@ -4060,11 +3975,11 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-[10px] font-extrabold uppercase text-[#64748b] mb-1">Stock Year</label>
+                    <label className="block text-[10px] font-extrabold uppercase text-[#9B7B52] mb-1">Stock Year</label>
                     <select
                       value={stocksYear}
                       onChange={(e) => setStocksYear(e.target.value)}
-                      className="px-3.5 py-2 bg-[#f8fafc] border border-[#cbd5e1] rounded-xl text-xs font-bold text-[#0f172a] focus:outline-none focus:border-[#2563eb] cursor-pointer"
+                      className="px-3.5 py-2 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-xs font-bold text-[#2D1A0E] focus:outline-none focus:border-[#F47A35] cursor-pointer"
                     >
                       {['2026', '2025', '2024'].map(y => (
                         <option key={y} value={y}>{y}</option>
@@ -4076,19 +3991,19 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
               {/* Read-Only Alert Banner if Published */}
               {isStocksReadOnly && (
-                <div className="p-4 bg-[#64748b]/10 border border-[#64748b]/30 rounded-2xl flex items-center justify-between gap-3 text-xs font-bold text-[#334155]">
+                <div className="p-4 bg-[#9B7B52]/10 border border-[#9B7B52]/30 rounded-2xl flex items-center justify-between gap-3 text-xs font-bold text-[#5C3D1E]">
                   <div className="flex items-center gap-2.5">
-                    <span className="material-symbols-outlined text-[24px] text-[#64748b]">lock</span>
+                    <span className="material-symbols-outlined text-[24px] text-[#9B7B52]">lock</span>
                     <div>
-                      <h4 className="font-extrabold text-[#0f172a] text-sm flex items-center gap-1.5">
+                      <h4 className="font-extrabold text-[#2D1A0E] text-sm flex items-center gap-1.5">
                         🔒 Read-Only Mode — Bill Published
                       </h4>
-                      <p className="text-[#475569] font-medium mt-0.5">
-                        The billing record for <span className="font-bold text-[#0f172a]">{stocksMonth} {stocksYear}</span> is published. Physical stock quantities are frozen and cannot be edited.
+                      <p className="text-[#6B4A28] font-medium mt-0.5">
+                        The billing record for <span className="font-bold text-[#2D1A0E]">{stocksMonth} {stocksYear}</span> is published. Physical stock quantities are frozen and cannot be edited.
                       </p>
                     </div>
                   </div>
-                  <span className="px-3 py-1 bg-[#64748b] text-white text-[10px] font-black rounded-lg uppercase tracking-wider">
+                  <span className="px-3 py-1 bg-[#9B7B52] text-white text-[10px] font-black rounded-lg uppercase tracking-wider">
                     FROZEN
                   </span>
                 </div>
@@ -4096,54 +4011,54 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
               {/* Top Summary Metric Cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-white p-4 rounded-2xl border border-[#e2e8f0] shadow-xs">
-                  <span className="text-[10px] font-extrabold uppercase text-[#64748b] block mb-1">Total Opening Stock</span>
-                  <span className="text-xl font-black text-[#0f172a]">₹{grandTotalOpeningValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                  <span className="text-[10px] font-medium text-[#64748b] block mt-0.5">Carried from previous month</span>
+                <div className="bg-white p-4 rounded-2xl border border-[#EFDCB4] shadow-xs">
+                  <span className="text-[10px] font-extrabold uppercase text-[#9B7B52] block mb-1">Total Opening Stock</span>
+                  <span className="text-xl font-black text-[#2D1A0E]">₹{grandTotalOpeningValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                  <span className="text-[10px] font-medium text-[#9B7B52] block mt-0.5">Carried from previous month</span>
                 </div>
 
-                <div className="bg-white p-4 rounded-2xl border border-[#e2e8f0] shadow-xs">
-                  <span className="text-[10px] font-extrabold uppercase text-[#64748b] block mb-1">Monthly Purchases</span>
-                  <span className="text-xl font-black text-[#2563eb]">₹{grandTotalPurchaseCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                  <span className="text-[10px] font-medium text-[#64748b] block mt-0.5">Food purchases logged in Ledger</span>
+                <div className="bg-white p-4 rounded-2xl border border-[#EFDCB4] shadow-xs">
+                  <span className="text-[10px] font-extrabold uppercase text-[#9B7B52] block mb-1">Monthly Purchases</span>
+                  <span className="text-xl font-black text-[#F47A35]">₹{grandTotalPurchaseCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+                  <span className="text-[10px] font-medium text-[#9B7B52] block mt-0.5">Food purchases logged in Ledger</span>
                 </div>
 
-                <div className="bg-white p-4 rounded-2xl border border-[#e2e8f0] shadow-xs">
-                  <span className="text-[10px] font-extrabold uppercase text-[#64748b] block mb-1">Total Closing Stock</span>
+                <div className="bg-white p-4 rounded-2xl border border-[#EFDCB4] shadow-xs">
+                  <span className="text-[10px] font-extrabold uppercase text-[#9B7B52] block mb-1">Total Closing Stock</span>
                   <span className="text-xl font-black text-[#16a34a]">₹{grandTotalClosingValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                  <span className="text-[10px] font-medium text-[#64748b] block mt-0.5">Physical closing stock value</span>
+                  <span className="text-[10px] font-medium text-[#9B7B52] block mt-0.5">Physical closing stock value</span>
                 </div>
 
-                <div className="bg-white p-4 rounded-2xl border border-[#e2e8f0] shadow-xs">
-                  <span className="text-[10px] font-extrabold uppercase text-[#64748b] block mb-1">Total Consumed Cost</span>
+                <div className="bg-white p-4 rounded-2xl border border-[#EFDCB4] shadow-xs">
+                  <span className="text-[10px] font-extrabold uppercase text-[#9B7B52] block mb-1">Total Consumed Cost</span>
                   <span className="text-xl font-black text-[#dc2626]">₹{grandTotalConsumedCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
-                  <span className="text-[10px] font-medium text-[#64748b] block mt-0.5">Actual food expenditure</span>
+                  <span className="text-[10px] font-medium text-[#9B7B52] block mt-0.5">Actual food expenditure</span>
                 </div>
               </div>
 
               {/* Prefix Search Bar & Table Controls */}
-              <div className="bg-white p-4 rounded-2xl border border-[#e2e8f0] shadow-xs flex flex-col md:flex-row items-center justify-between gap-3">
+              <div className="bg-white p-4 rounded-2xl border border-[#EFDCB4] shadow-xs flex flex-col md:flex-row items-center justify-between gap-3">
                 <div className="relative w-full md:w-80">
-                  <span className="material-symbols-outlined absolute left-3 top-2.5 text-[#64748b] text-[18px]">search</span>
+                  <span className="material-symbols-outlined absolute left-3 top-2.5 text-[#9B7B52] text-[18px]">search</span>
                   <input
                     type="text"
                     value={stocksSearchPrefix}
                     onChange={(e) => setStocksSearchPrefix(e.target.value)}
                     placeholder="Search item name (e.g. B, Be, Rice)..."
-                    className="w-full pl-9 pr-4 py-2 bg-[#f8fafc] border border-[#cbd5e1] rounded-xl text-xs font-semibold text-[#0f172a] focus:outline-none focus:border-[#2563eb]"
+                    className="w-full pl-9 pr-4 py-2 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-xs font-semibold text-[#2D1A0E] focus:outline-none focus:border-[#F47A35]"
                   />
                   {stocksSearchPrefix && (
                     <button
                       onClick={() => setStocksSearchPrefix('')}
-                      className="absolute right-3 top-2.5 text-[#64748b] hover:text-[#0f172a] text-xs font-bold cursor-pointer"
+                      className="absolute right-3 top-2.5 text-[#9B7B52] hover:text-[#2D1A0E] text-xs font-bold cursor-pointer"
                     >
                       ✕
                     </button>
                   )}
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <span className="px-3 py-1 bg-[#2563eb]/10 text-[#2563eb] text-xs font-bold rounded-lg border border-[#2563eb]/20">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="px-3 py-1 bg-[#F47A35]/10 text-[#F47A35] text-xs font-bold rounded-lg border border-[#F47A35]/20">
                     Showing {stockRows.length} catalog items
                   </span>
                   <span className="px-3 py-1 bg-[#16a34a]/10 text-[#16a34a] text-xs font-bold rounded-lg border border-[#16a34a]/20">
@@ -4153,10 +4068,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               </div>
 
               {/* Stocks WAC Ledger Table */}
-              <div className="bg-white rounded-2xl border border-[#e2e8f0] shadow-sm overflow-hidden">
+              <div className="bg-white rounded-2xl border border-[#EFDCB4] shadow-sm overflow-hidden">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-[#f8fafc] text-[#475569] font-extrabold uppercase border-b border-[#e2e8f0]">
+                  <table className="data-table text-left text-xs">
+                    <thead className="bg-[#FDF7EA] text-[#6B4A28] font-extrabold uppercase border-b border-[#EFDCB4]">
                       <tr>
                         <th className="py-3.5 px-4">Item Name</th>
                         <th className="py-3.5 px-3">Unit</th>
@@ -4164,7 +4079,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                         <th className="py-3.5 px-3 text-right">Purchase Qty</th>
                         <th className="py-3.5 px-3 text-right">Purchase Cost (₹)</th>
                         <th className="py-3.5 px-3 text-right">WAC (₹/unit)</th>
-                        <th className="py-3.5 px-4 text-center bg-[#2563eb]/5 border-x border-[#2563eb]/20">
+                        <th className="py-3.5 px-4 text-center bg-[#F47A35]/5 border-x border-[#F47A35]/20">
                           Physical Closing Qty {isStocksReadOnly ? '🔒' : '✏️'}
                         </th>
                         <th className="py-3.5 px-3 text-right">Consumed Qty</th>
@@ -4172,29 +4087,29 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                         <th className="py-3.5 px-4 text-right bg-[#dc2626]/5 text-[#dc2626]">Consumed Cost (₹)</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#e2e8f0]">
+                    <tbody className="divide-y divide-[#EFDCB4]">
                       {stockRows.length === 0 ? (
                         <tr>
-                          <td colSpan={10} className="py-8 text-center text-[#64748b] font-medium">
+                          <td colSpan={10} className="py-8 text-center text-[#9B7B52] font-medium">
                             No inventory items matching search prefix "{stocksSearchPrefix}".
                           </td>
                         </tr>
                       ) : (
                         stockRows.map(({ item, openingQty, purchaseQty, purchaseCost, wac, physicalClosingQty, consumedQty, closingValue, consumedCost }) => (
-                          <tr key={item.id} className="hover:bg-[#f8fafc] transition-colors">
-                            <td className="py-3 px-4 font-bold text-[#0f172a]">{item.name}</td>
-                            <td className="py-3 px-3 font-mono text-[#64748b]">{item.unit}</td>
-                            <td className="py-3 px-3 text-right font-mono text-[#334155]">{openingQty}</td>
-                            <td className="py-3 px-3 text-right font-mono font-semibold text-[#2563eb]">{purchaseQty}</td>
-                            <td className="py-3 px-3 text-right font-mono text-[#334155]">₹{purchaseCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                            <td className="py-3 px-3 text-right font-mono font-extrabold text-[#2563eb]">
+                          <tr key={item.id} className="hover:bg-[#FDF7EA] transition-colors">
+                            <td className="py-3 px-4 font-bold text-[#2D1A0E]">{item.name}</td>
+                            <td className="py-3 px-3 font-mono text-[#9B7B52]">{item.unit}</td>
+                            <td className="py-3 px-3 text-right font-mono text-[#5C3D1E]">{openingQty}</td>
+                            <td className="py-3 px-3 text-right font-mono font-semibold text-[#F47A35]">{purchaseQty}</td>
+                            <td className="py-3 px-3 text-right font-mono text-[#5C3D1E]">₹{purchaseCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                            <td className="py-3 px-3 text-right font-mono font-extrabold text-[#F47A35]">
                               ₹{wac.toFixed(2)}
                             </td>
 
                             {/* Physical Closing Qty - Editable by Admin (or Read-Only if Published/Locked) */}
-                            <td className="py-2.5 px-4 text-center bg-[#2563eb]/5 border-x border-[#2563eb]/20">
+                            <td className="py-2.5 px-4 text-center bg-[#F47A35]/5 border-x border-[#F47A35]/20">
                               {isStocksReadOnly ? (
-                                <span className="font-mono font-black text-sm text-[#0f172a]">
+                                <span className="font-mono font-black text-sm text-[#2D1A0E]">
                                   {physicalClosingQty} {item.unit}
                                 </span>
                               ) : (
@@ -4205,14 +4120,14 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                                     step="any"
                                     value={physicalClosingQty}
                                     onChange={(e) => handleUpdatePhysicalClosingStock(item.id, parseFloat(e.target.value))}
-                                    className="w-20 px-2 py-1 bg-white border border-[#2563eb] rounded-lg text-center font-mono font-bold text-xs text-[#0f172a] focus:outline-none focus:ring-2 focus:ring-[#2563eb]/30"
+                                    className="w-20 px-2 py-1 bg-white border border-[#F47A35] rounded-lg text-center font-mono font-bold text-xs text-[#2D1A0E] focus:outline-none focus:ring-2 focus:ring-[#F47A35]/30"
                                   />
-                                  <span className="text-[10px] text-[#64748b] font-medium">{item.unit}</span>
+                                  <span className="text-[10px] text-[#9B7B52] font-medium">{item.unit}</span>
                                 </div>
                               )}
                             </td>
 
-                            <td className="py-3 px-3 text-right font-mono font-semibold text-[#475569]">{consumedQty}</td>
+                            <td className="py-3 px-3 text-right font-mono font-semibold text-[#6B4A28]">{consumedQty}</td>
                             <td className="py-3 px-3 text-right font-mono font-bold text-[#16a34a]">
                               ₹{closingValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                             </td>
@@ -4223,14 +4138,14 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                         ))
                       )}
                     </tbody>
-                    <tfoot className="bg-[#f8fafc] font-black text-xs border-t-2 border-[#cbd5e1] text-[#0f172a]">
+                    <tfoot className="bg-[#FDF7EA] font-black text-xs border-t-2 border-[#E3CB9B] text-[#2D1A0E]">
                       <tr>
                         <td colSpan={2} className="py-4 px-4 uppercase tracking-wider">TOTAL MONETARY BALANCE:</td>
                         <td className="py-4 px-3 text-right font-mono">₹{grandTotalOpeningValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                        <td className="py-4 px-3 text-right font-mono text-[#2563eb]">-</td>
-                        <td className="py-4 px-3 text-right font-mono text-[#2563eb]">₹{grandTotalPurchaseCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
-                        <td className="py-4 px-3 text-right font-mono text-[#2563eb]">-</td>
-                        <td className="py-4 px-4 text-center bg-[#2563eb]/5 border-x border-[#2563eb]/20 text-[#2563eb]">TOTALS</td>
+                        <td className="py-4 px-3 text-right font-mono text-[#F47A35]">-</td>
+                        <td className="py-4 px-3 text-right font-mono text-[#F47A35]">₹{grandTotalPurchaseCost.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                        <td className="py-4 px-3 text-right font-mono text-[#F47A35]">-</td>
+                        <td className="py-4 px-4 text-center bg-[#F47A35]/5 border-x border-[#F47A35]/20 text-[#F47A35]">TOTALS</td>
                         <td className="py-4 px-3 text-right font-mono">-</td>
                         <td className="py-4 px-3 text-right font-mono text-[#16a34a]">₹{grandTotalClosingValue.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
                         <td className="py-4 px-4 text-right font-mono text-sm text-[#dc2626] bg-[#dc2626]/10">
@@ -4252,17 +4167,17 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
       {/* BILLING LINE ITEM DRILL-DOWN MODAL                            */}
       {/* ------------------------------------------------------------- */}
       {billingModal.isOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 md:p-8 shadow-2xl space-y-5 max-h-[85vh] overflow-y-auto border border-[#e2e8f0]">
+        <div className="modal-scrim animate-fade-in">
+          <div className="modal-panel max-w-2xl space-y-5 overflow-y-auto">
             
-            <div className="flex justify-between items-center pb-3 border-b border-[#e2e8f0]">
-              <h3 className="text-xl font-extrabold text-[#0f172a] flex items-center gap-2">
-                <span className="material-symbols-outlined text-[#2563eb]">list_alt</span>
+            <div className="flex justify-between items-center pb-3 border-b border-[#EFDCB4]">
+              <h3 className="text-xl font-extrabold text-[#2D1A0E] flex items-center gap-2">
+                <span className="material-symbols-outlined text-[#F47A35]">list_alt</span>
                 {billingModal.title}
               </h3>
               <button
                 onClick={() => setBillingModal({ ...billingModal, isOpen: false })}
-                className="w-8 h-8 rounded-full bg-[#f1f5f9] hover:bg-[#e2e8f0] text-[#64748b] hover:text-[#0f172a] flex items-center justify-center cursor-pointer"
+                className="w-8 h-8 rounded-full bg-[#F7EEDA] hover:bg-[#EFDCB4] text-[#9B7B52] hover:text-[#2D1A0E] flex items-center justify-center cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[18px]">close</span>
               </button>
@@ -4271,12 +4186,12 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             {/* Modal Content depending on type */}
             {billingModal.type === 'FOOD' && (
               <div className="space-y-3">
-                <p className="text-xs text-[#64748b]">
-                  Showing all food purchase entries recorded for <span className="font-bold text-[#0f172a]">{billingMonth} {billingYear}</span> ({monthFoodPurchases.length} entries):
+                <p className="text-xs text-[#9B7B52]">
+                  Showing all food purchase entries recorded for <span className="font-bold text-[#2D1A0E]">{billingMonth} {billingYear}</span> ({monthFoodPurchases.length} entries):
                 </p>
-                <div className="overflow-x-auto border border-[#e2e8f0] rounded-xl">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-[#f8fafc] text-[#475569] font-bold uppercase border-b border-[#e2e8f0]">
+                <div className="overflow-x-auto border border-[#EFDCB4] rounded-xl">
+                  <table className="data-table text-left text-xs">
+                    <thead className="bg-[#FDF7EA] text-[#6B4A28] font-bold uppercase border-b border-[#EFDCB4]">
                       <tr>
                         <th className="py-2.5 px-3">Date</th>
                         <th className="py-2.5 px-3">Item Name</th>
@@ -4284,20 +4199,20 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                         <th className="py-2.5 px-3 text-right">Amount (₹)</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#e2e8f0]">
+                    <tbody className="divide-y divide-[#EFDCB4]">
                       {monthFoodPurchases.length === 0 ? (
                         <tr>
-                          <td colSpan={4} className="py-6 text-center text-[#64748b]">
+                          <td colSpan={4} className="py-6 text-center text-[#9B7B52]">
                             No food purchases logged for {billingMonth} {billingYear}.
                           </td>
                         </tr>
                       ) : (
                         monthFoodPurchases.map((fp) => (
-                          <tr key={fp.id} className="hover:bg-[#f8fafc]">
-                            <td className="py-2.5 px-3 font-mono text-[#334155]">{fp.date}</td>
-                            <td className="py-2.5 px-3 font-bold text-[#0f172a]">{fp.item}</td>
-                            <td className="py-2.5 px-3 font-mono text-[#64748b]">{fp.qty}</td>
-                            <td className="py-2.5 px-3 text-right font-mono font-bold text-[#2563eb]">₹{fp.amount.toLocaleString()}</td>
+                          <tr key={fp.id} className="hover:bg-[#FDF7EA]">
+                            <td className="py-2.5 px-3 font-mono text-[#5C3D1E]">{fp.date}</td>
+                            <td className="py-2.5 px-3 font-bold text-[#2D1A0E]">{fp.item}</td>
+                            <td className="py-2.5 px-3 font-mono text-[#9B7B52]">{fp.qty}</td>
+                            <td className="py-2.5 px-3 text-right font-mono font-bold text-[#F47A35]">₹{fp.amount.toLocaleString()}</td>
                           </tr>
                         ))
                       )}
@@ -4309,12 +4224,12 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
             {billingModal.type === 'GAS' && (
               <div className="space-y-3">
-                <p className="text-xs text-[#64748b]">
-                  Showing all gas and fuel operational expense records for <span className="font-bold text-[#0f172a]">{billingMonth} {billingYear}</span>:
+                <p className="text-xs text-[#9B7B52]">
+                  Showing all gas and fuel operational expense records for <span className="font-bold text-[#2D1A0E]">{billingMonth} {billingYear}</span>:
                 </p>
-                <div className="overflow-x-auto border border-[#e2e8f0] rounded-xl">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-[#f8fafc] text-[#475569] font-bold uppercase border-b border-[#e2e8f0]">
+                <div className="overflow-x-auto border border-[#EFDCB4] rounded-xl">
+                  <table className="data-table text-left text-xs">
+                    <thead className="bg-[#FDF7EA] text-[#6B4A28] font-bold uppercase border-b border-[#EFDCB4]">
                       <tr>
                         <th className="py-2.5 px-3">Date</th>
                         <th className="py-2.5 px-3">Title / Description</th>
@@ -4322,20 +4237,20 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                         <th className="py-2.5 px-3 text-right">Amount (₹)</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#e2e8f0]">
+                    <tbody className="divide-y divide-[#EFDCB4]">
                       {monthGasExpenses.length === 0 ? (
                         <tr>
-                          <td colSpan={4} className="py-6 text-center text-[#64748b]">
+                          <td colSpan={4} className="py-6 text-center text-[#9B7B52]">
                             No gas/fuel operational expenses logged for {billingMonth} {billingYear}.
                           </td>
                         </tr>
                       ) : (
                         monthGasExpenses.map((gp) => (
-                          <tr key={gp.id} className="hover:bg-[#f8fafc]">
-                            <td className="py-2.5 px-3 font-mono text-[#334155]">{gp.date}</td>
-                            <td className="py-2.5 px-3 font-bold text-[#0f172a]">{gp.title}</td>
-                            <td className="py-2.5 px-3 text-[#2563eb] font-semibold">{gp.category}</td>
-                            <td className="py-2.5 px-3 text-right font-mono font-bold text-[#0f172a]">₹{gp.amount.toLocaleString()}</td>
+                          <tr key={gp.id} className="hover:bg-[#FDF7EA]">
+                            <td className="py-2.5 px-3 font-mono text-[#5C3D1E]">{gp.date}</td>
+                            <td className="py-2.5 px-3 font-bold text-[#2D1A0E]">{gp.title}</td>
+                            <td className="py-2.5 px-3 text-[#F47A35] font-semibold">{gp.category}</td>
+                            <td className="py-2.5 px-3 text-right font-mono font-bold text-[#2D1A0E]">₹{gp.amount.toLocaleString()}</td>
                           </tr>
                         ))
                       )}
@@ -4347,28 +4262,28 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
             {billingModal.type === 'ADMIN' && (
               <div className="space-y-4">
-                <p className="text-xs text-[#64748b]">
-                  Administrative expenses breakdown for <span className="font-bold text-[#0f172a]">{billingMonth} {billingYear}</span>:
+                <p className="text-xs text-[#9B7B52]">
+                  Administrative expenses breakdown for <span className="font-bold text-[#2D1A0E]">{billingMonth} {billingYear}</span>:
                 </p>
                 <div className="grid grid-cols-2 gap-3 text-xs">
-                  <div className="p-3 bg-[#f8fafc] rounded-xl border border-[#e2e8f0]">
-                    <span className="text-[#64748b] block mb-1 font-bold">Workers Salary</span>
-                    <span className="text-base font-extrabold text-[#0f172a]">₹{monthAdminRecord.salary.toLocaleString()}</span>
+                  <div className="p-3 bg-[#FDF7EA] rounded-xl border border-[#EFDCB4]">
+                    <span className="text-[#9B7B52] block mb-1 font-bold">Workers Salary</span>
+                    <span className="text-base font-extrabold text-[#2D1A0E]">₹{monthAdminRecord.salary.toLocaleString()}</span>
                   </div>
-                  <div className="p-3 bg-[#f8fafc] rounded-xl border border-[#e2e8f0]">
-                    <span className="text-[#64748b] block mb-1 font-bold">Committee Allowance</span>
-                    <span className="text-base font-extrabold text-[#0f172a]">₹{monthAdminRecord.allowance.toLocaleString()}</span>
+                  <div className="p-3 bg-[#FDF7EA] rounded-xl border border-[#EFDCB4]">
+                    <span className="text-[#9B7B52] block mb-1 font-bold">Committee Allowance</span>
+                    <span className="text-base font-extrabold text-[#2D1A0E]">₹{monthAdminRecord.allowance.toLocaleString()}</span>
                   </div>
-                  <div className="p-3 bg-[#f8fafc] rounded-xl border border-[#e2e8f0]">
-                    <span className="text-[#64748b] block mb-1 font-bold">Stationary Charges</span>
-                    <span className="text-base font-extrabold text-[#0f172a]">₹{monthAdminRecord.stationary.toLocaleString()}</span>
+                  <div className="p-3 bg-[#FDF7EA] rounded-xl border border-[#EFDCB4]">
+                    <span className="text-[#9B7B52] block mb-1 font-bold">Stationary Charges</span>
+                    <span className="text-base font-extrabold text-[#2D1A0E]">₹{monthAdminRecord.stationary.toLocaleString()}</span>
                   </div>
-                  <div className="p-3 bg-[#f8fafc] rounded-xl border border-[#e2e8f0]">
-                    <span className="text-[#64748b] block mb-1 font-bold">Misc Charges</span>
-                    <span className="text-base font-extrabold text-[#0f172a]">₹{monthAdminRecord.misc.toLocaleString()}</span>
+                  <div className="p-3 bg-[#FDF7EA] rounded-xl border border-[#EFDCB4]">
+                    <span className="text-[#9B7B52] block mb-1 font-bold">Misc Charges</span>
+                    <span className="text-base font-extrabold text-[#2D1A0E]">₹{monthAdminRecord.misc.toLocaleString()}</span>
                   </div>
                 </div>
-                <div className="p-3.5 bg-[#2563eb]/10 border border-[#2563eb]/30 rounded-xl flex justify-between items-center text-xs font-bold text-[#2563eb]">
+                <div className="p-3.5 bg-[#F47A35]/10 border border-[#F47A35]/30 rounded-xl flex justify-between items-center text-xs font-bold text-[#F47A35]">
                   <span>Total Administrative Expenses</span>
                   <span className="text-sm font-black">₹{totalAdminExpenseAmount.toLocaleString()}</span>
                 </div>
@@ -4405,11 +4320,11 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               return (
                 <div className="space-y-4 text-xs">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-[#64748b]">
-                      Inventory & Closing Stock Valuation breakdown for <span className="font-bold text-[#0f172a]">{billingMonth} {billingYear}</span>:
+                    <p className="text-[#9B7B52]">
+                      Inventory & Closing Stock Valuation breakdown for <span className="font-bold text-[#2D1A0E]">{billingMonth} {billingYear}</span>:
                     </p>
                     {isModalMonthPublished && (
-                      <span className="px-2.5 py-0.5 bg-[#64748b]/10 text-[#475569] border border-[#64748b]/30 font-extrabold text-[11px] rounded-full">
+                      <span className="px-2.5 py-0.5 bg-[#9B7B52]/10 text-[#6B4A28] border border-[#9B7B52]/30 font-extrabold text-[11px] rounded-full">
                         🔒 Read-Only (Bill Published)
                       </span>
                     )}
@@ -4417,11 +4332,11 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
                   {/* Prefix Search Bar with Live Suggestions */}
                   <div className="space-y-2">
-                    <label className="block text-xs font-extrabold text-[#0f172a]">
+                    <label className="block text-xs font-extrabold text-[#2D1A0E]">
                       Search Stock Item Suggestions
                     </label>
                     <div className="relative">
-                      <span className="material-symbols-outlined absolute left-3 top-2.5 text-[#94a3b8] text-[18px]">
+                      <span className="material-symbols-outlined absolute left-3 top-2.5 text-[#BFA37A] text-[18px]">
                         search
                       </span>
                       <input
@@ -4429,12 +4344,12 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                         value={billingStockSearchPrefix}
                         onChange={(e) => setBillingStockSearchPrefix(e.target.value)}
                         placeholder='Type prefix e.g. "B" for Beans/Butter, "Be" for Beef, "P" for Ponni Rice...'
-                        className="w-full pl-9 pr-8 py-2 bg-[#f8fafc] border border-[#cbd5e1] rounded-xl text-xs font-bold text-[#0f172a] focus:outline-none focus:border-[#2563eb]"
+                        className="w-full pl-9 pr-8 py-2 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-xs font-bold text-[#2D1A0E] focus:outline-none focus:border-[#F47A35]"
                       />
                       {billingStockSearchPrefix && (
                         <button
                           onClick={() => setBillingStockSearchPrefix('')}
-                          className="absolute right-2.5 top-2 text-[#64748b] hover:text-[#0f172a]"
+                          className="absolute right-2.5 top-2 text-[#9B7B52] hover:text-[#2D1A0E]"
                         >
                           <span className="material-symbols-outlined text-[16px]">cancel</span>
                         </button>
@@ -4444,13 +4359,13 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                     {/* Live Suggestion Pills */}
                     {suggestionsList.length > 0 && (
                       <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#64748b]">Suggestions:</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#9B7B52]">Suggestions:</span>
                         {suggestionsList.map((sug) => (
                           <button
                             key={sug.id}
                             type="button"
                             onClick={() => setBillingStockSearchPrefix(sug.name)}
-                            className="px-2.5 py-1 bg-[#2563eb]/10 hover:bg-[#2563eb] text-[#2563eb] hover:text-white border border-[#2563eb]/30 text-[11px] font-extrabold rounded-lg transition-colors cursor-pointer flex items-center gap-1"
+                            className="px-2.5 py-1 bg-[#F47A35]/10 hover:bg-[#F47A35] text-[#F47A35] hover:text-white border border-[#F47A35]/30 text-[11px] font-extrabold rounded-lg transition-colors cursor-pointer flex items-center gap-1"
                           >
                             <span>{sug.name}</span>
                             <span className="text-[9px] opacity-75">({sug.unit})</span>
@@ -4461,9 +4376,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                   </div>
 
                   {/* Stock Valuation Table */}
-                  <div className="overflow-x-auto border border-[#e2e8f0] rounded-xl max-h-56">
-                    <table className="w-full text-left text-xs">
-                      <thead className="bg-[#f8fafc] text-[#475569] font-extrabold uppercase border-b border-[#e2e8f0] sticky top-0">
+                  <div className="overflow-x-auto border border-[#EFDCB4] rounded-xl max-h-56">
+                    <table className="data-table text-left text-xs">
+                      <thead className="bg-[#FDF7EA] text-[#6B4A28] font-extrabold uppercase border-b border-[#EFDCB4] sticky top-0">
                         <tr>
                           <th className="py-2.5 px-3">Item Name</th>
                           <th className="py-2.5 px-3">Unit</th>
@@ -4471,10 +4386,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                           <th className="py-2.5 px-3 text-right">Closing Valuation (₹)</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-[#e2e8f0]">
+                      <tbody className="divide-y divide-[#EFDCB4]">
                         {modalFilteredItems.length === 0 ? (
                           <tr>
-                            <td colSpan={4} className="py-6 text-center text-[#64748b] font-medium">
+                            <td colSpan={4} className="py-6 text-center text-[#9B7B52] font-medium">
                               No stock items matching "{billingStockSearchPrefix}"
                             </td>
                           </tr>
@@ -4489,12 +4404,12 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                             const itemClosingValue = physicalClosingQty * wacRate;
 
                             return (
-                              <tr key={item.id} className="hover:bg-[#f8fafc]">
-                                <td className="py-2.5 px-3 font-bold text-[#0f172a]">{item.name}</td>
-                                <td className="py-2.5 px-3 font-mono text-[#64748b]">{item.unit}</td>
+                              <tr key={item.id} className="hover:bg-[#FDF7EA]">
+                                <td className="py-2.5 px-3 font-bold text-[#2D1A0E]">{item.name}</td>
+                                <td className="py-2.5 px-3 font-mono text-[#9B7B52]">{item.unit}</td>
                                 <td className="py-2.5 px-3 text-center">
                                   {isModalMonthPublished ? (
-                                    <span className="font-mono font-bold text-[#0f172a] bg-[#64748b]/10 px-2 py-0.5 rounded border border-[#64748b]/20">
+                                    <span className="font-mono font-bold text-[#2D1A0E] bg-[#9B7B52]/10 px-2 py-0.5 rounded border border-[#9B7B52]/20">
                                       {physicalClosingQty} 🔒
                                     </span>
                                   ) : (
@@ -4505,11 +4420,11 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                                         const val = parseFloat(e.target.value || '0');
                                         handleUpdatePhysicalClosingStock(item.id, val);
                                       }}
-                                      className="w-20 px-2 py-1 bg-white border border-[#cbd5e1] rounded font-mono font-bold text-center text-[#0f172a] focus:outline-none focus:border-[#2563eb]"
+                                      className="w-20 px-2 py-1 bg-white border border-[#E3CB9B] rounded font-mono font-bold text-center text-[#2D1A0E] focus:outline-none focus:border-[#F47A35]"
                                     />
                                   )}
                                 </td>
-                                <td className="py-2.5 px-3 text-right font-mono font-bold text-[#2563eb]">
+                                <td className="py-2.5 px-3 text-right font-mono font-bold text-[#F47A35]">
                                   ₹{itemClosingValue.toLocaleString()}
                                 </td>
                               </tr>
@@ -4522,14 +4437,14 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
                   {/* Summary Inputs Sync */}
                   <div className="grid grid-cols-2 gap-3 pt-1">
-                    <div className="p-3 bg-[#f8fafc] rounded-xl border border-[#e2e8f0]">
-                      <span className="text-[11px] font-extrabold uppercase text-[#64748b] block mb-1">Opening Stock Valuation</span>
-                      <span className="text-base font-black text-[#0f172a] font-mono">₹{billingOpeningStock.toLocaleString()}</span>
+                    <div className="p-3 bg-[#FDF7EA] rounded-xl border border-[#EFDCB4]">
+                      <span className="text-[11px] font-extrabold uppercase text-[#9B7B52] block mb-1">Opening Stock Valuation</span>
+                      <span className="text-base font-black text-[#2D1A0E] font-mono">₹{billingOpeningStock.toLocaleString()}</span>
                     </div>
 
-                    <div className="p-3 bg-[#2563eb]/5 rounded-xl border border-[#2563eb]/20">
-                      <span className="text-[11px] font-extrabold uppercase text-[#2563eb] block mb-1">Closing Stock Valuation</span>
-                      <span className="text-base font-black text-[#2563eb] font-mono">₹{billingClosingStock.toLocaleString()}</span>
+                    <div className="p-3 bg-[#F47A35]/5 rounded-xl border border-[#F47A35]/20">
+                      <span className="text-[11px] font-extrabold uppercase text-[#F47A35] block mb-1">Closing Stock Valuation</span>
+                      <span className="text-base font-black text-[#F47A35] font-mono">₹{billingClosingStock.toLocaleString()}</span>
                     </div>
                   </div>
                 </div>
@@ -4539,7 +4454,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             <div className="pt-2 flex justify-end">
               <button
                 onClick={() => setBillingModal({ ...billingModal, isOpen: false })}
-                className="px-5 py-2 bg-[#0f172a] text-white font-bold text-xs rounded-xl hover:bg-[#1e293b] cursor-pointer"
+                className="px-5 py-2 bg-[#2D1A0E] text-white font-bold text-xs rounded-xl hover:bg-[#3E2718] cursor-pointer"
               >
                 Done / Close
               </button>
@@ -4553,32 +4468,28 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
       {/* DRILL-DOWN STUDENT DETAIL LIST MODAL                          */}
       {/* ------------------------------------------------------------- */}
       {drillDown.isOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white rounded-2xl max-w-3xl w-full p-6 shadow-2xl space-y-4 max-h-[85vh] flex flex-col border border-[#e2e8f0]">
-            
+        <div className="modal-scrim animate-fade-in">
+          <div className="modal-panel max-w-3xl space-y-4">
+
             {/* Modal Header */}
-            <div className="flex justify-between items-center pb-4 border-b border-[#e2e8f0]">
-              <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="text-xl font-extrabold text-[#0f172a]">
-                    Students Who {drillDown.categoryLabel} ({drillDown.mealTitle})
-                  </h3>
-                  <span
-                    style={{ backgroundColor: `${drillDown.colorHex}20`, color: drillDown.colorHex, borderColor: `${drillDown.colorHex}40` }}
-                    className="px-3 py-0.5 border text-xs font-bold rounded-full flex items-center gap-1"
-                  >
-                    <span>{drillDown.categoryLabel}</span>
-                    <span>· {filteredDrillDownStudents.length}</span>
-                  </span>
-                </div>
-                <p className="text-xs font-medium text-[#64748b] mt-0.5">
-                  Detailed student breakdown for {drillDown.mealTitle} service today
+            <div className="flex justify-between items-start gap-3 pb-4 border-b border-[#EFDCB4]">
+              <div className="min-w-0">
+                <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: drillDown.colorHex }}>
+                  {drillDown.mealTitle}
+                </p>
+                <h3 className="font-display text-[19px] sm:text-[21px] font-bold text-[#2D1A0E] leading-tight mt-0.5">
+                  {drillDown.categoryLabel}
+                  <span className="font-semibold text-[#9B7B52]"> · {filteredDrillDownStudents.length}</span>
+                </h3>
+                <p className="text-[11.5px] font-semibold text-[#9B7B52] mt-1">
+                  Student breakdown for today&rsquo;s service
                 </p>
               </div>
 
               <button
                 onClick={() => setDrillDown((prev) => ({ ...prev, isOpen: false }))}
-                className="w-9 h-9 rounded-full bg-[#f1f5f9] hover:bg-[#e2e8f0] text-[#64748b] flex items-center justify-center transition-colors cursor-pointer"
+                className="w-9 h-9 shrink-0 rounded-full bg-[#F7EEDA] hover:bg-[#EFDCB4] text-[#9B7B52] flex items-center justify-center transition-colors cursor-pointer"
+                aria-label="Close"
               >
                 <span className="material-symbols-outlined text-[20px]">close</span>
               </button>
@@ -4586,7 +4497,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
             {/* In-Modal Search Input */}
             <div className="relative">
-              <span className="material-symbols-outlined absolute left-3 top-2.5 text-[#94a3b8] text-[20px]">
+              <span className="material-symbols-outlined absolute left-3 top-2.5 text-[#BFA37A] text-[20px]">
                 search
               </span>
               <input
@@ -4594,26 +4505,26 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 value={drillDownSearch}
                 onChange={(e) => setDrillDownSearch(e.target.value)}
                 placeholder="Search student name, registration ID, department..."
-                className="w-full pl-10 pr-4 py-2 bg-[#f8fafc] border border-[#cbd5e1] rounded-xl text-sm font-medium focus:outline-none focus:border-[#2563eb]"
+                className="w-full pl-10 pr-4 py-2 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-sm font-medium focus:outline-none focus:border-[#F47A35]"
               />
             </div>
 
             {/* Student Table / List Container */}
-            <div className="flex-1 overflow-y-auto min-h-[250px] border border-[#e2e8f0] rounded-xl">
+            <div className="flex-1 overflow-y-auto table-scroll min-h-[250px] border border-[#EFDCB4] rounded-xl">
               {drillDownLoading ? (
-                <div className="p-12 text-center text-[#64748b] flex flex-col items-center justify-center gap-2">
-                  <span className="material-symbols-outlined animate-spin text-[32px] text-[#2563eb]">sync</span>
+                <div className="p-12 text-center text-[#9B7B52] flex flex-col items-center justify-center gap-2">
+                  <span className="material-symbols-outlined animate-spin text-[32px] text-[#F47A35]">sync</span>
                   <p className="text-sm font-semibold">Loading student records...</p>
                 </div>
               ) : filteredDrillDownStudents.length === 0 ? (
-                <div className="p-12 text-center text-[#64748b] flex flex-col items-center justify-center gap-2">
-                  <span className="material-symbols-outlined text-[36px] text-[#94a3b8]">person_off</span>
-                  <p className="text-base font-bold text-[#334155]">No students found</p>
-                  <p className="text-xs text-[#64748b]">No student records matching this status criteria.</p>
+                <div className="p-12 text-center text-[#9B7B52] flex flex-col items-center justify-center gap-2">
+                  <span className="material-symbols-outlined text-[36px] text-[#BFA37A]">person_off</span>
+                  <p className="text-base font-bold text-[#5C3D1E]">No students found</p>
+                  <p className="text-xs text-[#9B7B52]">No student records matching this status criteria.</p>
                 </div>
               ) : (
-                <table className="w-full text-left text-sm">
-                  <thead className="bg-[#f8fafc] text-[#475569] font-bold text-xs uppercase border-b border-[#e2e8f0] sticky top-0">
+                <table className="data-table text-left text-sm">
+                  <thead className="bg-[#FDF7EA] text-[#6B4A28] font-bold text-xs uppercase border-b border-[#EFDCB4] sticky top-0">
                     <tr>
                       <th className="py-3 px-4">Student</th>
                       <th className="py-3 px-4">Reg No</th>
@@ -4622,18 +4533,18 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                       <th className="py-3 px-4 text-center">Status</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#e2e8f0]">
+                  <tbody className="divide-y divide-[#EFDCB4]">
                     {filteredDrillDownStudents.map((s, idx) => (
-                      <tr key={s.id || idx} className="hover:bg-[#f8fafc] transition-colors">
-                        <td className="py-3 px-4 font-semibold text-[#0f172a] flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-full bg-[#2563eb]/10 text-[#2563eb] font-bold text-xs flex items-center justify-center">
+                      <tr key={s.id || idx} className="hover:bg-[#FDF7EA] transition-colors">
+                        <td className="py-3 px-4 font-semibold text-[#2D1A0E] flex items-center gap-2.5">
+                          <div className="w-8 h-8 rounded-full bg-[#F47A35]/10 text-[#F47A35] font-bold text-xs flex items-center justify-center">
                             {s.name?.charAt(0) || 'S'}
                           </div>
                           <span>{s.name}</span>
                         </td>
-                        <td className="py-3 px-4 font-mono text-xs text-[#334155]">{s.registration_number}</td>
-                        <td className="py-3 px-4 font-mono text-xs text-[#64748b]">{s.mess_id}</td>
-                        <td className="py-3 px-4 text-xs text-[#475569]">{s.department || 'Computer Science & Eng'}</td>
+                        <td className="py-3 px-4 font-mono text-xs text-[#5C3D1E]">{s.registration_number}</td>
+                        <td className="py-3 px-4 font-mono text-xs text-[#9B7B52]">{s.mess_id}</td>
+                        <td className="py-3 px-4 text-xs text-[#6B4A28]">{s.department || 'Computer Science & Eng'}</td>
                         <td className="py-3 px-4 text-center">
                           <span
                             style={{
@@ -4655,12 +4566,12 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
             {/* Modal Footer */}
             <div className="pt-2 flex justify-between items-center">
-              <span className="text-xs font-semibold text-[#64748b]">
+              <span className="text-xs font-semibold text-[#9B7B52]">
                 Showing {filteredDrillDownStudents.length} of {drillDownStudents.length} records
               </span>
               <button
                 onClick={() => setDrillDown((prev) => ({ ...prev, isOpen: false }))}
-                className="px-5 py-2 bg-[#0f172a] text-white font-semibold text-xs rounded-xl hover:bg-[#1e293b] cursor-pointer"
+                className="px-5 py-2 bg-[#2D1A0E] text-white font-semibold text-xs rounded-xl hover:bg-[#3E2718] cursor-pointer"
               >
                 Done / Close
               </button>
@@ -4674,33 +4585,33 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
       {/* MASTER STUDENT DETAILS MODAL ("BIG BOX")                      */}
       {/* ------------------------------------------------------------- */}
       {activeMasterStudent && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 md:p-8 shadow-2xl space-y-6 max-h-[90vh] overflow-y-auto border border-[#e2e8f0] relative">
+        <div className="modal-scrim animate-fade-in">
+          <div className="modal-panel max-w-2xl space-y-6 overflow-y-auto relative">
             
             {/* Close Button */}
             <button
               onClick={() => setActiveMasterStudent(null)}
-              className="absolute top-5 right-5 w-9 h-9 rounded-full bg-[#f1f5f9] hover:bg-[#e2e8f0] text-[#64748b] hover:text-[#0f172a] flex items-center justify-center transition-colors cursor-pointer"
+              className="absolute top-5 right-5 w-9 h-9 rounded-full bg-[#F7EEDA] hover:bg-[#EFDCB4] text-[#9B7B52] hover:text-[#2D1A0E] flex items-center justify-center transition-colors cursor-pointer"
             >
               <span className="material-symbols-outlined text-[20px]">close</span>
             </button>
 
             {/* Header: Photo, Name, Mess ID, Reg No */}
-            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 pb-6 border-b border-[#e2e8f0]">
+            <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 pb-6 border-b border-[#EFDCB4]">
               <img
                 src={activeMasterStudent.photo}
                 alt={activeMasterStudent.name}
-                className="w-20 h-20 rounded-full object-cover border-4 border-[#2563eb] shadow-md"
+                className="w-20 h-20 rounded-full object-cover border-4 border-[#F47A35] shadow-md"
               />
               <div className="text-center sm:text-left space-y-1">
                 <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
-                  <h3 className="text-2xl font-extrabold text-[#0f172a]">{activeMasterStudent.name}</h3>
-                  <span className="px-2.5 py-0.5 bg-[#2563eb]/10 text-[#2563eb] border border-[#2563eb]/30 text-xs font-mono font-bold rounded-full">
+                  <h3 className="text-2xl font-extrabold text-[#2D1A0E]">{activeMasterStudent.name}</h3>
+                  <span className="px-2.5 py-0.5 bg-[#F47A35]/10 text-[#F47A35] border border-[#F47A35]/30 text-xs font-mono font-bold rounded-full">
                     {activeMasterStudent.messId}
                   </span>
                 </div>
-                <p className="text-xs text-[#64748b] font-medium">
-                  Registration Number: <span className="font-bold text-[#0f172a]">{activeMasterStudent.regNo}</span>
+                <p className="text-xs text-[#9B7B52] font-medium">
+                  Registration Number: <span className="font-bold text-[#2D1A0E]">{activeMasterStudent.regNo}</span>
                 </p>
                 
                 {/* Upcoming Meal Status Badge */}
@@ -4725,18 +4636,18 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             </div>
 
             {/* Admin Editable Controls Box */}
-            <div className="bg-[#f8fafc] p-4 rounded-2xl border border-[#cbd5e1] space-y-3">
-              <h4 className="text-xs font-extrabold uppercase tracking-wider text-[#2563eb] flex items-center gap-1.5">
+            <div className="bg-[#FDF7EA] p-4 rounded-2xl border border-[#E3CB9B] space-y-3">
+              <h4 className="text-xs font-extrabold uppercase tracking-wider text-[#F47A35] flex items-center gap-1.5">
                 <span className="material-symbols-outlined text-[16px]">edit_note</span>
                 Admin Editable Settings
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-xs font-bold text-[#475569] mb-1">Dietary Preference</label>
+                  <label className="block text-xs font-bold text-[#6B4A28] mb-1">Dietary Preference</label>
                   <select
                     value={editDietaryPref}
                     onChange={(e) => setEditDietaryPref(e.target.value as 'Veg' | 'Non-Veg')}
-                    className="w-full p-2.5 bg-white border border-[#cbd5e1] rounded-xl text-sm font-bold text-[#0f172a] focus:outline-none focus:border-[#2563eb]"
+                    className="w-full p-2.5 bg-white border border-[#E3CB9B] rounded-xl text-sm font-bold text-[#2D1A0E] focus:outline-none focus:border-[#F47A35]"
                   >
                     <option value="Veg">🥦 Vegetarian (Veg)</option>
                     <option value="Non-Veg">🍗 Non-Vegetarian (Non-Veg)</option>
@@ -4744,11 +4655,11 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 </div>
 
                 <div>
-                  <label className="block text-xs font-bold text-[#475569] mb-1">Hostel Category</label>
+                  <label className="block text-xs font-bold text-[#6B4A28] mb-1">Hostel Category</label>
                   <select
                     value={editCategory}
                     onChange={(e) => setEditCategory(e.target.value as 'Inmate' | 'Lakeside' | 'Outmess')}
-                    className="w-full p-2.5 bg-white border border-[#cbd5e1] rounded-xl text-sm font-bold text-[#0f172a] focus:outline-none focus:border-[#2563eb]"
+                    className="w-full p-2.5 bg-white border border-[#E3CB9B] rounded-xl text-sm font-bold text-[#2D1A0E] focus:outline-none focus:border-[#F47A35]"
                   >
                     <option value="Inmate">🏠 Inmate (Main Hosteller)</option>
                     <option value="Lakeside">🌊 Lakeside Campus Hosteller</option>
@@ -4760,7 +4671,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               <div className="pt-2 flex justify-end">
                 <button
                   onClick={handleSaveStudentChanges}
-                  className="px-4 py-2 bg-[#2563eb] hover:bg-[#1d4ed8] text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                  className="px-4 py-2 bg-[#F47A35] hover:bg-[#D45E1A] text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
                 >
                   <span className="material-symbols-outlined text-[16px]">save</span>
                   Save Preference & Category Changes
@@ -4770,25 +4681,25 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
             {/* Profile Information Cards Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div className="p-3 bg-white border border-[#e2e8f0] rounded-xl">
-                <span className="text-[11px] font-bold text-[#64748b] uppercase tracking-wider block mb-1">Department</span>
-                <p className="font-semibold text-xs text-[#0f172a]">{activeMasterStudent.department}</p>
+              <div className="p-3 bg-white border border-[#EFDCB4] rounded-xl">
+                <span className="text-[11px] font-bold text-[#9B7B52] uppercase tracking-wider block mb-1">Department</span>
+                <p className="font-semibold text-xs text-[#2D1A0E]">{activeMasterStudent.department}</p>
               </div>
 
-              <div className="p-3 bg-white border border-[#e2e8f0] rounded-xl">
-                <span className="text-[11px] font-bold text-[#64748b] uppercase tracking-wider block mb-1">Mail ID</span>
-                <p className="font-mono text-xs text-[#2563eb] truncate">{activeMasterStudent.email}</p>
+              <div className="p-3 bg-white border border-[#EFDCB4] rounded-xl">
+                <span className="text-[11px] font-bold text-[#9B7B52] uppercase tracking-wider block mb-1">Mail ID</span>
+                <p className="font-mono text-xs text-[#F47A35] truncate">{activeMasterStudent.email}</p>
               </div>
 
-              <div className="p-3 bg-white border border-[#e2e8f0] rounded-xl">
-                <span className="text-[11px] font-bold text-[#64748b] uppercase tracking-wider block mb-1">Room Number</span>
-                <p className="font-semibold text-xs text-[#0f172a]">{activeMasterStudent.roomNo}</p>
+              <div className="p-3 bg-white border border-[#EFDCB4] rounded-xl">
+                <span className="text-[11px] font-bold text-[#9B7B52] uppercase tracking-wider block mb-1">Room Number</span>
+                <p className="font-semibold text-xs text-[#2D1A0E]">{activeMasterStudent.roomNo}</p>
               </div>
             </div>
 
             {/* Attendance & Fines Metrics (Standard Color Coded Cards) */}
             <div className="space-y-2">
-              <h4 className="text-xs font-extrabold uppercase tracking-wider text-[#475569]">
+              <h4 className="text-xs font-extrabold uppercase tracking-wider text-[#6B4A28]">
                 Monthly Attendance & Fine Summary
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -4807,16 +4718,16 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 </div>
 
                 {/* Blue: Mess Cuts Count */}
-                <div className="p-4 bg-[#2563eb]/10 border border-[#2563eb]/30 rounded-2xl flex flex-col">
-                  <div className="flex items-center gap-1.5 text-[#2563eb] text-xs font-bold">
+                <div className="p-4 bg-[#F47A35]/10 border border-[#F47A35]/30 rounded-2xl flex flex-col">
+                  <div className="flex items-center gap-1.5 text-[#F47A35] text-xs font-bold">
                     <span className="material-symbols-outlined text-[18px]">event_busy</span>
                     <span>Mess Cuts Taken</span>
                   </div>
                   <div className="mt-2 flex items-baseline gap-1">
-                    <span className="text-2xl font-black text-[#2563eb]">{activeMasterStudent.messCutsTaken}</span>
-                    <span className="text-xs font-bold text-[#2563eb]">/ 10 Days Max</span>
+                    <span className="text-2xl font-black text-[#F47A35]">{activeMasterStudent.messCutsTaken}</span>
+                    <span className="text-xs font-bold text-[#F47A35]">/ 10 Days Max</span>
                   </div>
-                  <span className="text-[10px] font-medium text-[#2563eb]/80 mt-1">Allowed per month</span>
+                  <span className="text-[10px] font-medium text-[#F47A35]/80 mt-1">Allowed per month</span>
                 </div>
 
                 {/* Red: Fines Received */}
@@ -4838,7 +4749,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             <div className="pt-2 flex justify-end">
               <button
                 onClick={() => setActiveMasterStudent(null)}
-                className="px-6 py-2.5 bg-[#0f172a] hover:bg-[#1e293b] text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
+                className="px-6 py-2.5 bg-[#2D1A0E] hover:bg-[#3E2718] text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer"
               >
                 Close Profile
               </button>
@@ -4852,48 +4763,48 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
       {editingDayMenu && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-xl space-y-4">
-            <h3 className="text-xl font-extrabold text-[#0f172a]">Edit {editingDayMenu.day} Food Menu</h3>
+            <h3 className="text-xl font-extrabold text-[#2D1A0E]">Edit {editingDayMenu.day} Food Menu</h3>
             
             <div>
-              <label className="block text-xs font-bold text-[#475569] mb-1">Breakfast Menu</label>
+              <label className="block text-xs font-bold text-[#6B4A28] mb-1">Breakfast Menu</label>
               <input
                 type="text"
                 value={editingDayMenu.breakfast}
                 onChange={(e) => setEditingDayMenu({ ...editingDayMenu, breakfast: e.target.value })}
-                className="w-full p-2.5 border border-[#cbd5e1] rounded-xl text-sm font-medium"
+                className="w-full p-2.5 border border-[#E3CB9B] rounded-xl text-sm font-medium"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-[#475569] mb-1">Lunch Menu</label>
+              <label className="block text-xs font-bold text-[#6B4A28] mb-1">Lunch Menu</label>
               <input
                 type="text"
                 value={editingDayMenu.lunch}
                 onChange={(e) => setEditingDayMenu({ ...editingDayMenu, lunch: e.target.value })}
-                className="w-full p-2.5 border border-[#cbd5e1] rounded-xl text-sm font-medium"
+                className="w-full p-2.5 border border-[#E3CB9B] rounded-xl text-sm font-medium"
               />
             </div>
 
             <div>
-              <label className="block text-xs font-bold text-[#475569] mb-1">Dinner Menu</label>
+              <label className="block text-xs font-bold text-[#6B4A28] mb-1">Dinner Menu</label>
               <input
                 type="text"
                 value={editingDayMenu.dinner}
                 onChange={(e) => setEditingDayMenu({ ...editingDayMenu, dinner: e.target.value })}
-                className="w-full p-2.5 border border-[#cbd5e1] rounded-xl text-sm font-medium"
+                className="w-full p-2.5 border border-[#E3CB9B] rounded-xl text-sm font-medium"
               />
             </div>
 
             <div className="flex gap-2 pt-2">
               <button
                 onClick={handleSaveEditedMenu}
-                className="flex-1 py-2.5 bg-[#2563eb] text-white font-bold rounded-xl hover:bg-[#1d4ed8]"
+                className="flex-1 py-2.5 bg-[#F47A35] text-white font-bold rounded-xl hover:bg-[#D45E1A]"
               >
                 Save Menu Changes
               </button>
               <button
                 onClick={() => setEditingDayMenu(null)}
-                className="px-4 py-2.5 border border-[#cbd5e1] text-[#475569] font-bold rounded-xl"
+                className="px-4 py-2.5 border border-[#E3CB9B] text-[#6B4A28] font-bold rounded-xl"
               >
                 Cancel
               </button>
@@ -4923,7 +4834,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                   }
                   setShowExportModal(false);
                 }}
-                className="flex-1 py-2.5 bg-[#2563eb] text-white font-semibold rounded-lg hover:bg-[#1d4ed8] transition-colors"
+                className="flex-1 py-2.5 bg-[#F47A35] text-white font-semibold rounded-lg hover:bg-[#D45E1A] transition-colors"
               >
                 Download Excel (.xlsx)
               </button>
@@ -4974,7 +4885,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             <div className="flex gap-2">
               <button
                 onClick={handleSaveHoliday}
-                className="flex-1 py-2.5 bg-[#2563eb] text-white font-semibold rounded-lg hover:bg-[#1d4ed8]"
+                className="flex-1 py-2.5 bg-[#F47A35] text-white font-semibold rounded-lg hover:bg-[#D45E1A]"
               >
                 Save Holiday Rule
               </button>

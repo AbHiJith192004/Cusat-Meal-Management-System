@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { authApi, studentApi } from '../services/api';
+import { ChefMascot, DosaCartoon } from './FoodIllustrations';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -7,6 +8,12 @@ interface LoginModalProps {
   onClose: () => void;
   onLoginSuccess: (role: 'student' | 'admin', name: string, regNo: string) => void;
 }
+
+const DEMO_ACCOUNTS = [
+  { label: 'Student', reg: 'TEST001', icon: 'school' },
+  { label: 'Admin', reg: 'ADMIN001', icon: 'restaurant' },
+  { label: 'Warden', reg: 'SADMIN001', icon: 'shield_person' },
+];
 
 export const LoginModal: React.FC<LoginModalProps> = ({
   isOpen,
@@ -25,257 +32,363 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleAuthSubmit = async (e: React.FormEvent) => {
+  const fill = (r: string, p: string) => {
+    setRegNo(r);
+    setPassword(p);
+    setErrorMsg(null);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
     setErrorMsg(null);
     setSuccessMsg(null);
-
     try {
-      const trimmedRegNo = regNo.trim();
-
+      const trimmed = regNo.trim();
       if (mode === 'reset') {
         if (password !== confirmPassword) {
-          setErrorMsg('New passwords do not match. Please re-enter.');
+          setErrorMsg('Passwords do not match.');
           setLoading(false);
           return;
         }
-        const res = await authApi.resetPasswordByDob(trimmedRegNo, dob, password);
-        setSuccessMsg(res.message || 'Password reset successfully! Please sign in.');
+        const res = await authApi.resetPasswordByDob(trimmed, dob, password);
+        setSuccessMsg(res.message || 'Password reset. Please sign in.');
         setMode('login');
         setPassword('');
         setConfirmPassword('');
         setLoading(false);
         return;
       }
-
-      if (mode === 'activate') {
-        await authApi.activate(trimmedRegNo, dob, password);
-      }
-
-      await authApi.login(trimmedRegNo, password);
-
-      let userRole: 'admin' | 'student' = 'student';
-      let userName = trimmedRegNo;
-      let finalRegNo = trimmedRegNo;
-
+      if (mode === 'activate') await authApi.activate(trimmed, dob, password);
+      await authApi.login(trimmed, password);
+      let role: 'admin' | 'student' = 'student';
+      let name = trimmed;
+      let reg = trimmed;
       try {
-        const userProfile = await studentApi.getProfile();
-        if (userProfile) {
-          const r = String(userProfile.role || '').toUpperCase();
-          if (r === 'ADMIN' || r === 'SUPER_ADMIN') {
-            userRole = 'admin';
-          } else {
-            userRole = 'student';
-          }
-          userName = userProfile.name || trimmedRegNo;
-          finalRegNo = userProfile.registration_number || trimmedRegNo;
+        const p = await studentApi.getProfile();
+        if (p) {
+          const r = String(p.role || '').toUpperCase();
+          role = r === 'ADMIN' || r === 'SUPER_ADMIN' ? 'admin' : 'student';
+          name = p.name || trimmed;
+          reg = p.registration_number || trimmed;
         }
-      } catch (e) {
-        const isFallbackAdmin = trimmedRegNo.toUpperCase().includes('ADMIN') || trimmedRegNo.toUpperCase().includes('SADMIN');
-        userRole = isFallbackAdmin ? 'admin' : 'student';
+      } catch {
+        role =
+          trimmed.toUpperCase().includes('ADMIN') || trimmed.toUpperCase().includes('SADMIN')
+            ? 'admin'
+            : 'student';
       }
-
-      onLoginSuccess(userRole, userName, finalRegNo);
+      onLoginSuccess(role, name, reg);
       onClose();
     } catch (err: any) {
       const msg = err.message || '';
-      if (msg.includes('not yet activated')) {
-        setErrorMsg('Account not yet activated. Click "First time? Activate your student account" below.');
-      } else if (msg.includes('verification failed') || msg.includes('does not match')) {
-        setErrorMsg('Date of Birth verification failed. Please check your DOB details.');
-      } else if (msg.includes('Invalid') || msg.includes('INVALID') || msg.includes('Invalid credentials')) {
-        setErrorMsg('Wrong Registration No, Date of Birth, or Password. Please try again.');
-      } else if (msg.includes('waking up') || msg.includes('cold start') || msg.includes('unreachable')) {
-        setErrorMsg('Backend server is waking up from idle (Render cold start). Please wait 5 seconds and click Sign In again.');
-      } else if (msg.includes('INTERNAL_ERROR') || msg.includes('HTTP Error 500')) {
-        setErrorMsg('Server database connection is initializing. Please click Sign In once more.');
-      } else if (msg.includes('rate') || msg.includes('RATE')) {
-        setErrorMsg('Too many attempts. Please wait a moment and try again.');
-      } else if (msg.includes('not found') || msg.includes('NOT_FOUND')) {
-        setErrorMsg('Account not found. Please check your Registration No.');
-      } else if (msg.includes('suspended') || msg.includes('SUSPENDED')) {
-        setErrorMsg('Account suspended. Please contact the mess office.');
-      } else {
-        setErrorMsg(msg || 'Authentication failed. Please check your details.');
-      }
+      if (msg.includes('not yet activated')) setErrorMsg('This account is not activated yet — use "Activate your account" below.');
+      else if (msg.includes('Invalid') || msg.includes('INVALID')) setErrorMsg('Wrong ID or password. Please try again.');
+      else setErrorMsg(msg || 'Sign in failed. Check your details.');
     } finally {
       setLoading(false);
     }
   };
 
-  const containerClasses = isFullScreen
-    ? 'min-h-screen w-full flex items-center justify-center p-4 bg-[#f9f9ff] animate-fade-in'
-    : 'fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in';
+  const heading =
+    mode === 'reset' ? 'Reset your password' : mode === 'activate' ? 'Activate your account' : 'Sign in';
+  const blurb =
+    mode === 'reset'
+      ? 'Confirm your date of birth to set a new password.'
+      : mode === 'activate'
+      ? 'First-time setup for your mess account.'
+      : 'Meal planning and your dining pass, in one place.';
 
-  return (
-    <div className={containerClasses}>
-      <div className="bg-white rounded-2xl max-w-md w-full p-6 sm:p-8 shadow-2xl space-y-5 border border-[#c3c6d7] relative">
+  const form = (
+    <div className="w-full max-w-[400px]">
+      {/* Mobile brand lockup */}
+      <div className="flex flex-col items-center mb-5 lg:hidden">
+        <div className="float-gentle">
+          <ChefMascot size={68} />
+        </div>
+        <h1 className="font-display text-[22px] font-bold mt-2" style={{ color: 'var(--text-dark)' }}>
+          CUSAT MessConnect
+        </h1>
+      </div>
+
+      <div
+        className="rounded-3xl p-6 sm:p-7 relative lg:rounded-2xl lg:p-8"
+        style={{
+          background: 'var(--card)',
+          border: '1px solid var(--card-border)',
+          boxShadow: 'var(--card-shadow-lg)',
+        }}
+      >
         {!isFullScreen && (
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 text-[#737686] hover:text-[#151c27]"
+            className="absolute top-4 right-4 cursor-pointer"
+            style={{ color: 'var(--text-muted)', background: 'none', border: 'none' }}
+            aria-label="Close"
           >
-            <span className="material-symbols-outlined text-[20px]">close</span>
+            <span className="material-symbols-outlined">close</span>
           </button>
         )}
 
-        <div className="text-center space-y-1">
-          <div className="w-14 h-14 rounded-2xl bg-[#2563eb]/10 text-[#004ac6] flex items-center justify-center mx-auto mb-2 border border-[#2563eb]/20 shadow-xs">
-            <span className="material-symbols-outlined text-[32px]">
-              {mode === 'reset' ? 'lock_reset' : 'restaurant'}
-            </span>
+        <h2 className="font-display text-[24px] font-bold" style={{ color: 'var(--text-dark)' }}>
+          {heading}
+        </h2>
+        <p className="text-[13px] font-semibold mt-1 mb-5" style={{ color: 'var(--text-muted)' }}>
+          {blurb}
+        </p>
+
+        {/* Demo accounts */}
+        {mode === 'login' && (
+          <div className="mb-5">
+            <p className="section-label mb-2">Quick demo</p>
+            <div className="grid grid-cols-3 gap-2">
+              {DEMO_ACCOUNTS.map(item => {
+                const active = regNo === item.reg;
+                return (
+                  <button
+                    key={item.reg}
+                    type="button"
+                    onClick={() => fill(item.reg, 'password123')}
+                    className="flex flex-col items-center gap-1 py-2.5 rounded-xl text-[12px] font-bold cursor-pointer transition-colors lg:rounded-lg"
+                    style={{
+                      background: active ? 'var(--orange-soft)' : 'var(--bg-alt)',
+                      color: active ? 'var(--orange-dark)' : 'var(--text-body)',
+                      border: `1px solid ${active ? 'var(--orange-light)' : 'var(--line)'}`,
+                      fontFamily: 'Nunito, sans-serif',
+                    }}
+                  >
+                    <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
+                      {item.icon}
+                    </span>
+                    {item.label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
-          <h2 className="text-2xl font-bold text-[#151c27]">
-            {mode === 'reset'
-              ? 'Reset Password'
-              : mode === 'activate'
-              ? 'Activate Your Account'
-              : 'Welcome to MessConnect'}
-          </h2>
-          <p className="text-xs text-[#434655]">
-            {mode === 'reset'
-              ? 'Verify your Date of Birth to create a new password'
-              : mode === 'activate'
-              ? 'First-time setup — enter your details to get started'
-              : 'Sign in with your Registration No and Password to continue'}
-          </p>
-        </div>
+        )}
 
         {successMsg && (
-          <div className="p-3 bg-[#e6f4ea] text-[#006c49] border border-[#006c49]/30 rounded-xl text-xs font-semibold flex items-center gap-2">
-            <span className="material-symbols-outlined text-[18px]">check_circle</span>
-            <span>{successMsg}</span>
+          <div
+            className="mb-4 px-3.5 py-3 rounded-xl text-xs font-bold flex items-start gap-2"
+            style={{ background: 'var(--green-light)', color: 'var(--green)', border: '1px solid #A9D6B1' }}
+            role="status"
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: 17 }}>check_circle</span>
+            <span className="flex-1">{successMsg}</span>
           </div>
         )}
-
         {errorMsg && (
-          <div className="p-3 bg-[#ffdad6] text-[#93000a] rounded-xl text-xs font-semibold flex items-center gap-2">
-            <span className="material-symbols-outlined text-[18px]">error</span>
-            <span>{errorMsg}</span>
+          <div
+            className="mb-4 px-3.5 py-3 rounded-xl text-xs font-bold flex items-start gap-2"
+            style={{ background: '#FDECEA', color: 'var(--red)', border: '1px solid #F6C8C3' }}
+            role="alert"
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: 17 }}>error</span>
+            <span className="flex-1">{errorMsg}</span>
           </div>
         )}
 
-        <form onSubmit={handleAuthSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="flex flex-col gap-3.5">
           <div>
-            <label className="block text-xs font-semibold text-[#434655] mb-1">Registration Number</label>
+            <label
+              htmlFor="login-reg"
+              className="block text-[12px] font-black mb-1.5"
+              style={{ color: 'var(--text-body)' }}
+            >
+              Registration number
+            </label>
             <input
+              id="login-reg"
               type="text"
               required
+              autoComplete="username"
               value={regNo}
-              onChange={(e) => setRegNo(e.target.value)}
-              placeholder="Enter your Registration No"
-              className="w-full p-3 bg-[#f0f3ff] border border-[#c3c6d7] rounded-xl text-sm font-medium focus:border-[#2563eb] outline-none text-[#151c27]"
+              onChange={e => setRegNo(e.target.value)}
+              placeholder="e.g. TEST001"
+              className="stitch-input"
             />
           </div>
 
           {(mode === 'activate' || mode === 'reset') && (
             <div>
-              <label className="block text-xs font-semibold text-[#434655] mb-1">
-                Date of Birth (DOB for Verification)
+              <label
+                htmlFor="login-dob"
+                className="block text-[12px] font-black mb-1.5"
+                style={{ color: 'var(--text-body)' }}
+              >
+                Date of birth
               </label>
               <input
+                id="login-dob"
                 type="date"
                 required
                 value={dob}
-                onChange={(e) => setDob(e.target.value)}
-                className="w-full p-3 bg-[#f0f3ff] border border-[#c3c6d7] rounded-xl text-sm font-medium outline-none text-[#151c27]"
+                onChange={e => setDob(e.target.value)}
+                className="stitch-input"
               />
             </div>
           )}
 
           <div>
-            <div className="flex items-center justify-between mb-1">
-              <label className="block text-xs font-semibold text-[#434655]">
-                {mode === 'reset' ? 'New Password' : 'Password'}
+            <div className="flex items-center justify-between mb-1.5">
+              <label htmlFor="login-pw" className="text-[12px] font-black" style={{ color: 'var(--text-body)' }}>
+                {mode === 'reset' ? 'New password' : 'Password'}
               </label>
               {mode === 'login' && (
                 <button
                   type="button"
-                  onClick={() => {
-                    setMode('reset');
-                    setErrorMsg(null);
-                    setSuccessMsg(null);
-                  }}
-                  className="text-xs text-[#2563eb] font-semibold hover:underline cursor-pointer"
+                  onClick={() => { setMode('reset'); setErrorMsg(null); }}
+                  className="btn-link text-[12px]"
                 >
-                  Forgot Password?
+                  Forgot?
                 </button>
               )}
             </div>
             <input
+              id="login-pw"
               type="password"
               required
+              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder={mode === 'reset' ? 'Enter new password (min 6 chars)' : 'Enter your password'}
-              className="w-full p-3 bg-[#f0f3ff] border border-[#c3c6d7] rounded-xl text-sm font-medium focus:border-[#2563eb] outline-none text-[#151c27]"
+              onChange={e => setPassword(e.target.value)}
+              placeholder="Enter password"
+              className="stitch-input"
             />
           </div>
 
           {mode === 'reset' && (
             <div>
-              <label className="block text-xs font-semibold text-[#434655] mb-1">Confirm New Password</label>
+              <label
+                htmlFor="login-pw2"
+                className="block text-[12px] font-black mb-1.5"
+                style={{ color: 'var(--text-body)' }}
+              >
+                Confirm password
+              </label>
               <input
+                id="login-pw2"
                 type="password"
                 required
+                autoComplete="new-password"
                 value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Re-enter new password"
-                className="w-full p-3 bg-[#f0f3ff] border border-[#c3c6d7] rounded-xl text-sm font-medium focus:border-[#2563eb] outline-none text-[#151c27]"
+                onChange={e => setConfirmPassword(e.target.value)}
+                placeholder="Re-enter password"
+                className="stitch-input"
               />
             </div>
           )}
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3.5 bg-[#2563eb] text-white font-semibold text-sm rounded-xl hover:bg-[#004ac6] transition-colors shadow-sm cursor-pointer flex items-center justify-center gap-2"
-          >
+          <button type="submit" disabled={loading} className="btn-primary w-full mt-1.5">
             {loading ? (
-              <span className="material-symbols-outlined animate-spin text-[20px]">refresh</span>
+              <span className="material-symbols-outlined animate-spin" style={{ fontSize: 19 }}>
+                progress_activity
+              </span>
+            ) : mode === 'reset' ? (
+              'Verify and reset'
+            ) : mode === 'activate' ? (
+              'Activate and sign in'
             ) : (
-              <>
-                <span className="material-symbols-outlined text-[20px]">
-                  {mode === 'reset' ? 'key' : 'login'}
-                </span>
-                <span>
-                  {mode === 'reset'
-                    ? 'Verify DOB & Reset Password'
-                    : mode === 'activate'
-                    ? 'Activate & Sign In'
-                    : 'Sign In'}
-                </span>
-              </>
+              'Sign in'
             )}
           </button>
         </form>
 
-        <div className="text-center pt-2 border-t border-[#f0f3ff] flex flex-col gap-1.5">
+        <div className="text-center mt-5 pt-4" style={{ borderTop: '1px solid var(--line)' }}>
           {mode === 'login' ? (
             <button
-              onClick={() => {
-                setMode('activate');
-                setErrorMsg(null);
-                setSuccessMsg(null);
-              }}
-              className="text-xs text-[#2563eb] font-semibold hover:underline cursor-pointer"
+              onClick={() => { setMode('activate'); setErrorMsg(null); }}
+              className="btn-link text-[12.5px]"
             >
-              First time? Activate your student account
+              First time here? Activate your account
             </button>
           ) : (
             <button
-              onClick={() => {
-                setMode('login');
-                setErrorMsg(null);
-                setSuccessMsg(null);
-              }}
-              className="text-xs text-[#2563eb] font-semibold hover:underline cursor-pointer"
+              onClick={() => { setMode('login'); setErrorMsg(null); }}
+              className="btn-link text-[12.5px]"
             >
-              Already have password? Back to Sign In
+              Back to sign in
             </button>
           )}
         </div>
+      </div>
+    </div>
+  );
+
+  // ── Modal presentation (opened over the app) ──────────────────────────
+  if (!isFullScreen) {
+    return (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center p-5"
+        style={{ background: 'rgba(45,26,14,0.35)', backdropFilter: 'blur(6px)' }}
+      >
+        {form}
+      </div>
+    );
+  }
+
+  // ── Full-screen sign-in page ──────────────────────────────────────────
+  return (
+    <div className="min-h-screen lg:grid lg:grid-cols-2">
+      {/* Editorial panel — desktop only. Mobile has no room for it. */}
+      <aside
+        className="hidden lg:flex flex-col justify-between p-12"
+        style={{ background: 'var(--bg)', borderRight: '1px solid var(--line)' }}
+      >
+        <div className="flex items-center gap-2.5">
+          <div
+            className="w-9 h-9 rounded-xl flex items-center justify-center text-lg"
+            style={{ background: 'var(--orange-soft)', border: '1px solid var(--orange-light)' }}
+          >
+            🍴
+          </div>
+          <span className="font-display text-[16px] font-bold" style={{ color: 'var(--text-dark)' }}>
+            CUSAT MessConnect
+          </span>
+        </div>
+
+        <div className="max-w-[420px]">
+          <DosaCartoon size={168} />
+          <h2
+            className="font-display text-[34px] font-bold mt-6 leading-tight"
+            style={{ color: 'var(--text-dark)' }}
+          >
+            The hostel mess,
+            <br />
+            without the paperwork.
+          </h2>
+          <ul className="mt-6 flex flex-col gap-3">
+            {[
+              ['event_available', 'Opt out of meals before the 9 PM cutoff'],
+              ['confirmation_number', 'A signed QR pass instead of a paper register'],
+              ['receipt_long', 'Monthly bills and fines reconciled automatically'],
+            ].map(([icon, text]) => (
+              <li key={icon} className="flex items-start gap-3">
+                <span
+                  className="material-symbols-outlined shrink-0"
+                  style={{ fontSize: 19, color: 'var(--orange)' }}
+                >
+                  {icon}
+                </span>
+                <span className="text-[14px] font-semibold" style={{ color: 'var(--text-body)' }}>
+                  {text}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <p className="text-[12px] font-semibold" style={{ color: 'var(--text-muted)' }}>
+          Cochin University of Science and Technology · Hostel Mess
+        </p>
+      </aside>
+
+      {/* Form column */}
+      <div
+        className="min-h-screen flex items-center justify-center p-5 lg:p-12"
+        style={{ background: 'var(--bg-alt)' }}
+      >
+        {form}
       </div>
     </div>
   );
