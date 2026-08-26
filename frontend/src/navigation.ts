@@ -72,17 +72,33 @@ export const groupsFor = (role: UserRole): NavGroup[] =>
   role === 'student' ? STUDENT_GROUPS : ADMIN_GROUPS;
 
 /**
- * A phone tab bar holds five items comfortably. Students have exactly five, so
- * everything fits. Admins have ten, so four go in the bar and the rest live
+ * Alerts and Profile already live in the top header for both roles, so they
+ * are left out of the bottom bar entirely rather than duplicated there.
+ * Everything else goes straight into the bar instead of hiding some of it
  * behind "More".
  */
 const BAR_IDS: Record<UserRole, ActiveTab[]> = {
-  student: ['home', 'calendar', 'qr', 'alerts', 'profile'],
-  admin: ['admin-dashboard', 'admin-scanner', 'admin-menu', 'admin-students'],
+  student: ['home', 'calendar', 'qr', 'bill'],
+  admin: [
+    'admin-dashboard', 'admin-scanner', 'admin-menu', 'admin-students',
+    'admin-ledger', 'admin-billing', 'admin-payments', 'admin-stocks',
+  ],
 };
 
 const allEntries = (role: UserRole): NavEntry[] =>
   groupsFor(role).flatMap(g => g.items);
+
+/**
+ * Alerts and Profile stay in STUDENT_GROUPS/ADMIN_GROUPS for the desktop
+ * sidebar (which has no top-header icons of its own), but the mobile header
+ * already carries a notification bell and avatar for both roles - so the
+ * bottom bar/"More" sheet drops them entirely instead of surfacing a
+ * redundant second copy.
+ */
+const BOTTOM_NAV_EXCLUDE: Record<UserRole, ActiveTab[]> = {
+  student: ['alerts', 'profile'],
+  admin: ['alerts', 'profile'],
+};
 
 /** Entries shown directly in the bottom bar, in bar order. */
 export const barEntries = (role: UserRole): NavEntry[] => {
@@ -95,8 +111,9 @@ export const barEntries = (role: UserRole): NavEntry[] => {
 /** Everything that did not fit the bar, still grouped for the "More" sheet. */
 export const overflowGroups = (role: UserRole): NavGroup[] => {
   const inBar = new Set(BAR_IDS[role]);
+  const excluded = new Set(BOTTOM_NAV_EXCLUDE[role]);
   return groupsFor(role)
-    .map(g => ({ heading: g.heading, items: g.items.filter(i => !inBar.has(i.id)) }))
+    .map(g => ({ heading: g.heading, items: g.items.filter(i => !inBar.has(i.id) && !excluded.has(i.id)) }))
     .filter(g => g.items.length > 0);
 };
 
