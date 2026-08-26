@@ -22,6 +22,9 @@ class Attendance(Base):
     __table_args__ = (
         sa.UniqueConstraint("student_id", "meal_date", "meal_type", name="uq_attendance"),
         sa.Index("ix_attendance_date", "meal_date"),
+        # Matches the (student, date, meal) lookup used by QR verification
+        # and fine reconciliation.
+        sa.Index("ix_attendance_student_date_type", "student_id", "meal_date", "meal_type"),
     )
 
     student: Mapped["User"] = relationship("User", foreign_keys=[student_id])

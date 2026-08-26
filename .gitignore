@@ -1,0 +1,27 @@
+# Secrets — docker-compose.yml reads these at runtime, they are never inlined.
+.env
+.env.*
+!.env.example
+!.env.docker.example
+
+# Python
+__pycache__/
+*.py[cod]
+venv/
+.venv/
+
+# Local databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Node
+node_modules/
+dist/
+build/
+
+# Editors / OS
+.DS_Store
+.idea/
+.vscode/
+*.swp

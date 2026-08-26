@@ -7,6 +7,7 @@ export type ActiveTab =
   | 'qr'
   | 'alerts'
   | 'profile'
+  | 'bill'
   // Admin tabs
   | 'admin-dashboard'
   | 'admin-menu'

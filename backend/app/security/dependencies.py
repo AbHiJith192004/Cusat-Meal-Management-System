@@ -31,42 +31,41 @@ async def get_current_user(
     db: AsyncSession = Depends(get_db),
 ) -> User:
     """Extract and validate the current user from the JWT access token.
-    
+
     Raises:
         UnauthorizedException: If no token, invalid token, or user not found.
         AccountSuspendedException: If the user's account is suspended.
     """
-    token = None
-    if credentials:
-        token = credentials.credentials
-    else:
-        token = request.query_params.get("token")
+    # Bearer header only. A ?token= fallback used to exist for file downloads;
+    # tokens in URLs end up in browser history and proxy access logs, and the
+    # download path now sends a real Authorization header instead.
+    token = credentials.credentials if credentials else None
 
     if not token:
         raise UnauthorizedException(message="Authentication required")
-    
+
     payload = decode_access_token(token)
     user_id = payload.get("sub")
-    
+
     if not user_id:
         raise UnauthorizedException(message="Invalid token payload")
-    
+
     stmt = select(User).where(User.id == UUID(user_id))
     result = await db.execute(stmt)
     user = result.scalar_one_or_none()
-    
+
     if user is None:
         raise UnauthorizedException(message="User not found")
-    
+
     if user.account_status == AccountStatus.SUSPENDED.value:
         raise AccountSuspendedException()
-    
+
     return user
 
 
 def require_role(*roles: Role):
     """Create a dependency that requires the current user to have one of the specified roles.
-    
+
     Usage:
         @router.get("/admin/dashboard", dependencies=[Depends(require_role(Role.ADMIN, Role.SUPER_ADMIN))])
     Or:
@@ -77,7 +76,7 @@ def require_role(*roles: Role):
     ) -> User:
         user_role = current_user.role
         allowed_roles = [r.value for r in roles]
-        
+
         if user_role not in allowed_roles:
             logger.warning(
                 "RBAC denied: user %s (role=%s) attempted access requiring %s",
@@ -89,7 +88,7 @@ def require_role(*roles: Role):
                 message=f"This action requires one of these roles: {', '.join(allowed_roles)}"
             )
         return current_user
-    
+
     return role_checker
 
 

@@ -9,11 +9,24 @@ interface LoginModalProps {
   onLoginSuccess: (role: 'student' | 'admin', name: string, regNo: string) => void;
 }
 
+/**
+ * Quick-fill buttons for the seeded demo accounts.
+ *
+ * These only populate the form - the person still has to submit, and the
+ * server still authenticates normally. They are gated to development builds
+ * so seeded credentials are not shipped in a production bundle; Vite replaces
+ * `import.meta.env.DEV` with a literal at build time, so the whole block is
+ * removed by tree-shaking in a production build.
+ */
+const SHOW_DEMO_ACCOUNTS = import.meta.env.DEV;
+
 const DEMO_ACCOUNTS = [
   { label: 'Student', reg: 'TEST001', icon: 'school' },
   { label: 'Admin', reg: 'ADMIN001', icon: 'restaurant' },
   { label: 'Warden', reg: 'SADMIN001', icon: 'shield_person' },
 ];
+
+const DEMO_PASSWORD = 'password123';
 
 export const LoginModal: React.FC<LoginModalProps> = ({
   isOpen,
@@ -137,8 +150,8 @@ export const LoginModal: React.FC<LoginModalProps> = ({
           {blurb}
         </p>
 
-        {/* Demo accounts */}
-        {mode === 'login' && (
+        {/* Demo accounts - development builds only */}
+        {SHOW_DEMO_ACCOUNTS && mode === 'login' && (
           <div className="mb-5">
             <p className="section-label mb-2">Quick demo</p>
             <div className="grid grid-cols-3 gap-2">
@@ -148,7 +161,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                   <button
                     key={item.reg}
                     type="button"
-                    onClick={() => fill(item.reg, 'password123')}
+                    onClick={() => fill(item.reg, DEMO_PASSWORD)}
                     className="flex flex-col items-center gap-1 py-2.5 rounded-xl text-[12px] font-bold cursor-pointer transition-colors lg:rounded-lg"
                     style={{
                       background: active ? 'var(--orange-soft)' : 'var(--bg-alt)',

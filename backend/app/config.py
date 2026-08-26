@@ -20,9 +20,19 @@ class Settings(BaseSettings):
     QR_VALIDITY_SECONDS: int = 60
     
     # CORS
+    # Exact origins only. A wildcard subdomain regex combined with
+    # allow_credentials lets any app on a shared host read authenticated
+    # responses, so the regex that used to live in middleware/cors.py is gone.
     CORS_ORIGINS: str = "http://localhost:3000"
     CORS_ALLOW_CREDENTIALS: bool = True
-    
+
+    # Auth hardening
+    # Per-account lockout sits alongside the per-IP rate limit: the IP limit
+    # stops one host hammering the service, the lockout stops a distributed
+    # guess against a single low-entropy factor (date of birth).
+    AUTH_MAX_FAILED_ATTEMPTS: int = 5
+    AUTH_LOCKOUT_MINUTES: int = 15
+
     # App
     APP_ENV: str = "development"
     LOG_LEVEL: str = "INFO"
@@ -41,6 +51,11 @@ class Settings(BaseSettings):
     @property
     def is_development(self) -> bool:
         return self.APP_ENV == "development"
+
+    @property
+    def cookies_require_https(self) -> bool:
+        """Secure flag for auth cookies. True everywhere except local dev."""
+        return not self.is_development
 
 
 @lru_cache

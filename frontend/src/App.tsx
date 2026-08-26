@@ -13,12 +13,13 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { StudentHomeView } from './views/StudentHomeView';
 import { MealPlanningView } from './views/MealPlanningView';
 import { StudentQrView } from './views/StudentQrView';
+import { StudentBillView } from './views/StudentBillView';
 import { AdminDashboardView } from './views/AdminDashboardView';
 import { AdminScannerView } from './views/AdminScannerView';
 import { StudentDirectoryView } from './views/StudentDirectoryView';
 import { ProfileView } from './views/ProfileView';
 import { AlertsView } from './views/AlertsView';
-import { authApi, studentApi, getAuthToken } from './services/api';
+import { authApi, studentApi, getAuthToken, restoreSession } from './services/api';
 
 import { PwaInstallPrompt } from './components/PwaInstallPrompt';
 import { LoginModal } from './components/LoginModal';
@@ -48,7 +49,13 @@ export function App() {
   useEffect(() => {
     const checkSession = async () => {
       setCheckingSession(true);
-      const token = getAuthToken();
+
+      // The access token is no longer persisted in localStorage, so on a fresh
+      // page load there is nothing to read. Exchange the HttpOnly refresh
+      // cookie for a new one instead - same outcome, but the token is never
+      // readable by script.
+      const token = getAuthToken() ?? ((await restoreSession()) ? getAuthToken() : null);
+
       const savedRole = (localStorage.getItem('messconnect_role') as UserRole) || 'student';
       const savedTab = (localStorage.getItem('messconnect_tab') as ActiveTab) || (savedRole === 'admin' ? 'admin-dashboard' : 'home');
 
@@ -247,6 +254,7 @@ export function App() {
             {currentTab === 'alerts' && (
               <AlertsView alerts={alerts} onMarkAllRead={handleMarkAllAlertsRead} />
             )}
+            {currentTab === 'bill' && <StudentBillView />}
             {currentTab === 'profile' && (
               <ProfileView
                 userRole="student"

@@ -893,4 +893,157 @@ button { font-family: inherit; }
   .hide-on-desktop { display: none !important; }
 }
 
+/* =====================================================================
+   STUDENT BILL
+   A paper document, not another app screen — off-white stock, a hairline
+   rule instead of a card shadow, and numerals set with tabular spacing so
+   the amount column actually lines up. "Download" prints only this sheet.
+   ===================================================================== */
+.bill-sheet {
+  max-width: 640px;
+  margin: 0 auto;
+  background: #FFFDF8;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--card-shadow);
+  padding: 32px 28px;
+  font-variant-numeric: tabular-nums;
+}
+
+.bill-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.bill-brand { display: flex; align-items: center; gap: 12px; }
+.bill-brand-mark {
+  font-size: 28px;
+  line-height: 1;
+  width: 44px; height: 44px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--orange-soft);
+  border-radius: var(--radius-md);
+}
+.bill-brand-name {
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 16px;
+  color: var(--text-dark);
+}
+.bill-brand-sub {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.bill-meta { text-align: right; font-size: 12px; }
+.bill-meta p { color: var(--text-dark); font-weight: 700; margin-top: 2px; }
+.bill-meta p span {
+  color: var(--text-muted);
+  font-weight: 600;
+  margin-right: 6px;
+}
+
+.bill-divider {
+  height: 1px;
+  background: repeating-linear-gradient(to right, var(--line) 0 6px, transparent 6px 12px);
+  margin: 22px 0;
+}
+
+.bill-billto { margin-bottom: 20px; }
+.bill-label {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-light);
+  margin-bottom: 4px;
+}
+.bill-student-name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 17px;
+  color: var(--text-dark);
+}
+.bill-student-reg { font-size: 12px; font-weight: 600; color: var(--text-muted); margin-top: 1px; }
+
+.bill-table { width: 100%; border-collapse: collapse; }
+.bill-table thead th {
+  text-align: left;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-light);
+  padding-bottom: 8px;
+  border-bottom: 1.5px solid var(--text-dark);
+}
+.bill-table thead th.num { text-align: right; }
+.bill-table td {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line-soft);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-body);
+  vertical-align: top;
+}
+.bill-table td.num { text-align: right; font-weight: 700; color: var(--text-dark); white-space: nowrap; }
+.bill-line-note { display: block; font-size: 11px; font-weight: 500; color: var(--text-muted); margin-top: 2px; }
+.bill-no-fines { text-align: center; color: var(--text-light); font-style: italic; }
+
+.bill-totals { margin-top: 4px; margin-left: auto; width: 60%; min-width: 220px; }
+.bill-totals-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-body);
+}
+.bill-grand-total {
+  border-top: 1.5px solid var(--text-dark);
+  margin-top: 4px;
+  padding-top: 12px;
+  font-family: var(--font-display);
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text-dark);
+}
+
+.bill-footer {
+  margin-top: 28px;
+  padding-top: 16px;
+  border-top: 1px dashed var(--line);
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-light);
+}
+
+/* Download = print-to-PDF. Everything but the bill sheet disappears, and
+   the sheet itself sheds its screen chrome (card shadow, rounded corners,
+   max-width clamp) so it fills the printed page like a real document. */
+@media print {
+  .no-print,
+  .app-sidebar, .app-topbar, .bottom-nav, .pwa-install-prompt { display: none !important; }
+
+  .app-main { display: block !important; padding: 0 !important; margin: 0 !important; }
+  .page-container { padding: 0 !important; max-width: none !important; }
+
+  .bill-sheet {
+    box-shadow: none;
+    border: none;
+    border-radius: 0;
+    max-width: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  body { background: #FFFFFF !important; }
+}
+
 }

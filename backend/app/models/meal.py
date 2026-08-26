@@ -22,6 +22,9 @@ class MealSelection(Base):
     __table_args__ = (
         sa.UniqueConstraint("student_id", "meal_date", "meal_type", name="uq_meal_selection"),
         sa.Index("ix_meal_date", "meal_date"),
+        # Every hot-path lookup filters on all three together
+        # (meal_service, qr_service, fine_service), not on meal_date alone.
+        sa.Index("ix_meal_student_date_type", "student_id", "meal_date", "meal_type"),
     )
 
     student: Mapped["User"] = relationship("User", foreign_keys=[student_id])

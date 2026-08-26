@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { superAdminApi, authApi } from '../services/api';
+import { superAdminApi } from '../services/api';
 
 interface CreateAdminModalProps {
   isOpen: boolean;
@@ -26,24 +26,12 @@ export const CreateAdminModal: React.FC<CreateAdminModalProps> = ({ isOpen, onCl
     const trimmedPassword = password.trim();
 
     try {
-      try {
-        await superAdminApi.createAdmin(trimmedRegNo, trimmedName, trimmedPassword, role);
-      } catch (firstErr: any) {
-        // If current session is a normal admin, acquire Super Admin authorization
-        const errMsg = firstErr.message || '';
-        if (
-          errMsg.includes('Forbidden') ||
-          errMsg.includes('SUPER_ADMIN') ||
-          errMsg.includes('Super_admin') ||
-          errMsg.includes('role') ||
-          errMsg.includes('403')
-        ) {
-          await authApi.login('SADMIN001', 'password123');
-          await superAdminApi.createAdmin(trimmedRegNo, trimmedName, trimmedPassword, role);
-        } else {
-          throw firstErr;
-        }
-      }
+      // Creating an admin requires a Super Warden session. This used to catch a
+      // 403 and silently re-authenticate as a hardcoded SADMIN001 account to
+      // push the action through anyway - a privilege escalation shipped in the
+      // bundle. A denial is now reported to the person, who can sign in with an
+      // account that actually holds the permission.
+      await superAdminApi.createAdmin(trimmedRegNo, trimmedName, trimmedPassword, role);
 
       setMessage({ type: 'success', text: `Admin account created for ${trimmedName} (${trimmedRegNo})!` });
       setRegNo('');
@@ -54,9 +42,17 @@ export const CreateAdminModal: React.FC<CreateAdminModalProps> = ({ isOpen, onCl
         setMessage(null);
       }, 2000);
     } catch (err: any) {
+      const raw = err?.message || '';
+      const denied =
+        raw.includes('403') ||
+        raw.toUpperCase().includes('SUPER_ADMIN') ||
+        raw.toLowerCase().includes('forbidden');
+
       setMessage({
         type: 'error',
-        text: err.message || 'Failed to create admin account. Check credentials.',
+        text: denied
+          ? 'Only a Super Warden can create admin accounts. Sign in with a Super Warden account and try again.'
+          : raw || 'Could not create the admin account. Check the details and try again.',
       });
     } finally {
       setLoading(false);

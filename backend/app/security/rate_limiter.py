@@ -76,14 +76,79 @@ class SlidingWindowRateLimiter:
                 del self._requests[key]
 
 
-# Global rate limiter instance
-rate_limiter = SlidingWindowRateLimiter()
+class AccountLockout:
+    """Per-account failed-attempt lockout.
 
-# Pre-defined rate limit configurations
-LOGIN_RATE_LIMIT = RateLimitConfig(max_requests=100, window_seconds=60)     # 100 per min (dev)
-ACTIVATION_RATE_LIMIT = RateLimitConfig(max_requests=50, window_seconds=60) # 50 per min (dev)
-REFRESH_RATE_LIMIT = RateLimitConfig(max_requests=100, window_seconds=60)    # 100 per min
-GENERAL_RATE_LIMIT = RateLimitConfig(max_requests=300, window_seconds=60)    # 300 per min
+    The per-IP rate limit above only slows a single host down. Date of birth is
+    a low-entropy factor, so a distributed guess against one account needs a
+    limit that follows the *account*, not the caller. Counts only failures;
+    a success clears the record.
+
+    In-memory, like the rate limiter — single-process only. Move both to Redis
+    together when this runs on more than one worker.
+    """
+
+    def __init__(self) -> None:
+        self._failures: dict[str, list[float]] = defaultdict(list)
+        self._lock = Lock()
+
+    def is_locked(self, key: str, max_attempts: int, window_seconds: int) -> bool:
+        now = time.monotonic()
+        window_start = now - window_seconds
+        with self._lock:
+            recent = [ts for ts in self._failures[key] if ts > window_start]
+            self._failures[key] = recent
+            return len(recent) >= max_attempts
+
+    def record_failure(self, key: str) -> None:
+        with self._lock:
+            self._failures[key].append(time.monotonic())
+
+    def clear(self, key: str) -> None:
+        with self._lock:
+            self._failures.pop(key, None)
+
+    def cleanup(self, window_seconds: int = 3600) -> None:
+        now = time.monotonic()
+        with self._lock:
+            for key in list(self._failures):
+                self._failures[key] = [ts for ts in self._failures[key] if ts > now - window_seconds]
+                if not self._failures[key]:
+                    del self._failures[key]
+
+
+# Global instances
+rate_limiter = SlidingWindowRateLimiter()
+account_lockout = AccountLockout()
+
+
+def _limits_for_env() -> dict[str, RateLimitConfig]:
+    """Production gets real limits; development keeps loose ones so local
+    testing is not fighting the limiter. Previously the loose "(dev)" values
+    were the only values and shipped to production unchanged."""
+    from app.config import get_settings
+
+    if get_settings().is_development:
+        return {
+            "login": RateLimitConfig(max_requests=100, window_seconds=60),
+            "activation": RateLimitConfig(max_requests=50, window_seconds=60),
+            "refresh": RateLimitConfig(max_requests=100, window_seconds=60),
+            "general": RateLimitConfig(max_requests=300, window_seconds=60),
+        }
+    return {
+        "login": RateLimitConfig(max_requests=10, window_seconds=60),
+        "activation": RateLimitConfig(max_requests=5, window_seconds=60),
+        "refresh": RateLimitConfig(max_requests=30, window_seconds=60),
+        "general": RateLimitConfig(max_requests=120, window_seconds=60),
+    }
+
+
+_LIMITS = _limits_for_env()
+
+LOGIN_RATE_LIMIT = _LIMITS["login"]
+ACTIVATION_RATE_LIMIT = _LIMITS["activation"]
+REFRESH_RATE_LIMIT = _LIMITS["refresh"]
+GENERAL_RATE_LIMIT = _LIMITS["general"]
 
 
 def get_client_ip(request: Request) -> str:

@@ -31,10 +31,12 @@ export const StudentQrView: React.FC<StudentQrViewProps> = ({ studentName, regNo
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [qrToken, setQrToken] = useState<string | null>(null);
   const [isAlreadyRecorded, setIsAlreadyRecorded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchQrToken = async (type: MealType) => {
     setIsRefreshing(true);
     setIsAlreadyRecorded(false);
+    setError(null);
     try {
       const res = await attendanceApi.getQrToken(type);
       setQrToken(res.qr_token);
@@ -44,8 +46,19 @@ export const StudentQrView: React.FC<StudentQrViewProps> = ({ studentName, regNo
       if (msg.includes('already') || msg.includes('recorded')) {
         setIsAlreadyRecorded(true);
       } else {
-        setQrToken(`CUSAT-PASS-${type.toUpperCase()}-${Date.now()}`);
-        setSecondsLeft(60);
+        // Previously this swapped in a locally-built, unsigned string and
+        // showed it as an active pass. That code would fail at the scanner
+        // while the student believed they were checked in - and an unattended
+        // confirmed meal is exactly what gets fined later. Show the real
+        // failure instead.
+        setQrToken(null);
+        setError(
+          msg.includes('outside') || msg.includes('window')
+            ? 'This meal is not being served right now. Come back during the serving window.'
+            : msg.includes('skipped')
+            ? 'You opted out of this meal, so no pass can be issued.'
+            : 'Could not get a pass from the server. Check your connection and try again.'
+        );
       }
     } finally {
       setIsRefreshing(false);
@@ -163,6 +176,28 @@ export const StudentQrView: React.FC<StudentQrViewProps> = ({ studentName, regNo
                     {mealType} is recorded for today
                   </p>
                 </div>
+              ) : error ? (
+                <div className="text-center py-8 flex flex-col items-center gap-2">
+                  <span
+                    className="material-symbols-outlined"
+                    style={{ fontSize: 36, color: 'var(--red)' }}
+                  >
+                    error
+                  </span>
+                  <p className="font-display text-[15px] font-bold" style={{ color: 'var(--text-dark)' }}>
+                    No pass available
+                  </p>
+                  <p className="text-xs font-semibold max-w-[240px]" style={{ color: 'var(--text-muted)' }}>
+                    {error}
+                  </p>
+                  <button
+                    onClick={() => fetchQrToken(mealType)}
+                    className="btn-secondary mt-1"
+                    style={{ fontSize: '0.75rem', padding: '6px 14px' }}
+                  >
+                    Try again
+                  </button>
+                </div>
               ) : qrCodeUrl ? (
                 <img
                   src={qrCodeUrl}
@@ -189,9 +224,15 @@ export const StudentQrView: React.FC<StudentQrViewProps> = ({ studentName, regNo
               >
                 <span
                   className="w-1.5 h-1.5 rounded-full inline-block"
-                  style={{ background: isAlreadyRecorded ? 'var(--text-light)' : 'var(--green)' }}
+                  style={{
+                    background: error
+                      ? 'var(--red)'
+                      : isAlreadyRecorded
+                      ? 'var(--text-light)'
+                      : 'var(--green)',
+                  }}
                 />
-                {isAlreadyRecorded ? 'Redeemed' : 'Active'} · Valid {today}
+                {error ? 'Unavailable' : isAlreadyRecorded ? 'Redeemed' : 'Active'} · Valid {today}
               </p>
               <p
                 className="text-[11px] font-semibold mt-1"

@@ -1,5 +1,6 @@
 import React from 'react';
 import { ActiveTab, UserRole } from '../types';
+import { groupsFor } from '../navigation';
 
 interface SideNavProps {
   currentTab: ActiveTab;
@@ -10,51 +11,6 @@ interface SideNavProps {
   unreadAlertsCount?: number;
   onLogout: () => void;
 }
-
-type NavEntry = { id: ActiveTab; label: string; icon: string };
-type NavGroup = { heading?: string; items: NavEntry[] };
-
-const STUDENT_GROUPS: NavGroup[] = [
-  {
-    items: [
-      { id: 'home',     label: 'Home',          icon: 'home' },
-      { id: 'calendar', label: 'Meal Schedule',  icon: 'restaurant_menu' },
-      { id: 'qr',       label: 'Mess Pass',      icon: 'confirmation_number' },
-      { id: 'alerts',   label: 'Alerts',         icon: 'notifications' },
-    ],
-  },
-  {
-    heading: 'Account',
-    items: [{ id: 'profile', label: 'Profile', icon: 'person' }],
-  },
-];
-
-const ADMIN_GROUPS: NavGroup[] = [
-  {
-    items: [
-      { id: 'admin-dashboard', label: 'Overview',   icon: 'space_dashboard' },
-      { id: 'admin-scanner',   label: 'QR Scanner', icon: 'qr_code_scanner' },
-      { id: 'admin-menu',      label: 'Weekly Menu', icon: 'restaurant_menu' },
-      { id: 'admin-students',  label: 'Students',   icon: 'group' },
-    ],
-  },
-  {
-    heading: 'Finance',
-    items: [
-      { id: 'admin-ledger',   label: 'Ledger',   icon: 'account_balance_wallet' },
-      { id: 'admin-billing',  label: 'Billing',  icon: 'receipt_long' },
-      { id: 'admin-payments', label: 'Payments', icon: 'payments' },
-      { id: 'admin-stocks',   label: 'Stocks',   icon: 'inventory_2' },
-    ],
-  },
-  {
-    heading: 'Account',
-    items: [
-      { id: 'alerts',  label: 'Alerts',  icon: 'notifications' },
-      { id: 'profile', label: 'Profile', icon: 'person' },
-    ],
-  },
-];
 
 /**
  * Desktop-only left rail. Hidden below 1024px, where the bottom tab bar takes over.
@@ -70,7 +26,7 @@ export const SideNav: React.FC<SideNavProps> = ({
   onLogout,
 }) => {
   const isStudent = userRole === 'student';
-  const groups = isStudent ? STUDENT_GROUPS : ADMIN_GROUPS;
+  const groups = groupsFor(userRole);
 
   const isActive = (id: ActiveTab) => {
     if (id === 'home') return isStudent && (currentTab === 'home' || currentTab === 'admin-dashboard');

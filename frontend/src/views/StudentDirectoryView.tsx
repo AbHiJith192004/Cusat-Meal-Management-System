@@ -28,6 +28,9 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({
     dateOfBirth: '',
     department: 'Computer Science & Engineering',
     phone: '',
+    // Read and written in three places below but missing from this initial
+    // shape, so the field was typed away and never persisted.
+    campusLocation: 'MAIN_CAMPUS',
   });
 
   const fetchStudents = async () => {
@@ -124,6 +127,7 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({
         messId: '',
         room: '',
         dateOfBirth: '',
+        campusLocation: 'MAIN_CAMPUS',
         department: 'Computer Science & Engineering',
         phone: '',
       });

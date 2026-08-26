@@ -17,18 +17,49 @@ const getApiBaseUrl = () => {
 
 const API_BASE_URL = getApiBaseUrl();
 
-let authToken: string | null = localStorage.getItem('access_token');
+/**
+ * The access token lives in memory only.
+ *
+ * It used to be persisted in localStorage, where any script on the page could
+ * read it. Nothing is lost by holding it here: the refresh token is an
+ * HttpOnly cookie, so a page reload re-obtains an access token via
+ * `restoreSession()` below without the token ever being readable by script.
+ */
+let authToken: string | null = null;
 
 export const setAuthToken = (token: string | null) => {
   authToken = token;
-  if (token) {
-    localStorage.setItem('access_token', token);
-  } else {
+  // Clear any token left behind by a previous version of the app.
+  try {
     localStorage.removeItem('access_token');
+  } catch {
+    /* storage unavailable (private mode) - nothing to clean up */
   }
 };
 
 export const getAuthToken = () => authToken;
+
+/**
+ * Exchange the HttpOnly refresh cookie for a fresh access token.
+ * Call once on app start, in place of reading a persisted token.
+ * Returns false when there is no valid session.
+ */
+export const restoreSession = async (): Promise<boolean> => {
+  try {
+    const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+    });
+    if (!res.ok) return false;
+    const json = await res.json();
+    const token = json?.data?.access_token ?? json?.access_token;
+    if (!token) return false;
+    setAuthToken(token);
+    return true;
+  } catch {
+    return false;
+  }
+};
 
 async function request<T>(endpoint: string, options: RequestInit = {}, retries = 2): Promise<T> {
   const headers: Record<string, string> = {
@@ -119,6 +150,9 @@ export const authApi = {
 export const studentApi = {
   getProfile: () => request<any>('/me'),
   getDashboard: () => request<any>('/me/dashboard'),
+  // Only returns data once the admin has published that month's bill - the
+  // server enforces this, this just surfaces whatever it says.
+  getMyBill: (month: number, year: number) => request<any>(`/me/bill?month=${month}&year=${year}`),
 };
 
 // Meal API
@@ -238,31 +272,83 @@ export const adminApi = {
       method: 'DELETE',
     }),
 
-  downloadReportUrl: (year: number, month: number, format: 'excel' | 'pdf') => {
-    const token = getAuthToken() || '';
-    return `${API_BASE_URL}/admin/reports/monthly?year=${year}&month=${month}&format=${format}&token=${encodeURIComponent(token)}`;
-  },
+  /**
+   * Download a monthly report.
+   *
+   * Two things were removed here:
+   *  - the token was appended to the URL as `?token=`, which puts a bearer
+   *    credential into browser history and proxy access logs. The server no
+   *    longer accepts that fallback either; the Authorization header is the
+   *    only accepted form.
+   *  - on 401/403 (and when no token was present) this used to silently call
+   *    `login('ADMIN001', 'password123')` with a credential hardcoded into the
+   *    shipped bundle. An auth failure now surfaces to the caller so the user
+   *    can sign in again themselves.
+   */
+  // --- Billing periods and physical stock -----------------------------------
+  // These replace a localStorage map that decided, per browser, whether a month
+  // was published. Publication state is a shared financial fact, so it now
+  // comes from the server.
+
+  getBillStatus: (month: number, year: number) =>
+    request<any>(`/admin/bills/status?month=${month}&year=${year}`),
+
+  publishBill: (payload: {
+    month: number;
+    year: number;
+    opening_stock_value: number;
+    purchases_value: number;
+    closing_stock_value: number;
+    operational_expenses: number;
+    administrative_expenses: number;
+    chargeable_days: number;
+  }) =>
+    request<any>('/admin/bills/publish', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
+
+  unpublishBill: (month: number, year: number, reason: string) =>
+    request<any>('/admin/bills/unpublish', {
+      method: 'POST',
+      body: JSON.stringify({ month, year, reason }),
+    }),
+
+  listStockCounts: (month: number, year: number) =>
+    request<any>(`/admin/stocks?month=${month}&year=${year}`),
+
+  updatePhysicalStock: (payload: {
+    month: number;
+    year: number;
+    item_id: string;
+    item_name?: string;
+    unit?: string;
+    physical_closing_qty: number;
+    unit_cost?: number;
+  }) =>
+    request<any>('/admin/stocks/update-physical', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
 
   downloadReportFile: async (year: number, month: number, format: 'excel' | 'pdf') => {
-    let token = getAuthToken();
+    const token = getAuthToken();
     if (!token) {
-      try {
-        await authApi.login('ADMIN001', 'password123');
-        token = getAuthToken();
-      } catch (e) {}
+      throw new Error('Your session has expired. Sign in again to export a report.');
     }
 
-    const buildUrl = (t: string | null) =>
-      `${API_BASE_URL}/admin/reports/monthly?year=${year}&month=${month}&format=${format}&token=${encodeURIComponent(t || '')}`;
+    const url = `${API_BASE_URL}/admin/reports/monthly?year=${year}&month=${month}&format=${format}`;
 
     let response: Response | undefined;
+    let lastNetworkError: unknown;
+
+    // Retry transient network failures only - never an auth failure.
     for (let attempt = 0; attempt <= 2; attempt++) {
       try {
-        response = await fetch(buildUrl(token), {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
-        if (response.ok || response.status === 401 || response.status === 403) break;
+        response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
+        break;
       } catch (netErr) {
+        lastNetworkError = netErr;
         if (attempt < 2) {
           await new Promise((resolve) => setTimeout(resolve, 2500));
         }
@@ -270,17 +356,13 @@ export const adminApi = {
     }
 
     if (!response) {
-      throw new Error(`Failed to connect to report server. Server may be spinning up, please try again in a few seconds.`);
+      throw new Error(
+        'Could not reach the report server. Check your connection and try again.'
+      );
     }
 
     if (response.status === 401 || response.status === 403) {
-      try {
-        await authApi.login('ADMIN001', 'password123');
-        token = getAuthToken();
-        response = await fetch(buildUrl(token), {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        });
-      } catch (e) {}
+      throw new Error('Your session has expired. Sign in again to export a report.');
     }
 
     if (!response.ok) {

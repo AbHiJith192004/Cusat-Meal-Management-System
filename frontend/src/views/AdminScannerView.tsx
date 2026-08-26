@@ -38,23 +38,21 @@ export const AdminScannerView: React.FC<AdminScannerViewProps> = ({ scanLogs, on
       setFeedback({ ok: true, msg: `${v.student_name} verified` });
     } catch (err: any) {
       const msg = err.message || '';
+      // Every failure is reported as a failure. This used to fall through to a
+      // fabricated "Demo Student" scan and tell the admin "Pass verified",
+      // which meant an expired token or a dropped connection looked identical
+      // to a real check-in while no attendance row was actually written.
       if (msg.includes('already') || msg.includes('recorded')) {
         setFeedback({ ok: false, msg: 'Already checked in for this meal.' });
+      } else if (msg.includes('expired') || msg.includes('EXPIRED')) {
+        setFeedback({ ok: false, msg: 'Pass expired. Ask for a fresh code.' });
+      } else if (msg.includes('invalid') || msg.includes('INVALID')) {
+        setFeedback({ ok: false, msg: 'Pass not valid. Do not serve.' });
       } else {
-        // Demo mode — backend unreachable
-        onAddScanLog({
-          id: `SCAN-${Date.now()}`,
-          studentName: 'Demo Student',
-          regNo: 'TEST001',
-          meal: 'Lunch',
-          status: 'Success',
-          timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          timeAgo: 'Just now',
-        });
-        setFeedback({ ok: true, msg: 'Pass verified' });
+        setFeedback({ ok: false, msg: 'Could not verify — check the connection and rescan.' });
       }
     }
-    setTimeout(() => setFeedback(null), 3000);
+    setTimeout(() => setFeedback(null), 4000);
   };
 
   const startCamera = async () => {

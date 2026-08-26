@@ -7,7 +7,12 @@ from app.database import get_db
 from app.models.user import User
 from app.repositories.user_repo import UserRepository
 from app.schemas.common import success_response
+from typing import Annotated
+
+from fastapi import Query
+
 from app.security.dependencies import CurrentUser
+from app.services.student_billing_service import StudentBillingService
 from app.utils.timezone import today_ist
 
 logger = logging.getLogger(__name__)
@@ -97,3 +102,20 @@ async def get_student_dashboard(
             "unread_notifications_count": 0,
         }
     )
+
+@router.get("/me/bill")
+async def get_my_bill(
+    current_user: CurrentUser,
+    month: Annotated[int, Query(ge=1, le=12)],
+    year: Annotated[int, Query(ge=2000, le=2100)],
+    db: AsyncSession = Depends(get_db),
+):
+    """The signed-in student's own bill for a month.
+
+    Only returns data once the admin has published that month's bill - the
+    figures are the ones frozen at publish time, and the target student is
+    always the authenticated session, never a query parameter.
+    """
+    service = StudentBillingService(db)
+    result = await service.get_bill(current_user.id, month, year)
+    return success_response(data=result)

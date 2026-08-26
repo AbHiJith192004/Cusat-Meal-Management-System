@@ -593,21 +593,39 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     },
   ]);
 
-  const [isBillPublishedMap, setIsBillPublishedMap] = useState<Record<string, boolean>>(() => {
-    const saved = localStorage.getItem('cusat_published_bills_v2');
-    if (saved) {
-      try { return JSON.parse(saved); } catch (e) {}
+  // Publication state comes from the server, not localStorage. It used to live
+  // in `cusat_published_bills_v2`, which meant each admin's browser had its own
+  // private idea of whether a month was published - and therefore whether stock
+  // was frozen. The server is the authority; this map is just a local cache of
+  // what it said.
+  const [isBillPublishedMap, setIsBillPublishedMap] = useState<Record<string, boolean>>({});
+  const [billStatusLoading, setBillStatusLoading] = useState(false);
+
+  const MONTH_NAMES = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
+  ];
+  const monthNumber = (name: string) => MONTH_NAMES.indexOf(name) + 1;
+
+  const refreshBillStatus = async (monthName: string, yearStr: string) => {
+    const m = monthNumber(monthName);
+    const y = parseInt(yearStr, 10);
+    if (m < 1 || Number.isNaN(y)) return;
+    setBillStatusLoading(true);
+    try {
+      const res = await adminApi.getBillStatus(m, y);
+      setIsBillPublishedMap(prev => ({ ...prev, [`${monthName}-${yearStr}`]: !!res.is_published }));
+    } catch (e) {
+      // Leave the cache untouched on failure rather than guessing a state that
+      // controls whether financial records are editable.
+    } finally {
+      setBillStatusLoading(false);
     }
-    return {
-      'August-2026': true,
-      'July-2026': true,
-      'June-2026': false,
-    };
-  });
+  };
 
   useEffect(() => {
-    localStorage.setItem('cusat_published_bills_v2', JSON.stringify(isBillPublishedMap));
-  }, [isBillPublishedMap]);
+    refreshBillStatus(billingMonth, billingYear);
+  }, [billingMonth, billingYear]);
 
   const [paymentSearchQuery, setPaymentSearchQuery] = useState('');
   const [paymentCategoryFilter, setPaymentCategoryFilter] = useState<'ALL' | 'Inmate' | 'Lakeside' | 'Outmess'>('ALL');
@@ -621,6 +639,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   const [stocksYear, setStocksYear] = useState(currentYearNumStr);
   const [stocksSearchPrefix, setStocksSearchPrefix] = useState('');
   const [billingStockSearchPrefix, setBillingStockSearchPrefix] = useState('');
+
+  useEffect(() => {
+    refreshBillStatus(stocksMonth, stocksYear);
+  }, [stocksMonth, stocksYear]);
 
   // Physical Closing Stock Qty Map keyed by `${month}-${year}-${itemId}`
   const [physicalClosingStockMap, setPhysicalClosingStockMap] = useState<Record<string, number>>({
@@ -642,18 +664,34 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     'July-2026-inv-cat-7': 50,
   });
 
-  const handleUpdatePhysicalClosingStock = (itemId: string, val: number) => {
+  const handleUpdatePhysicalClosingStock = async (itemId: string, val: number) => {
     const monthKey = `${stocksMonth}-${stocksYear}`;
     if (isBillPublishedMap[monthKey]) {
       return alert(
-        `🔒 Read-Only Mode — Bill Published:\n\nThe billing record for ${stocksMonth} ${stocksYear} is published. Physical stock quantities are frozen and cannot be edited.`
+        `Read-only — the bill for ${stocksMonth} ${stocksYear} is published, so stock quantities are frozen. Reopen the month from the Billing tab to make a correction.`
       );
     }
+
+    const qty = Math.max(0, isNaN(val) ? 0 : val);
     const key = `${stocksMonth}-${stocksYear}-${itemId}`;
-    setPhysicalClosingStockMap(prev => ({
-      ...prev,
-      [key]: Math.max(0, isNaN(val) ? 0 : val),
-    }));
+
+    // Optimistic local update so typing stays responsive...
+    setPhysicalClosingStockMap(prev => ({ ...prev, [key]: qty }));
+
+    // ...but the value is only real once the server has it. This previously
+    // lived in component state alone, so the one manually-entered number the
+    // whole daily-rate formula depends on was lost on refresh.
+    try {
+      await adminApi.updatePhysicalStock({
+        month: monthNumber(stocksMonth),
+        year: parseInt(stocksYear, 10),
+        item_id: itemId,
+        physical_closing_qty: qty,
+      });
+    } catch (err: any) {
+      alert(err?.message || 'Could not save that stock count. It has not been recorded.');
+      await refreshBillStatus(stocksMonth, stocksYear);
+    }
   };
 
   // Student Category Overrides for Monthly Billing Table (Inmate / Lakeside / Outmess)
@@ -687,19 +725,59 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     return { isLocked: true, lockDateFormatted: 'Permanent Publication' };
   };
 
-  const handleTogglePublishBill = () => {
+  const handleTogglePublishBill = async () => {
     const key = `${billingMonth}-${billingYear}`;
+    const m = monthNumber(billingMonth);
+    const y = parseInt(billingYear, 10);
     const currentlyPublished = !!isBillPublishedMap[key];
 
+    // Unpublishing is now possible but always audited with a reason. The old
+    // build refused every unpublish outright, so a month published by mistake
+    // could never be corrected.
     if (currentlyPublished) {
-      return alert(
-        `🔒 Permanent Publication Rule:\n\nOnce a monthly bill is published, it becomes permanently published and finalized.\n\nThe bill for ${billingMonth} ${billingYear} cannot be unpublished or reverted.`
+      const reason = window.prompt(
+        `Reopen ${billingMonth} ${billingYear} for editing?\n\nThis reverses a published bill, so a reason is recorded in the audit log:`
       );
+      if (!reason || reason.trim().length < 3) return;
+      try {
+        await adminApi.unpublishBill(m, y, reason.trim());
+        await refreshBillStatus(billingMonth, billingYear);
+        alert(`${billingMonth} ${billingYear} reopened. Stock quantities are editable again.`);
+      } catch (err: any) {
+        alert(err?.message || 'Could not reopen this bill.');
+      }
+      return;
     }
 
-    const updatedMap = { ...isBillPublishedMap, [key]: true };
-    setIsBillPublishedMap(updatedMap);
-    alert(`✅ Bill for ${billingMonth} ${billingYear} has been permanently PUBLISHED to students!\n\nFinancial records and Stocks for ${billingMonth} ${billingYear} are now permanently locked and frozen in Read-Only mode.`);
+    if (!window.confirm(
+      `Publish the bill for ${billingMonth} ${billingYear}?\n\n` +
+      `Daily rate: ₹${messDailyRate.toFixed(2)}\n` +
+      `Grand total: ₹${grandTotalMonthExpense.toLocaleString()}\n\n` +
+      `These figures are frozen on publish and stock becomes read-only.`
+    )) return;
+
+    try {
+      // The server recomputes and stores these; it does not trust the numbers
+      // shown here, it records what it was given and derives the rate itself.
+      const res = await adminApi.publishBill({
+        month: m,
+        year: y,
+        opening_stock_value: billingOpeningStock,
+        purchases_value: totalFoodPurchasesAmount,
+        closing_stock_value: billingClosingStock,
+        operational_expenses: totalOperationalExpensesAmount,
+        administrative_expenses: totalAdminExpenseAmount,
+        chargeable_days: billingChargeableDays,
+      });
+      await refreshBillStatus(billingMonth, billingYear);
+      alert(
+        `Bill published for ${billingMonth} ${billingYear}.\n\n` +
+        `Daily rate: ₹${res.mess_daily_rate}\nGrand total: ₹${res.grand_total_expense}\n\n` +
+        `Stock quantities for this month are now frozen.`
+      );
+    } catch (err: any) {
+      alert(err?.message || 'Could not publish this bill.');
+    }
   };
 
   const handleExportBillingExcel = () => {
@@ -1823,7 +1901,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               </div>
 
               <button
-                onClick={() => onNavigate('admin-reports')}
+                onClick={() => setShowExportModal(true)}
                 className="px-4 py-2 bg-[#F47A35] hover:bg-[#D45E1A] text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[16px]">file_download</span>
@@ -3324,7 +3402,9 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
                 // Build individual student billing records
                 const studentBillingData = masterStudents.map((st, idx) => {
-                  const category = studentCategoryOverrideMap[st.messId] || (st.category === 'Day Scholar' ? 'Outmess' : st.category === 'Lakeside' ? 'Lakeside' : 'Inmate');
+                  // `category` is only ever Inmate | Lakeside | Outmess. A 'Day Scholar'
+                  // branch used to sit here and could never match.
+                  const category = studentCategoryOverrideMap[st.messId] || st.category || 'Inmate';
                   
                   // Mess cut is ONLY when entire day (Breakfast + Lunch + Dinner) was skipped
                   const demoMessCutDaysMap: Record<string, number> = {
@@ -3351,7 +3431,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                     'MESS-2026-210': 60,
                     'MESS-2026-230': 0,
                   };
-                  const fineAmount = demoFineMap[st.messId] ?? st.fines ?? 0;
+                  // Was `st.fines`, which does not exist on MasterStudentDetail, so this
+                  // silently fell back to 0 and under-billed every student who had a
+                  // fine but no demoFineMap entry.
+                  const fineAmount = demoFineMap[st.messId] ?? st.finesReceived ?? 0;
 
                   const foodBillAmount = effectiveDays * perDayRate;
                   const totalBillAmount = foodBillAmount + fineAmount;
@@ -3558,14 +3641,18 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                   {/* Publish / Finalized Button */}
                   <div className="flex items-end gap-2">
                     {isPublished ? (
-                      <div
-                        onClick={() => alert(`🔒 Permanent Publication: Bill for ${billingMonth} ${billingYear} is published and finalized. Unpublishing is disabled.`)}
-                        title={`Bill for ${billingMonth} ${billingYear} is permanently published`}
-                        className="px-3.5 py-2 bg-[#16a34a]/15 text-[#15803d] border border-[#16a34a]/30 font-extrabold text-xs rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer"
+                      // Was a raw <div onClick> claiming publication was
+                      // permanent and refusing to unpublish - that duplicated
+                      // (and contradicted) handleTogglePublishBill, which does
+                      // now support a reasoned, audited reopen. Route here too.
+                      <button
+                        onClick={handleTogglePublishBill}
+                        title={`Bill for ${billingMonth} ${billingYear} is published. Click to reopen.`}
+                        className="px-3.5 py-2 bg-[#16a34a]/15 hover:bg-[#16a34a]/25 text-[#15803d] border border-[#16a34a]/30 font-extrabold text-xs rounded-xl shadow-xs flex items-center gap-1.5 cursor-pointer transition-colors"
                       >
                         <span className="material-symbols-outlined text-[18px]">verified</span>
-                        <span>✓ Bill Published & Finalized 🔒</span>
-                      </div>
+                        <span>Published & Frozen — click to reopen</span>
+                      </button>
                     ) : (
                       <button
                         onClick={handleTogglePublishBill}

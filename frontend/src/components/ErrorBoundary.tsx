@@ -15,11 +15,6 @@ interface State {
  * Without this, a throw anywhere in a view renders a blank white page.
  */
 export class ErrorBoundary extends React.Component<Props, State> {
-  // This project has no @types/react installed, so React.Component carries no
-  // type information and inherited members have to be declared by hand.
-  declare props: Props;
-  declare setState: (next: Partial<State>) => void;
-
   state: State = { error: null };
 
   static getDerivedStateFromError(error: Error): State {

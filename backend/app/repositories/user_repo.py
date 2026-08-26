@@ -54,6 +54,31 @@ class RefreshTokenRepository(BaseRepository[RefreshToken]):
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
+    async def purge_expired(self, keep_revoked_for_days: int = 7) -> int:
+        """Delete refresh tokens that can no longer be used.
+
+        The table grows by one row per login and per refresh and nothing ever
+        removed them. Revoked rows are kept briefly so a token-reuse
+        investigation still has a trail, then dropped.
+        """
+        from datetime import timedelta
+        from sqlalchemy import delete, or_
+
+        from app.utils.timezone import now_ist
+
+        now = now_ist()
+        cutoff = now - timedelta(days=keep_revoked_for_days)
+
+        stmt = delete(RefreshToken).where(
+            or_(
+                RefreshToken.expires_at < now,
+                and_(RefreshToken.is_revoked == True, RefreshToken.created_at < cutoff),
+            )
+        )
+        result = await self.session.execute(stmt)
+        await self.session.commit()
+        return result.rowcount or 0
+
     async def revoke_all_user_tokens(self, user_id: uuid.UUID) -> None:
         """Revoke all refresh tokens for a user (used on password change, suspicious activity)."""
         stmt = (

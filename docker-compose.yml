@@ -1,45 +1,74 @@
+# Secrets are read from an untracked .env file beside this one, never inlined.
+# Copy .env.docker.example to .env and fill in real values before running.
+#
+# What changed and why:
+#   * SECRET_KEY / DB password used to be hardcoded here in plain text under
+#     ENVIRONMENT=production, and this file is committed to source control.
+#   * The variable names did not match what app/config.py actually reads
+#     (SECRET_KEY vs JWT_SECRET_KEY, ENVIRONMENT vs APP_ENV), so the values
+#     that were set never reached the application anyway.
+#   * QR_SECRET_KEY was missing entirely, and it is a required setting with no
+#     default - the backend could not have started with this file as written.
+#   * Postgres published 5432 straight to the host. It is now reachable only
+#     from inside the compose network.
+
 services:
-  # 1. PostgreSQL Database Service
+  # 1. PostgreSQL
   db:
     image: postgres:16-alpine
     container_name: cusat_mess_db
     restart: unless-stopped
-    ports:
-      - "5432:5432"
+    # No host port mapping. Use `docker compose exec db psql ...` for access
+    # rather than exposing the database to the host network.
+    expose:
+      - "5432"
     environment:
-      POSTGRES_USER: cusat_mess
-      POSTGRES_PASSWORD: devpassword123
-      POSTGRES_DB: cusat_mess_db
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in .env}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U cusat_mess -d cusat_mess_db"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 5
 
-  # 2. FastAPI Backend Service
+  # 2. FastAPI backend
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: cusat_mess_backend
     restart: unless-stopped
+    # Bound to loopback so the API is reachable only through the reverse proxy
+    # that terminates TLS in front of it, not directly from the internet.
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     environment:
-      - DATABASE_URL=postgresql+asyncpg://cusat_mess:devpassword123@db:5432/cusat_mess_db
-      - ENVIRONMENT=production
-      - SECRET_KEY=cusat-mess-super-secret-key-change-in-production-2026
-      - ALGORITHM=HS256
-      - ACCESS_TOKEN_EXPIRE_MINUTES=30
-      - REFRESH_TOKEN_EXPIRE_DAYS=7
-      - CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+      # Names below match app/config.py exactly.
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?set JWT_SECRET_KEY in .env}
+      JWT_ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-15}
+      REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS:-7}
+      QR_SECRET_KEY: ${QR_SECRET_KEY:?set QR_SECRET_KEY in .env}
+      QR_VALIDITY_SECONDS: ${QR_VALIDITY_SECONDS:-60}
+      # APP_ENV drives the Secure flag on the refresh cookie and the
+      # production rate limits, so it must not be left at "development".
+      APP_ENV: ${APP_ENV:-production}
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      ALLOW_TEST_MODE: "false"
+      # Exact origins only - no wildcard subdomains.
+      CORS_ORIGINS: ${CORS_ORIGINS:?set CORS_ORIGINS in .env}
+      CORS_ALLOW_CREDENTIALS: "true"
+      AUTH_MAX_FAILED_ATTEMPTS: ${AUTH_MAX_FAILED_ATTEMPTS:-5}
+      AUTH_LOCKOUT_MINUTES: ${AUTH_LOCKOUT_MINUTES:-15}
     depends_on:
       db:
         condition: service_healthy
 
-  # 3. React Vite Frontend Service
+  # 3. React frontend
   frontend:
     build:
       context: ./frontend
@@ -47,9 +76,9 @@ services:
     container_name: cusat_mess_frontend
     restart: unless-stopped
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     environment:
-      - VITE_API_BASE_URL=http://localhost:8000/api/v1
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL:?set VITE_API_BASE_URL in .env}
     depends_on:
       - backend
 

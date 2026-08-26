@@ -4,29 +4,36 @@ from app.config import get_settings
 
 
 def setup_cors(app: FastAPI) -> None:
-    """Configure CORS middleware from environment settings."""
+    r"""Configure CORS from settings.
+
+    Exact origins only. There used to be an
+    `allow_origin_regex=r"https://.*\.onrender\.com"` here alongside
+    `allow_credentials=True`. Render is multi-tenant, so any app deployed on
+    that shared domain could call /auth/refresh with the browser attaching the
+    victim's refresh cookie, then read the fresh access token straight out of
+    the response body. Add real production hostnames to CORS_ORIGINS rather
+    than widening this again.
+    """
     settings = get_settings()
-    origins = list(settings.cors_origins_list)
-    
-    # Ensure production Render domains & local dev domains are always allowed
-    default_origins = [
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:5173",
-        "https://cusat-emal-frontend.onrender.com",
-        "https://cusat-meal-management-system.onrender.com",
-    ]
-    for o in default_origins:
-        if o not in origins:
-            origins.append(o)
+
+    origins = [o for o in settings.cors_origins_list if o]
+
+    # Localhost cannot be reached by a third party, so these are safe to add
+    # automatically - but only outside production.
+    if settings.is_development:
+        for dev_origin in (
+            "http://localhost:3000",
+            "http://localhost:5173",
+            "http://127.0.0.1:3000",
+            "http://127.0.0.1:5173",
+        ):
+            if dev_origin not in origins:
+                origins.append(dev_origin)
 
     app.add_middleware(
         CORSMiddleware,
         allow_origins=origins,
-        allow_origin_regex=r"https://.*\.onrender\.com",
-        allow_credentials=True,
-        allow_methods=["*"],
-        allow_headers=["*"],
-        expose_headers=["*"],
+        allow_credentials=settings.CORS_ALLOW_CREDENTIALS,
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+        allow_headers=["Authorization", "Content-Type"],
     )

@@ -16,7 +16,14 @@ from app.schemas.fine import WaiveFineRequest, ReconcileFinesRequest
 from app.schemas.meal import HolidayCreateRequest
 from app.schemas.common import success_response
 from app.schemas.user import CreateStudentRequest
-from app.schemas.meal_rate import SetMealRateRequest, BulkSetMealRateRequest, PublishBillRequest, UpdateStockRequest
+from app.schemas.meal_rate import (
+    SetMealRateRequest,
+    BulkSetMealRateRequest,
+    PublishBillRequest,
+    UnpublishBillRequest,
+    UpdateStockRequest,
+)
+from app.services.billing_service import BillingService
 from app.models.meal_rate import DailyMealRate
 from app.security.dependencies import AdminUser
 from app.services.attendance_service import AttendanceService
@@ -311,7 +318,10 @@ async def get_student_detail(
             "activated_at": user.activated_at.isoformat() if user.activated_at else None,
             "profile": {
                 "mess_id": user.profile.mess_id if user.profile else None,
-                "date_of_birth": user.profile.date_of_birth.isoformat() if user.profile else None,
+                # Birth year only. The full date is the sole verification factor
+                # for /auth/reset-password-dob, so returning it to every admin
+                # turned any admin session into a password reset for any student.
+                "birth_year": user.profile.date_of_birth.year if user.profile else None,
                 "student_type": user.profile.student_type if user.profile else None,
                 "photo_url": user.profile.photo_url if user.profile else None,
             },
@@ -351,15 +361,27 @@ async def record_manual_attendance(
 async def reset_attendance(
     admin_user: AdminUser,
     registration_number: Annotated[str, Query(description="Registration number of student")],
+    reason: Annotated[str, Query(min_length=3, description="Why this attendance is being reset (audited)")],
     meal_type: Annotated[str | None, Query(description="BREAKFAST, LUNCH, DINNER or empty for all")] = None,
     meal_date: Annotated[str | None, Query(description="YYYY-MM-DD or empty for today")] = None,
     db: AsyncSession = Depends(get_db),
 ):
-    """Admin endpoint to remove/undo attendance records if a wrong QR code was scanned."""
+    """Remove attendance records, e.g. when the wrong QR code was scanned.
+
+    Deleting attendance decides who gets fined, so this carries the same
+    mandatory-reason and audit requirements as recording it does.
+    """
     from sqlalchemy import delete
     from app.models.attendance import Attendance
+    from app.repositories.audit_repo import AuditRepository
     from app.utils.timezone import today_ist
+    from app.utils.exceptions import ValidationException
     from datetime import date as date_type
+
+    if not reason or len(reason.strip()) < 3:
+        raise ValidationException(
+            message="A reason of at least 3 characters is required to reset attendance."
+        )
 
     user_res = await db.execute(select(User).where(User.registration_number == registration_number))
     user = user_res.scalar_one_or_none()
@@ -369,6 +391,27 @@ async def reset_attendance(
 
     target_date = date_type.fromisoformat(meal_date) if meal_date else today_ist()
 
+    # Read the rows before deleting so the audit entry records what was
+    # actually removed. A bare rowcount cannot be reconstructed afterwards.
+    doomed_stmt = select(Attendance).where(
+        Attendance.student_id == user.id,
+        Attendance.meal_date == target_date,
+    )
+    if meal_type:
+        doomed_stmt = doomed_stmt.where(Attendance.meal_type == meal_type.upper())
+    doomed = (await db.execute(doomed_stmt)).scalars().all()
+
+    removed_snapshot = [
+        {
+            "attendance_id": str(a.id),
+            "meal_type": a.meal_type,
+            "attendance_type": a.attendance_type,
+            "recorded_at": a.recorded_at.isoformat() if a.recorded_at else None,
+            "recorded_by": str(a.recorded_by) if a.recorded_by else None,
+        }
+        for a in doomed
+    ]
+
     stmt = delete(Attendance).where(
         Attendance.student_id == user.id,
         Attendance.meal_date == target_date,
@@ -377,6 +420,22 @@ async def reset_attendance(
         stmt = stmt.where(Attendance.meal_type == meal_type.upper())
 
     result = await db.execute(stmt)
+
+    await AuditRepository(db).log(
+        actor_id=admin_user.id,
+        action="ATTENDANCE_RESET",
+        target_type="attendance",
+        target_id=user.id,
+        metadata={
+            "student_id": str(user.id),
+            "registration_number": registration_number,
+            "meal_date": target_date.isoformat(),
+            "meal_type": meal_type.upper() if meal_type else "ALL",
+            "reason": reason.strip(),
+            "records_removed": len(removed_snapshot),
+            "removed": removed_snapshot,
+        },
+    )
     await db.commit()
 
     return success_response(
@@ -688,80 +747,95 @@ async def get_audit_logs(
 # ---------------------------------------------------------------------------
 # PERMANENT BILL PUBLICATION & STOCK LOCKING ENDPOINTS
 # ---------------------------------------------------------------------------
-PUBLISHED_BILL_MONTHS: set[str] = {"August-2026", "July-2026"}
+# BILLING PERIODS AND PHYSICAL STOCK
+#
+# These used to be backed by a module-level `PUBLISHED_BILL_MONTHS: set[str]`
+# hardcoded to two months. It reset on every restart, could not agree with
+# itself across worker processes, and /stocks/update-physical echoed its input
+# back without writing anywhere. All three now go through BillingService, which
+# commits to real tables and audits every mutation.
+# ---------------------------------------------------------------------------
 
 
 @router.get("/bills/status")
 async def get_bill_publication_status(
     admin_user: AdminUser,
-    month: Annotated[str, Query()] = "August",
-    year: Annotated[str, Query()] = "2026",
+    month: Annotated[int, Query(ge=1, le=12)],
+    year: Annotated[int, Query(ge=2024, le=2100)],
+    db: AsyncSession = Depends(get_db),
 ):
-    """Check if a specific month's bill is published and stock records are frozen."""
-    key = f"{month}-{year}"
-    is_published = key in PUBLISHED_BILL_MONTHS
-    return success_response(
-        data={
-            "month": month,
-            "year": year,
-            "is_published": is_published,
-            "is_stocks_read_only": is_published,
-        }
-    )
+    """Whether a month is published and its stock frozen."""
+    service = BillingService(db)
+    return success_response(data=await service.get_status(month, year))
 
 
 @router.post("/bills/publish")
 async def publish_monthly_bill(
     body: PublishBillRequest,
     admin_user: AdminUser,
+    db: AsyncSession = Depends(get_db),
 ):
-    """Permanently publish a month's bill and freeze stock records. Cannot be undone."""
-    key = f"{body.month}-{body.year}"
-    PUBLISHED_BILL_MONTHS.add(key)
-    return success_response(
-        data={
-            "month": body.month,
-            "year": body.year,
-            "is_published": True,
-            "is_stocks_read_only": True,
-            "message": f"Bill for {body.month} {body.year} is now permanently published and stock records are frozen.",
-        }
+    """Publish a month: compute and freeze its figures in one transaction."""
+    service = BillingService(db)
+    result = await service.publish(
+        month=body.month,
+        year=body.year,
+        figures={
+            "opening_stock_value": body.opening_stock_value,
+            "purchases_value": body.purchases_value,
+            "closing_stock_value": body.closing_stock_value,
+            "operational_expenses": body.operational_expenses,
+            "administrative_expenses": body.administrative_expenses,
+            "chargeable_days": body.chargeable_days,
+        },
+        actor_id=admin_user.id,
     )
+    return success_response(data=result)
 
 
 @router.post("/bills/unpublish")
 async def unpublish_monthly_bill(
-    body: PublishBillRequest,
+    body: UnpublishBillRequest,
     admin_user: AdminUser,
+    db: AsyncSession = Depends(get_db),
 ):
-    """Enforce backend rule: Published bills CANNOT be unpublished under any circumstances."""
-    from fastapi import HTTPException
-    raise HTTPException(
-        status_code=400,
-        detail=f"Permanent Finalization Error: Bill for {body.month} {body.year} is published. Published bills cannot be unpublished.",
+    """Reopen a published month for correction. Always audited with a reason."""
+    service = BillingService(db)
+    result = await service.unpublish(
+        month=body.month, year=body.year, reason=body.reason, actor_id=admin_user.id
     )
+    return success_response(data=result)
+
+
+@router.get("/stocks")
+async def list_stock_counts(
+    admin_user: AdminUser,
+    month: Annotated[int, Query(ge=1, le=12)],
+    year: Annotated[int, Query(ge=2024, le=2100)],
+    db: AsyncSession = Depends(get_db),
+):
+    """Physical closing-stock counts recorded for a month."""
+    service = BillingService(db)
+    return success_response(data=await service.list_stock_counts(month, year))
 
 
 @router.post("/stocks/update-physical")
 async def update_physical_stock(
     body: UpdateStockRequest,
     admin_user: AdminUser,
+    db: AsyncSession = Depends(get_db),
 ):
-    """Update physical closing quantity for an item if month is NOT published."""
-    from fastapi import HTTPException
-    key = f"{body.month}-{body.year}"
-    if key in PUBLISHED_BILL_MONTHS:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Read-Only Mode — Bill Published: Billing for {body.month} {body.year} is published. Stock quantities are frozen and cannot be edited.",
-        )
-    return success_response(
-        data={
-            "month": body.month,
-            "year": body.year,
-            "item_id": body.item_id,
-            "physical_closing_qty": body.physical_closing_qty,
-            "message": "Physical stock count updated successfully.",
-        }
+    """Record a physical closing count. Rejected once the month is published."""
+    service = BillingService(db)
+    result = await service.record_stock_count(
+        month=body.month,
+        year=body.year,
+        item_id=body.item_id,
+        physical_closing_qty=body.physical_closing_qty,
+        actor_id=admin_user.id,
+        item_name=body.item_name,
+        unit=body.unit,
+        unit_cost=body.unit_cost,
     )
+    return success_response(data=result)
 

@@ -22,6 +22,21 @@ from app.models.meal_rate import DailyMealRate
 from app.utils.enums import Role, MealStatus, FineStatus
 
 
+def sanitize_cell(value):
+    """Neutralise spreadsheet formula injection.
+
+    Excel and Sheets treat a leading = + - @ (and the tab/CR variants) as the
+    start of a formula, so a student name like `=HYPERLINK(...)` imported via
+    the bulk-import path would execute when an admin opens the exported
+    ledger. Prefixing with an apostrophe forces the cell to be read as text.
+    """
+    if not isinstance(value, str):
+        return value
+    if value[:1] in ("=", "+", "-", "@", "\t", "\r"):
+        return "'" + value
+    return value
+
+
 class ReportService:
     def __init__(self, session: AsyncSession):
         self.session = session
@@ -255,7 +270,7 @@ class ReportService:
 
                     r_cells = [
                         ws.cell(row=current_row, column=1, value=st.registration_number),
-                        ws.cell(row=current_row, column=2, value=st.name),
+                        ws.cell(row=current_row, column=2, value=sanitize_cell(st.name)),
                         ws.cell(row=current_row, column=3, value=meal_statuses["BREAKFAST"]),
                         ws.cell(row=current_row, column=4, value=meal_statuses["LUNCH"]),
                         ws.cell(row=current_row, column=5, value=meal_statuses["DINNER"]),
@@ -347,7 +362,7 @@ class ReportService:
 
             s_cells = [
                 ws_sum.cell(row=row_idx, column=1, value=st.registration_number),
-                ws_sum.cell(row=row_idx, column=2, value=st.name),
+                ws_sum.cell(row=row_idx, column=2, value=sanitize_cell(st.name)),
                 ws_sum.cell(row=row_idx, column=3, value="Lakeside (25% Off)" if is_lakeside else "Main Campus"),
                 ws_sum.cell(row=row_idx, column=4, value=f"₹{gross_tb:.2f}"),
                 ws_sum.cell(row=row_idx, column=5, value=f"-₹{discount:.2f}" if discount > 0 else "₹0.00"),
