@@ -56,7 +56,7 @@ async def init_db() -> None:
     
     # Create all tables if they don't exist
     async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(Base.metadata.create_all, checkfirst=True)
 
         def add_missing_columns(sync_conn):
             from sqlalchemy import inspect, text
