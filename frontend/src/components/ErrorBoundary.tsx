@@ -1,8 +1,7 @@
-import React from 'react';
+import React, { Component, type ReactNode } from 'react';
 
 interface Props {
-  children: React.ReactNode;
-  /** Remounts the boundary when this changes, so navigating away clears an error. */
+  children: ReactNode;
   resetKey?: string;
 }
 
@@ -10,26 +9,24 @@ interface State {
   error: Error | null;
 }
 
-/**
- * Keeps one broken screen from taking the whole app down with it.
- * Without this, a throw anywhere in a view renders a blank white page.
- */
-export class ErrorBoundary extends React.Component<Props, State> {
-  state: State = { error: null };
+export class ErrorBoundary extends Component<Props, State> {
+  public state: State = { error: null };
 
-  static getDerivedStateFromError(error: Error): State {
+  public static getDerivedStateFromError(error: Error): State {
     return { error };
   }
 
-  componentDidUpdate(prev: Props) {
-    if (prev.resetKey !== this.props.resetKey && this.state.error) {
-      this.setState({ error: null });
+  public componentDidUpdate(prevProps: Props) {
+    const self = this as unknown as Component<Props, State>;
+    if (prevProps.resetKey !== self.props.resetKey && self.state.error) {
+      self.setState({ error: null });
     }
   }
 
-  render() {
-    const { error } = this.state;
-    if (!error) return this.props.children;
+  public render(): ReactNode {
+    const self = this as unknown as Component<Props, State>;
+    const { error } = self.state;
+    if (!error) return self.props.children;
 
     return (
       <div className="page-container">
@@ -58,7 +55,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
             {error.message}
           </pre>
 
-          <button onClick={() => this.setState({ error: null })} className="btn-secondary mt-4">
+          <button onClick={() => self.setState({ error: null })} className="btn-secondary mt-4">
             Try again
           </button>
         </div>

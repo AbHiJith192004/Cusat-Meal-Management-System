@@ -43,9 +43,9 @@ const MEAL_LABELS: Record<MealKey, string> = {
   dinner: 'Dinner',
 };
 const MEAL_FALLBACK: Record<MealKey, string> = {
-  breakfast: 'Masala Dosa & Filter Coffee',
-  lunch: 'Meals, Fish Curry, Poriyal, Curd',
-  dinner: 'Chapati, Paneer Butter Masala, Dal, Rice',
+  breakfast: 'Chapati / Malabar Porotta & Egg Roast / Kadala Curry + Tea',
+  lunch: 'Kerala Rice Meals with Fish Curry / Chicken Curry, Thoran & Moru',
+  dinner: 'Chapati / Malabar Porotta & Chicken Curry / Paneer Masala + Milk',
 };
 const MEAL_ILLUSTRATION = {
   breakfast: BreakfastCartoon,

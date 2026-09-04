@@ -10,9 +10,9 @@ import {
 type MealKey = 'breakfast' | 'lunch' | 'dinner';
 
 const MENU_ITEMS: Record<MealKey, string> = {
-  breakfast: 'Idli, Sambar, Coconut Chutney, Tea/Coffee',
-  lunch: 'Rice, Fish Curry, Vegetable Stir-fry, Buttermilk',
-  dinner: 'Chapati, Chicken Curry, Mixed Veg Salad',
+  breakfast: 'Chapati / Malabar Porotta, Egg Roast, Coconut Chutney, Tea/Coffee',
+  lunch: 'Kerala Rice Meals with Fish Curry / Chicken Curry, Vegetable Stir-fry, Buttermilk',
+  dinner: 'Chapati / Malabar Porotta, Chicken Curry / Paneer Masala, Mixed Veg Salad',
 };
 const MEAL_TIMES: Record<MealKey, string> = {
   breakfast: '7:30 AM – 9:00 AM',
