@@ -69,92 +69,29 @@ const Art: React.FC<{ src: string; size: number; className?: string; alt?: strin
   );
 };
 
-/** Rice Meal Illustration — Always Rice with Fish Curry / Chicken Curry for Lunch */
-export const RiceMealIllustration: React.FC<{ size?: number; className?: string }> = ({ size = 100, className }) => (
-  <svg width={size} height={size} viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
-    {/* Plate / Thali Base */}
-    <circle cx="60" cy="60" r="54" fill="#F8FAFC" stroke="#E2E8F0" strokeWidth="4" />
-    <circle cx="60" cy="60" r="48" fill="#FFFFFF" stroke="#CBD5E1" strokeWidth="2" />
-    
-    {/* Steaming Rice Mound in center */}
-    <ellipse cx="60" cy="62" rx="26" ry="20" fill="#F8FAFC" stroke="#CBD5E1" strokeWidth="2" />
-    <circle cx="50" cy="56" r="3" fill="#E2E8F0" />
-    <circle cx="62" cy="52" r="3.5" fill="#E2E8F0" />
-    <circle cx="70" cy="58" r="3" fill="#E2E8F0" />
-    <circle cx="56" cy="66" r="3.5" fill="#E2E8F0" />
-    <circle cx="66" cy="68" r="3" fill="#E2E8F0" />
-    
-    {/* Fish Curry Bowl (Top Right) */}
-    <circle cx="82" cy="38" r="16" fill="#EA580C" stroke="#C2410C" strokeWidth="2" />
-    {/* Fish Piece */}
-    <path d="M76 38 C80 34 86 34 88 38 C86 42 80 42 76 38 Z" fill="#F97316" stroke="#9A3412" strokeWidth="1.5" />
-    <circle cx="86" cy="37" r="1" fill="#7C2D12" />
-    
-    {/* Chicken Curry Bowl (Top Left) */}
-    <circle cx="38" cy="38" r="16" fill="#B91C1C" stroke="#991B1B" strokeWidth="2" />
-    {/* Chicken Piece */}
-    <path d="M32 38 C34 32 42 32 44 38 C42 44 34 44 32 38 Z" fill="#EF4444" stroke="#7F1D1D" strokeWidth="1.5" />
-
-    {/* Kerala Thoran / Veg Bowl (Bottom Center) */}
-    <circle cx="60" cy="90" r="14" fill="#15803D" stroke="#166534" strokeWidth="2" />
-    <circle cx="56" cy="88" r="2" fill="#22C55E" />
-    <circle cx="64" cy="92" r="2" fill="#22C55E" />
-
-    {/* Steam lines above rice */}
-    <path d="M54 34 Q56 26 52 20" stroke="#94A3B8" strokeWidth="2" strokeLinecap="round" fill="none" opacity="0.6" />
-    <path d="M62 32 Q64 24 60 18" stroke="#94A3B8" strokeWidth="2" strokeLinecap="round" fill="none" opacity="0.6" />
-    <path d="M70 34 Q72 26 68 20" stroke="#94A3B8" strokeWidth="2" strokeLinecap="round" fill="none" opacity="0.6" />
-  </svg>
-);
-
-/** Chapati & Porotta Bread Illustration — For Breakfast & Dinner */
-export const BreadMealIllustration: React.FC<{ size?: number; className?: string }> = ({ size = 100, className }) => (
-  <svg width={size} height={size} viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" className={className}>
-    {/* Plate Base */}
-    <circle cx="60" cy="60" r="54" fill="#FEF3C7" stroke="#FDE68A" strokeWidth="4" />
-    <circle cx="60" cy="60" r="48" fill="#FFFBEB" stroke="#FCD34D" strokeWidth="2" />
-
-    {/* Layered Porotta / Chapati 1 */}
-    <ellipse cx="50" cy="62" rx="26" ry="20" fill="#F59E0B" stroke="#D97706" strokeWidth="2" />
-    <ellipse cx="50" cy="62" rx="20" ry="14" fill="#FBBF24" />
-    <path d="M38 60 Q50 56 62 60" stroke="#B45309" strokeWidth="1.5" fill="none" strokeDasharray="3 3" />
-
-    {/* Layered Porotta / Chapati 2 (Stacked on top) */}
-    <ellipse cx="65" cy="54" rx="24" ry="18" fill="#FBBF24" stroke="#D97706" strokeWidth="2" />
-    <ellipse cx="65" cy="54" rx="18" ry="12" fill="#FDE68A" />
-    <path d="M52 52 Q65 48 76 52" stroke="#B45309" strokeWidth="1.5" fill="none" strokeDasharray="3 3" />
-
-    {/* Curry Bowl (Bottom Right) */}
-    <circle cx="78" cy="82" r="16" fill="#C2410C" stroke="#9A3412" strokeWidth="2" />
-    <circle cx="78" cy="82" r="12" fill="#EA580C" />
-    <circle cx="75" cy="80" r="2.5" fill="#FEF08A" />
-    <circle cx="82" cy="84" r="2" fill="#FEF08A" />
-  </svg>
-);
-
-/** Breakfast — Chapati, Porotta & Dosa. */
+/** Breakfast — Uses original lunchSrc (bread / omelette artwork) */
 export const BreakfastCartoon: React.FC<IllustrationProps> = ({ size = 100, className }) => (
-  <BreadMealIllustration size={size} className={className} />
+  <Art src={lunchSrc} size={size} className={className} alt="Breakfast" />
 );
 
-/** Lunch — Always Rice with Fish Curry / Chicken Curry & Kerala Rice Meals. */
+/** Lunch — Uses original breakfastSrc (the rice dish artwork) */
 export const LunchCartoon: React.FC<IllustrationProps> = ({ size = 100, className }) => (
-  <RiceMealIllustration size={size} className={className} />
+  <Art src={breakfastSrc} size={size} className={className} alt="Lunch Rice Meal" />
 );
 
-/** Dinner — Chapati, Porotta & Curry. */
+/** Dinner — Uses original dinnerSrc (bread / egg artwork) */
 export const DinnerCartoon: React.FC<IllustrationProps> = ({ size = 100, className }) => (
-  <BreadMealIllustration size={size} className={className} />
+  <Art src={dinnerSrc} size={size} className={className} alt="Dinner" />
 );
 
-/** Snacks — waffle with ice cream. */
+/** Snacks — waffle with ice cream */
 export const SnacksCartoon: React.FC<IllustrationProps> = ({ size = 100, className }) => (
-  <Art src={snacksSrc} size={size} className={className} />
+  <Art src={snacksSrc} size={size} className={className} alt="Snacks" />
 );
 
-/** Hero art on the home screen. Kept as its own export. */
+/** Hero art on the home screen */
 export const DosaCartoon: React.FC<IllustrationProps> = ({ size = 140, className }) => (
-  <BreadMealIllustration size={size} className={className} />
+  <Art src={lunchSrc} size={size} className={className} alt="Breakfast Dosa" />
 );
 
 /** The chef, cut out of the menu artwork. Portrait, so it is taller than wide. */
