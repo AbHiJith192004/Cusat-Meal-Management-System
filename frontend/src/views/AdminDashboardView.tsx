@@ -9,7 +9,7 @@ interface AdminDashboardViewProps {
 }
 
 type AdminModuleTab = 'daily-summary' | 'weekly-menu' | 'ledger' | 'student-data' | 'billing' | 'payments';
-type LedgerSubTab = 'food-purchases' | 'operational-expenses' | 'admin-expenses' | 'inventory';
+type LedgerSubTab = 'food-purchases' | 'admin-expenses';
 
 interface DrillDownState {
   isOpen: boolean;
@@ -74,17 +74,20 @@ const INITIAL_WEEKLY_MENU = [
   },
 ];
 
-// Initial Food Purchases Data
-const INITIAL_FOOD_PURCHASES = [
-  { id: '1', date: '2026-08-13', item: 'Ponni Rice (50kg Bags x4)', qty: '200 kg', amount: 9800, month: 'August', year: '2026' },
-  { id: '2', date: '2026-08-13', item: 'Toned Milk (Milma 1L Pouches x80)', qty: '80 L', amount: 4160, month: 'August', year: '2026' },
-  { id: '3', date: '2026-08-12', item: 'Grade A Eggs (Crates x10)', qty: '300 pcs', amount: 1800, month: 'August', year: '2026' },
-  { id: '4', date: '2026-08-12', item: 'Fresh Broiler Chicken', qty: '45 kg', amount: 8550, month: 'August', year: '2026' },
-  { id: '5', date: '2026-08-11', item: 'Refined Sunflower Oil (15L Tins x3)', qty: '45 L', amount: 5850, month: 'August', year: '2026' },
-  { id: '6', date: '2026-08-10', item: 'Onions & Potatoes (Bulk Mix)', qty: '120 kg', amount: 3600, month: 'August', year: '2026' },
-  { id: '7', date: '2026-07-28', item: 'Atta / Wheat Flour (10kg Packs x10)', qty: '100 kg', amount: 4200, month: 'July', year: '2026' },
-  { id: '8', date: '2026-07-25', item: 'Toor Dal & Chana Dal Mix', qty: '60 kg', amount: 7200, month: 'July', year: '2026' },
-  { id: '9', date: '2025-12-15', item: 'Spices Mix (Turmeric, Chili, Coriander)', qty: '25 kg', amount: 6500, month: 'December', year: '2025' },
+type PurchaseCategory = string;
+
+const INITIAL_PURCHASE_CATEGORIES: string[] = ['Grocery', 'Gas', 'Fish', 'Meat', 'Milk'];
+
+// Initial Purchases Data (No stock item names, no quantity, no unit!)
+const INITIAL_PURCHASES = [
+  { id: 'p-1', date: '2026-08-13', category: 'Grocery' as PurchaseCategory, title: 'General Provisions & Spices', amount: 9800, month: 'August', year: '2026' },
+  { id: 'p-2', date: '2026-08-13', category: 'Milk' as PurchaseCategory, title: 'Toned Milk Pouches (Milma)', amount: 4160, month: 'August', year: '2026' },
+  { id: 'p-3', date: '2026-08-12', category: 'Meat' as PurchaseCategory, title: 'Fresh Broiler Chicken Lot', amount: 8550, month: 'August', year: '2026' },
+  { id: 'p-4', date: '2026-08-12', category: 'Fish' as PurchaseCategory, title: 'Fresh Harbour Fish', amount: 6200, month: 'August', year: '2026' },
+  { id: 'p-5', date: '2026-08-11', category: 'Gas' as PurchaseCategory, title: 'Indane Commercial LPG Cylinders Refill', amount: 5850, month: 'August', year: '2026' },
+  { id: 'p-6', date: '2026-08-10', category: 'Grocery' as PurchaseCategory, title: 'Vegetables & Produce', amount: 3600, month: 'August', year: '2026' },
+  { id: 'p-7', date: '2026-07-28', category: 'Grocery' as PurchaseCategory, title: 'Flour & Pulses Supply', amount: 4200, month: 'July', year: '2026' },
+  { id: 'p-8', date: '2026-07-25', category: 'Milk' as PurchaseCategory, title: 'Daily Dairy Supply', amount: 3200, month: 'July', year: '2026' },
 ];
 
 // Initial Operational Expenses Data
@@ -310,13 +313,17 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   // -------------------------------------------------------------
   const [ledgerSubTab, setLedgerSubTab] = useState<LedgerSubTab>('food-purchases');
 
-  // 1. Food Purchases State & Logging Form
-  const [foodPurchases, setFoodPurchases] = useState(INITIAL_FOOD_PURCHASES);
-  const [foodItem, setFoodItem] = useState(INITIAL_INVENTORY_CATALOG[0]?.name || '');
+  // 1. Purchases State & Logging Form (Dynamic Categories + Add Category option)
+  const [purchaseCategories, setPurchaseCategories] = useState<string[]>(INITIAL_PURCHASE_CATEGORIES);
+  const [foodPurchases, setFoodPurchases] = useState(INITIAL_PURCHASES);
+  const [purchaseCategory, setPurchaseCategory] = useState<string>('Grocery');
+  const [isAddingCategory, setIsAddingCategory] = useState(false);
+  const [customCategoryInput, setCustomCategoryInput] = useState('');
+  const [purchaseTitle, setPurchaseTitle] = useState('');
   const [foodDate, setFoodDate] = useState(new Date().toISOString().split('T')[0]);
-  const [foodQty, setFoodQty] = useState('');
   const [foodAmount, setFoodAmount] = useState('');
   const [foodSearch, setFoodSearch] = useState('');
+  const [foodCategoryFilter, setFoodCategoryFilter] = useState('ALL');
   const [foodMonthFilter, setFoodMonthFilter] = useState('ALL');
   const [foodYearFilter, setFoodYearFilter] = useState('ALL');
 
@@ -749,10 +756,27 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
       return;
     }
 
+    const currentOpeningStock = openingStockMap[key] ?? 15000;
+    const currentClosingStock = closingStockMap[key] ?? 12000;
+    const currentMonthPurchases = foodPurchases.filter(p => p.month === billingMonth && p.year === billingYear);
+    const currentTotalPurchases = currentMonthPurchases.reduce((sum, item) => sum + (item.amount || 0), 0);
+
+    const currentAdminRecord = adminMonthlyExpenses.find(a => a.month === billingMonth && a.year === billingYear) || {
+      salary: 45000,
+      allowance: 5000,
+      stationary: 1500,
+      misc: 2500,
+    };
+    const currentTotalAdmin = currentAdminRecord.salary + currentAdminRecord.allowance + currentAdminRecord.stationary + currentAdminRecord.misc;
+
+    const currentActualCost = currentOpeningStock + currentTotalPurchases + currentTotalAdmin - currentClosingStock;
+    const currentChargeableDays = chargeableDaysMap[key] ?? 2850;
+    const currentDailyRate = currentChargeableDays > 0 ? currentActualCost / currentChargeableDays : 0;
+
     if (!window.confirm(
       `Publish the bill for ${billingMonth} ${billingYear}?\n\n` +
-      `Daily rate: ₹${messDailyRate.toFixed(2)}\n` +
-      `Grand total: ₹${grandTotalMonthExpense.toLocaleString()}\n\n` +
+      `Daily rate: ₹${currentDailyRate.toFixed(2)}\n` +
+      `Grand total: ₹${currentActualCost.toLocaleString()}\n\n` +
       `These figures are frozen on publish and stock becomes read-only.`
     )) return;
 
@@ -762,12 +786,12 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
       const res = await adminApi.publishBill({
         month: m,
         year: y,
-        opening_stock_value: billingOpeningStock,
-        purchases_value: totalFoodPurchasesAmount,
-        closing_stock_value: billingClosingStock,
-        operational_expenses: totalOperationalExpensesAmount,
-        administrative_expenses: totalAdminExpenseAmount,
-        chargeable_days: billingChargeableDays,
+        opening_stock_value: currentOpeningStock,
+        purchases_value: currentTotalPurchases,
+        closing_stock_value: currentClosingStock,
+        operational_expenses: 0,
+        administrative_expenses: currentTotalAdmin,
+        chargeable_days: currentChargeableDays,
       });
       await refreshBillStatus(billingMonth, billingYear);
       alert(
@@ -892,30 +916,19 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     printWindow.document.close();
   };
 
-  // Stock Calculations
-  const calculatedOpeningStockTotal = openingStockItems.reduce((sum, item) => sum + (item.qty * item.wacPrice), 0);
-  const calculatedClosingStockTotal = closingStockItems.reduce((sum, item) => sum + (item.qty * item.wacPrice), 0);
-
+  // Billing Stock & Expenditure Math (New Formula: 1 + 2 + 3 - 4)
   const billingKey = `${billingMonth}-${billingYear}`;
-  const billingOpeningStock = calculatedOpeningStockTotal || openingStockMap[billingKey] || 15000;
-  const billingClosingStock = calculatedClosingStockTotal || closingStockMap[billingKey] || 12000;
+  const billingOpeningStock = openingStockMap[billingKey] ?? 15000;
+  const billingClosingStock = closingStockMap[billingKey] ?? 12000;
   const billingChargeableDays = chargeableDaysMap[billingKey] ?? 2850;
 
-  // Food Purchases sum for month
+  // Purchases sum for month
   const monthFoodPurchases = foodPurchases.filter(
     (p) => p.month === billingMonth && p.year === billingYear
   );
   const totalFoodPurchasesAmount = monthFoodPurchases.reduce((sum, p) => sum + p.amount, 0);
 
-  // Operational Expenses for month (all categories)
-  const monthOperationalExpenses = opExpenses;
-  const totalOperationalExpensesAmount = monthOperationalExpenses.reduce((sum, o) => sum + o.amount, 0);
-
-  // Gas/Fuel operational expenses sum for month
-  const monthGasExpenses = monthOperationalExpenses.filter((o) => o.category === 'Gas/Fuel');
-  const totalGasExpensesAmount = monthGasExpenses.reduce((sum, o) => sum + o.amount, 0);
-
-  // Administration expense for month
+  // Administrative expense for month
   const monthAdminRecord = adminMonthlyExpenses.find(
     (a) => a.month === billingMonth && a.year === billingYear
   ) || { salary: 85000, allowance: 12000, stationary: 2500, misc: 3800 };
@@ -926,21 +939,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     monthAdminRecord.stationary +
     monthAdminRecord.misc;
 
-  // 4. Actual Food Cost Calculation = 1 + 2 - 3
-  const actualFoodCost = totalFoodPurchasesAmount + billingOpeningStock - billingClosingStock;
+  // Actual Expenditure = 1 (Opening Stock) + 2 (Purchases) + 3 (Admin) - 4 (Closing Stock)
+  const actualCost = billingOpeningStock + totalFoodPurchasesAmount + totalAdminExpenseAmount - billingClosingStock;
 
-  // Actual Total Expenditure = (1 + 2 + 3 + 4 - 5)
-  const actualCost =
-    billingOpeningStock +
-    totalFoodPurchasesAmount +
-    totalGasExpensesAmount +
-    totalAdminExpenseAmount -
-    billingClosingStock;
-
-  // GRAND TOTAL EXPENSE OF MONTH = Actual Food Cost + Operational Expenses + Administrational Expenses
-  const grandTotalMonthExpense = actualFoodCost + totalOperationalExpensesAmount + totalAdminExpenseAmount;
-
-  // Mess Daily Rate = Actual / Chargeable Days
+  // Mess Daily Rate = Actual Expenditure / Chargeable Days
   const messDailyRate = billingChargeableDays > 0 ? actualCost / billingChargeableDays : 0;
 
   const handleDownloadBreakdownPdf = () => {
@@ -981,14 +983,25 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
           </div>
 
           <!-- SECTION 1 -->
-          <h3>1. Food & Grocery Purchase</h3>
+          <h3>1. Opening Stock</h3>
+          <table>
+            <tbody>
+              <tr>
+                <td>Opening Stock Amount (Entered from previous month closing)</td>
+                <td style="text-align: right; font-weight: bold; color: #F47A35;">₹${billingOpeningStock.toLocaleString()}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- SECTION 2 -->
+          <h3>2. Purchases Log</h3>
           <table>
             <thead>
               <tr>
                 <th>Sl No</th>
                 <th>Date</th>
-                <th>Item Name</th>
-                <th>Quantity</th>
+                <th>Category</th>
+                <th>Description / Notes</th>
                 <th style="text-align: right;">Amount (₹)</th>
               </tr>
             </thead>
@@ -997,128 +1010,20 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 <tr>
                   <td>${idx + 1}</td>
                   <td>${fp.date}</td>
-                  <td>${fp.item}</td>
-                  <td>${fp.qty}</td>
+                  <td>${fp.category}</td>
+                  <td>${fp.title || fp.category}</td>
                   <td style="text-align: right;">₹${fp.amount.toLocaleString()}</td>
                 </tr>
               `).join('')}
               <tr style="font-weight: bold; background: #FDF7EA;">
-                <td colspan="4">Total Food & Grocery Purchases</td>
+                <td colspan="4">Total Purchases</td>
                 <td style="text-align: right; color: #F47A35;">₹${totalFoodPurchasesAmount.toLocaleString()}</td>
               </tr>
             </tbody>
           </table>
 
-          <!-- SECTION 2 -->
-          <h3>2. Opening Stock</h3>
-          <table>
-            <thead>
-              <tr>
-                <th>Sl No</th>
-                <th>Item Name</th>
-                <th>Qty</th>
-                <th style="text-align: right;">WAC Price (₹)</th>
-                <th style="text-align: right;">Value (₹)</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${openingStockItems.map((op, idx) => `
-                <tr>
-                  <td>${idx + 1}</td>
-                  <td>${op.itemName}</td>
-                  <td>${op.qty}</td>
-                  <td style="text-align: right;">₹${op.wacPrice}</td>
-                  <td style="text-align: right; font-weight: bold;">₹${(op.qty * op.wacPrice).toLocaleString()}</td>
-                </tr>
-              `).join('')}
-              <tr style="font-weight: bold; background: #FDF7EA;">
-                <td colspan="4">Total Opening Stock (Directly Calculated by App)</td>
-                <td style="text-align: right; color: #F47A35;">₹${billingOpeningStock.toLocaleString()}</td>
-              </tr>
-            </tbody>
-          </table>
-
           <!-- SECTION 3 -->
-          <h3>3. Closing Stock (Post Physical Count)</h3>
-          <table>
-            <thead>
-              <tr>
-                <th>Sl No</th>
-                <th>Item Name</th>
-                <th>Qty</th>
-                <th style="text-align: right;">WAC Price (₹)</th>
-                <th style="text-align: right;">Value (₹)</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${closingStockItems.map((cl, idx) => `
-                <tr>
-                  <td>${idx + 1}</td>
-                  <td>${cl.itemName}</td>
-                  <td>${cl.qty}</td>
-                  <td style="text-align: right;">₹${cl.wacPrice}</td>
-                  <td style="text-align: right; font-weight: bold;">₹${(cl.qty * cl.wacPrice).toLocaleString()}</td>
-                </tr>
-              `).join('')}
-              <tr style="font-weight: bold; background: #FDF7EA;">
-                <td colspan="4">Total Closing Stock</td>
-                <td style="text-align: right; color: #dc2626;">₹${billingClosingStock.toLocaleString()}</td>
-              </tr>
-            </tbody>
-          </table>
-
-          <!-- SECTION 4 -->
-          <h3>4. Actual Food Cost Calculation</h3>
-          <table>
-            <tbody>
-              <tr>
-                <td>1. Total Food Purchase Amount</td>
-                <td style="text-align: right; font-weight: bold;">₹${totalFoodPurchasesAmount.toLocaleString()}</td>
-              </tr>
-              <tr>
-                <td>2. Add Opening Stock Amount</td>
-                <td style="text-align: right; font-weight: bold;">+ ₹${billingOpeningStock.toLocaleString()}</td>
-              </tr>
-              <tr>
-                <td>3. Less Closing Stock Amount</td>
-                <td style="text-align: right; font-weight: bold; color: #dc2626;">- ₹${billingClosingStock.toLocaleString()}</td>
-              </tr>
-              <tr style="font-weight: bold; background: #F47A35/10; font-size: 12px;">
-                <td>Actual Food Cost of Month (1 + 2 - 3)</td>
-                <td style="text-align: right; color: #F47A35; font-size: 14px;">₹${actualFoodCost.toLocaleString()}</td>
-              </tr>
-            </tbody>
-          </table>
-
-          <!-- SECTION 5 -->
-          <h3>5. Operational Expenses</h3>
-          <table>
-            <thead>
-              <tr>
-                <th>Sl No</th>
-                <th>Date</th>
-                <th>Category</th>
-                <th style="text-align: right;">Amount (₹)</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${monthOperationalExpenses.map((op, idx) => `
-                <tr>
-                  <td>${idx + 1}</td>
-                  <td>${op.date}</td>
-                  <td>${op.category} (${op.title})</td>
-                  <td style="text-align: right; font-weight: bold;">₹${op.amount.toLocaleString()}</td>
-                </tr>
-              `).join('')}
-              <tr style="font-weight: bold; background: #FDF7EA;">
-                <td colspan="3">Total Operational Expenses</td>
-                <td style="text-align: right; color: #F47A35;">₹${totalOperationalExpensesAmount.toLocaleString()}</td>
-              </tr>
-            </tbody>
-          </table>
-
-          <!-- SECTION 6 -->
-          <h3>6. Administrational Expenses</h3>
+          <h3>3. Administrational Expenses</h3>
           <table>
             <thead>
               <tr>
@@ -1139,12 +1044,50 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             </tbody>
           </table>
 
+          <!-- SECTION 4 -->
+          <h3>4. Closing Stock</h3>
+          <table>
+            <tbody>
+              <tr>
+                <td>Closing Stock Amount (Physical stock value at month end)</td>
+                <td style="text-align: right; font-weight: bold; color: #dc2626;">₹${billingClosingStock.toLocaleString()}</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <!-- SECTION 5 -->
+          <h3>5. Actual Expenditure Calculation (1 + 2 + 3 - 4)</h3>
+          <table>
+            <tbody>
+              <tr>
+                <td>1. Opening Stock Amount</td>
+                <td style="text-align: right; font-weight: bold;">+ ₹${billingOpeningStock.toLocaleString()}</td>
+              </tr>
+              <tr>
+                <td>2. Total Purchases Amount</td>
+                <td style="text-align: right; font-weight: bold;">+ ₹${totalFoodPurchasesAmount.toLocaleString()}</td>
+              </tr>
+              <tr>
+                <td>3. Total Administrational Expenses</td>
+                <td style="text-align: right; font-weight: bold;">+ ₹${totalAdminExpenseAmount.toLocaleString()}</td>
+              </tr>
+              <tr>
+                <td>4. Less Closing Stock Amount</td>
+                <td style="text-align: right; font-weight: bold; color: #dc2626;">- ₹${billingClosingStock.toLocaleString()}</td>
+              </tr>
+              <tr style="font-weight: bold; background: #FDF7EA; font-size: 13px;">
+                <td>Actual Total Expenditure (1 + 2 + 3 - 4)</td>
+                <td style="text-align: right; color: #F47A35;">₹${actualCost.toLocaleString()}</td>
+              </tr>
+            </tbody>
+          </table>
+
           <!-- GRAND TOTAL EXPENSE HIGHLIGHTED BOX -->
           <div class="grand-box">
             <h2>GRAND TOTAL EXPENSE OF MONTH ${billingMonth.toUpperCase()} ${billingYear}</h2>
-            <div class="amount">₹${grandTotalMonthExpense.toLocaleString()}</div>
+            <div class="amount">₹${actualCost.toLocaleString()}</div>
             <div style="font-size: 11px; margin-top: 6px; opacity: 0.9;">
-              (Actual Food Cost ₹${actualFoodCost.toLocaleString()} + Operational Expenses ₹${totalOperationalExpensesAmount.toLocaleString()} + Administrational Expenses ₹${totalAdminExpenseAmount.toLocaleString()})
+              (Formula: Opening Stock ₹${billingOpeningStock.toLocaleString()} + Purchases ₹${totalFoodPurchasesAmount.toLocaleString()} + Admin Expenses ₹${totalAdminExpenseAmount.toLocaleString()} - Closing Stock ₹${billingClosingStock.toLocaleString()})
             </div>
           </div>
 
@@ -1220,26 +1163,21 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               </tr>
               <tr>
                 <td>2</td>
-                <td>Food Purchases (${monthFoodPurchases.length} logged items)</td>
+                <td>Purchases (${monthFoodPurchases.length} logged entries)</td>
                 <td style="text-align: right; font-weight: bold;">₹${totalFoodPurchasesAmount.toLocaleString()}</td>
               </tr>
               <tr>
                 <td>3</td>
-                <td>Gas / Fuel Operational Expenses</td>
-                <td style="text-align: right; font-weight: bold;">₹${totalGasExpensesAmount.toLocaleString()}</td>
-              </tr>
-              <tr>
-                <td>4</td>
                 <td>Administrative Expenses (Salary, Allowance, Stationary, Misc)</td>
                 <td style="text-align: right; font-weight: bold;">₹${totalAdminExpenseAmount.toLocaleString()}</td>
               </tr>
               <tr>
-                <td>5</td>
+                <td>4</td>
                 <td>Closing Stock</td>
                 <td style="text-align: right; font-weight: bold; color: #dc2626;">- ₹${billingClosingStock.toLocaleString()}</td>
               </tr>
               <tr style="background-color: #FDF7EA; font-weight: bold;">
-                <td colspan="2">Actual Expenditure (1 + 2 + 3 + 4 - 5)</td>
+                <td colspan="2">Actual Expenditure (1 + 2 + 3 - 4)</td>
                 <td style="text-align: right; color: #F47A35; font-size: 15px;">₹${actualCost.toLocaleString()}</td>
               </tr>
               <tr>
@@ -1433,7 +1371,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
   // -------------------------------------------------------------
   const handleAddFoodPurchase = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!foodItem || !foodAmount) return alert('Please enter item name and amount.');
+    if (!foodAmount) return alert('Please enter purchase amount.');
     const d = new Date(foodDate || Date.now());
     const month = d.toLocaleString('en-US', { month: 'long' });
     const year = d.getFullYear().toString();
@@ -1441,17 +1379,16 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     const newEntry = {
       id: Date.now().toString(),
       date: foodDate,
-      item: foodItem,
-      qty: foodQty || '1 unit',
+      category: purchaseCategory,
+      title: purchaseTitle.trim() || `${purchaseCategory} Purchase`,
       amount: parseFloat(foodAmount),
       month,
       year,
     };
     setFoodPurchases([newEntry, ...foodPurchases]);
-    setFoodItem('');
-    setFoodQty('');
+    setPurchaseTitle('');
     setFoodAmount('');
-    alert('Food purchase logged successfully!');
+    alert(`Purchase for ${purchaseCategory} (₹${parseFloat(foodAmount).toLocaleString()}) logged successfully!`);
   };
 
   const handleDeleteFoodPurchase = (id: string) => {
@@ -1547,9 +1484,15 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     }
   };
 
-  // Filtered Food Purchases
+  // Filtered Purchases
   const filteredFoodPurchases = foodPurchases.filter(p => {
-    if (foodSearch && !p.item.toLowerCase().includes(foodSearch.toLowerCase())) return false;
+    if (foodSearch) {
+      const q = foodSearch.toLowerCase();
+      const matchTitle = (p.title || '').toLowerCase().includes(q);
+      const matchCat = (p.category || '').toLowerCase().includes(q);
+      if (!matchTitle && !matchCat) return false;
+    }
+    if (foodCategoryFilter !== 'ALL' && p.category !== foodCategoryFilter) return false;
     if (foodMonthFilter !== 'ALL' && p.month !== foodMonthFilter) return false;
     if (foodYearFilter !== 'ALL' && p.year !== foodYearFilter) return false;
     return true;
@@ -1896,7 +1839,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                   Ledger & Operational Accounts
                 </h2>
                 <p className="text-xs font-medium text-[#9B7B52]">
-                  Complete purchase history, operational costs, administrative expenses, and inventory management
+                  Complete purchase history and administrative expenses
                 </p>
               </div>
 
@@ -1909,14 +1852,11 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               </button>
             </div>
 
-            {/* Ledger sub-navigation — a single scrolling row on phones so the
-                labels never wrap into ragged two-line blocks */}
+            {/* Ledger sub-navigation */}
             <div className="bg-white rounded-2xl border border-[#EFDCB4] p-1.5 flex gap-1 overflow-x-auto hide-scrollbar">
               {([
-                { id: 'food-purchases',        label: 'Food purchases',  icon: 'shopping_cart' },
-                { id: 'operational-expenses',  label: 'Operational',     icon: 'settings' },
+                { id: 'food-purchases',        label: 'Purchases',       icon: 'shopping_cart' },
                 { id: 'admin-expenses',        label: 'Administrative',  icon: 'work' },
-                { id: 'inventory',             label: 'Inventory',       icon: 'inventory_2' },
               ] as const).map(t => (
                 <button
                   key={t.id}
@@ -1934,36 +1874,19 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
             </div>
 
             {/* --------------------------------------------------------- */}
-            {/* SUB TAB 1: FOOD PURCHASES                                 */}
+            {/* SUB TAB 1: PURCHASES (Grocery, Gas, Fish, Meat, Milk)    */}
             {/* --------------------------------------------------------- */}
             {ledgerSubTab === 'food-purchases' && (
               <div className="space-y-6 animate-fade-in">
                 
-                {/* Food Purchase Logging Form Card */}
+                {/* Purchase Logging Form Card */}
                 <div className="bg-white p-5 rounded-2xl border border-[#EFDCB4] shadow-xs space-y-4">
                   <h3 className="font-extrabold text-base text-[#2D1A0E] flex items-center gap-2">
                     <span className="material-symbols-outlined text-[#F47A35]">add_shopping_cart</span>
-                    Log New Food Purchase Entry
+                    Log New Purchase Entry
                   </h3>
 
-                  <form onSubmit={handleAddFoodPurchase} className="grid grid-cols-1 md:grid-cols-5 gap-3">
-                    <div>
-                      <label className="block text-xs font-bold text-[#6B4A28] mb-1">Item Name (from Inventory)</label>
-                      <select
-                        value={foodItem}
-                        onChange={(e) => setFoodItem(e.target.value)}
-                        required
-                        className="w-full p-2.5 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-sm font-bold text-[#2D1A0E] focus:outline-none focus:border-[#F47A35]"
-                      >
-                        <option value="">Select item from inventory...</option>
-                        {inventoryCatalog.map((inv) => (
-                          <option key={inv.id} value={inv.name}>
-                            {inv.name} ({inv.unit})
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-
+                  <form onSubmit={handleAddFoodPurchase} className="grid grid-cols-1 md:grid-cols-4 gap-3">
                     <div>
                       <label className="block text-xs font-bold text-[#6B4A28] mb-1">Purchase Date</label>
                       <input
@@ -1976,24 +1899,93 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-[#6B4A28] mb-1">Quantity / Weight</label>
+                      <label className="block text-xs font-bold text-[#6B4A28] mb-1">Category</label>
+                      {!isAddingCategory ? (
+                        <select
+                          value={purchaseCategory}
+                          onChange={(e) => {
+                            if (e.target.value === 'ADD_NEW_CATEGORY') {
+                              setIsAddingCategory(true);
+                              setCustomCategoryInput('');
+                            } else {
+                              setPurchaseCategory(e.target.value);
+                            }
+                          }}
+                          required
+                          className="w-full p-2.5 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-sm font-bold text-[#2D1A0E] focus:outline-none focus:border-[#F47A35]"
+                        >
+                          {purchaseCategories.map((cat) => (
+                            <option key={cat} value={cat}>
+                              {cat}
+                            </option>
+                          ))}
+                          <option value="ADD_NEW_CATEGORY" className="font-bold text-[#F47A35]">
+                            + Add New Category...
+                          </option>
+                        </select>
+                      ) : (
+                        <div className="flex gap-1 items-center">
+                          <input
+                            type="text"
+                            value={customCategoryInput}
+                            onChange={(e) => setCustomCategoryInput(e.target.value)}
+                            placeholder="Enter new category..."
+                            autoFocus
+                            className="w-full p-2 bg-[#FDF7EA] border border-[#F47A35] rounded-xl text-xs font-bold text-[#2D1A0E] focus:outline-none"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const trimmed = customCategoryInput.trim();
+                              if (!trimmed) {
+                                alert('Please enter a valid category name.');
+                                return;
+                              }
+                              const formatted = trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+                              if (!purchaseCategories.includes(formatted)) {
+                                setPurchaseCategories((prev) => [...prev, formatted]);
+                              }
+                              setPurchaseCategory(formatted);
+                              setIsAddingCategory(false);
+                            }}
+                            className="px-2.5 py-2 bg-[#16a34a] hover:bg-[#15803d] text-white text-xs font-bold rounded-xl whitespace-nowrap cursor-pointer"
+                          >
+                            Add
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setIsAddingCategory(false);
+                              setPurchaseCategory(purchaseCategories[0] || 'Grocery');
+                            }}
+                            className="px-2 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 text-xs font-bold rounded-xl cursor-pointer"
+                            title="Cancel"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-[#6B4A28] mb-1">Description / Notes (Optional)</label>
                       <input
                         type="text"
-                        value={foodQty}
-                        onChange={(e) => setFoodQty(e.target.value)}
-                        placeholder="e.g. 50 kg / 80 L"
+                        value={purchaseTitle}
+                        onChange={(e) => setPurchaseTitle(e.target.value)}
+                        placeholder="e.g. LPG Cylinder Refill, Fresh Fish..."
                         className="w-full p-2.5 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-sm font-medium focus:outline-none focus:border-[#F47A35]"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-xs font-bold text-[#6B4A28] mb-1">Total Amount (₹)</label>
+                      <label className="block text-xs font-bold text-[#6B4A28] mb-1">Total Bill Amount (₹)</label>
                       <div className="flex flex-col sm:flex-row gap-2">
                         <input
                           type="number"
                           value={foodAmount}
                           onChange={(e) => setFoodAmount(e.target.value)}
-                          placeholder="e.g. 2750"
+                          placeholder="e.g. 500"
                           required
                           min="0"
                           step="any"
@@ -2010,17 +2002,17 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                   </form>
                 </div>
 
-                {/* Summary Stat Bar */}
+                {/* Summary Stat Bar: 3 Cards */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div className="bg-white p-4 rounded-2xl border border-[#EFDCB4] shadow-xs">
-                    <p className="text-xs font-bold text-[#9B7B52]">Total Food Purchase Cost</p>
+                    <p className="text-xs font-bold text-[#9B7B52]">Total Purchase Cost</p>
                     <p className="text-2xl font-extrabold text-[#F47A35] mt-1">₹{totalFoodCost.toLocaleString()}</p>
                     <p className="text-[11px] text-[#9B7B52] mt-1">Filtered result total</p>
                   </div>
                   <div className="bg-white p-4 rounded-2xl border border-[#EFDCB4] shadow-xs">
                     <p className="text-xs font-bold text-[#9B7B52]">Total Purchase Logs</p>
                     <p className="text-2xl font-extrabold text-[#2D1A0E] mt-1">{filteredFoodPurchases.length} Entries</p>
-                    <p className="text-[11px] text-[#9B7B52] mt-1">Logged food entries</p>
+                    <p className="text-[11px] text-[#9B7B52] mt-1">Logged purchase entries</p>
                   </div>
                   <div className="bg-white p-4 rounded-2xl border border-[#EFDCB4] shadow-xs">
                     <p className="text-xs font-bold text-[#9B7B52]">Average Purchase Price</p>
@@ -2033,7 +2025,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
                 {/* Search & Filter Toolbar */}
                 <div className="bg-white p-4 rounded-2xl border border-[#EFDCB4] shadow-xs flex flex-col md:flex-row gap-3 items-center justify-between">
-                  <div className="relative w-full md:w-96">
+                  <div className="relative w-full md:w-80">
                     <span className="material-symbols-outlined absolute left-3 top-2.5 text-[#BFA37A] text-[20px]">
                       search
                     </span>
@@ -2041,23 +2033,32 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                       type="text"
                       value={foodSearch}
                       onChange={(e) => setFoodSearch(e.target.value)}
-                      placeholder="Search items by name (e.g. Rice, Milk, Eggs)..."
+                      placeholder="Search description or category..."
                       className="w-full pl-10 pr-4 py-2 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-sm font-medium focus:outline-none focus:border-[#F47A35]"
                     />
                   </div>
 
                   <div className="flex gap-2 w-full md:w-auto">
                     <select
+                      value={foodCategoryFilter}
+                      onChange={(e) => setFoodCategoryFilter(e.target.value)}
+                      className="px-3 py-2 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-xs font-bold text-[#5C3D1E]"
+                    >
+                      <option value="ALL">All Categories</option>
+                      {purchaseCategories.map(cat => (
+                        <option key={cat} value={cat}>{cat}</option>
+                      ))}
+                    </select>
+
+                    <select
                       value={foodMonthFilter}
                       onChange={(e) => setFoodMonthFilter(e.target.value)}
                       className="px-3 py-2 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-xs font-bold text-[#5C3D1E]"
                     >
                       <option value="ALL">All Months</option>
-                      <option value="August">August</option>
-                      <option value="July">July</option>
-                      <option value="June">June</option>
-                      <option value="May">May</option>
-                      <option value="December">December</option>
+                      {MONTH_NAMES.map(m => (
+                        <option key={m} value={m}>{m}</option>
+                      ))}
                     </select>
 
                     <select
@@ -2073,12 +2074,12 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                   </div>
                 </div>
 
-                {/* Food Purchase History Table */}
+                {/* Purchase History Table */}
                 <div className="bg-white rounded-2xl border border-[#EFDCB4] shadow-xs overflow-hidden">
                   <div className="p-4 border-b border-[#EFDCB4] flex flex-wrap justify-between items-center gap-x-3 gap-y-1.5">
                     <h3 className="font-extrabold text-base text-[#2D1A0E] flex items-center gap-2">
                       <span className="material-symbols-outlined text-[#F47A35]">history</span>
-                      Food Purchase History Log
+                      Purchases Log
                     </h3>
                     <span className="text-xs font-semibold text-[#9B7B52]">
                       Showing {filteredFoodPurchases.length} records
@@ -2090,8 +2091,8 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                       <thead className="bg-[#FDF7EA] text-[#6B4A28] font-bold text-xs uppercase border-b border-[#EFDCB4]">
                         <tr>
                           <th className="py-3.5 px-4">Date</th>
-                          <th className="py-3.5 px-4">Item Name</th>
-                          <th className="py-3.5 px-4">Quantity</th>
+                          <th className="py-3.5 px-4">Category</th>
+                          <th className="py-3.5 px-4">Description / Notes</th>
                           <th className="py-3.5 px-4">Amount (₹)</th>
                           <th className="py-3.5 px-4 text-center">Action</th>
                         </tr>
@@ -2100,21 +2101,32 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                         {filteredFoodPurchases.length === 0 ? (
                           <tr>
                             <td colSpan={5} className="py-8 text-center text-[#9B7B52] text-sm">
-                              No food purchase entries matching search filter.
+                              No purchase entries matching search filter.
                             </td>
                           </tr>
                         ) : (
                           filteredFoodPurchases.map((row) => (
                             <tr key={row.id} className="hover:bg-[#FDF7EA] transition-colors">
                               <td className="py-3 px-4 font-mono text-xs text-[#5C3D1E]">{row.date}</td>
-                              <td className="py-3 px-4 font-semibold text-[#2D1A0E]">{row.item}</td>
-                              <td className="py-3 px-4 text-xs font-medium text-[#6B4A28]">{row.qty}</td>
+                              <td className="py-3 px-4">
+                                <span className={`px-2.5 py-0.5 text-xs font-extrabold rounded-full border ${
+                                  row.category === 'Grocery' ? 'bg-[#2563eb]/10 text-[#2563eb] border-[#2563eb]/30' :
+                                  row.category === 'Gas' ? 'bg-[#ea580c]/10 text-[#ea580c] border-[#ea580c]/30' :
+                                  row.category === 'Fish' ? 'bg-[#0284c7]/10 text-[#0284c7] border-[#0284c7]/30' :
+                                  row.category === 'Meat' ? 'bg-[#dc2626]/10 text-[#dc2626] border-[#dc2626]/30' :
+                                  row.category === 'Milk' ? 'bg-[#16a34a]/10 text-[#16a34a] border-[#16a34a]/30' :
+                                  'bg-[#7c3aed]/10 text-[#7c3aed] border-[#7c3aed]/30'
+                                }`}>
+                                  {row.category}
+                                </span>
+                              </td>
+                              <td className="py-3 px-4 font-semibold text-[#2D1A0E]">{row.title || row.category}</td>
                               <td className="py-3 px-4 font-extrabold text-[#16a34a]">₹{row.amount.toLocaleString()}</td>
                               <td className="py-3 px-4 text-center">
                                 <button
                                   onClick={() => handleDeleteFoodPurchase(row.id)}
                                   className="p-1.5 text-[#dc2626] hover:bg-[#dc2626]/10 rounded-lg transition-colors cursor-pointer"
-                                  title="Delete Item Entry"
+                                  title="Delete Purchase Entry"
                                 >
                                   <span className="material-symbols-outlined text-[18px]">delete</span>
                                 </button>
@@ -2130,141 +2142,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               </div>
             )}
 
-            {/* --------------------------------------------------------- */}
-            {/* SUB TAB 2: OPERATIONAL EXPENSES                           */}
-            {/* --------------------------------------------------------- */}
-            {ledgerSubTab === 'operational-expenses' && (
-              <div className="space-y-6 animate-fade-in">
-                
-                {/* Form Card */}
-                <div className="bg-white p-5 rounded-2xl border border-[#EFDCB4] shadow-xs space-y-4">
-                  <h3 className="font-extrabold text-base text-[#2D1A0E] flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[#F47A35]">build</span>
-                    Log Operational Expense Entry
-                  </h3>
 
-                  <form onSubmit={handleAddOpExpense} className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                    <div>
-                      <label className="block text-xs font-bold text-[#6B4A28] mb-1">Date</label>
-                      <input
-                        type="date"
-                        value={opDate}
-                        onChange={(e) => setOpDate(e.target.value)}
-                        required
-                        className="w-full p-2.5 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-sm font-medium focus:outline-none focus:border-[#F47A35]"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-[#6B4A28] mb-1">Title</label>
-                      <input
-                        type="text"
-                        value={opTitle}
-                        onChange={(e) => setOpTitle(e.target.value)}
-                        placeholder="e.g. Indane LPG Commercial Cylinder Refill"
-                        required
-                        className="w-full p-2.5 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-sm font-medium focus:outline-none focus:border-[#F47A35]"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-[#6B4A28] mb-1">Category</label>
-                      <select
-                        value={opCategory}
-                        onChange={(e) => setOpCategory(e.target.value as 'Gas/Fuel' | 'Miscellaneous')}
-                        className="w-full p-2.5 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-sm font-bold text-[#5C3D1E] focus:outline-none focus:border-[#F47A35]"
-                      >
-                        <option value="Gas/Fuel">Gas/Fuel</option>
-                        <option value="Miscellaneous">Miscellaneous</option>
-                      </select>
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-[#6B4A28] mb-1">Amount (₹)</label>
-                      <div className="flex flex-col sm:flex-row gap-2">
-                        <input
-                          type="number"
-                          value={opAmount}
-                          onChange={(e) => setOpAmount(e.target.value)}
-                          placeholder="e.g. 7400"
-                          required
-                          min="0"
-                          step="any"
-                          className="w-full p-2.5 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-sm font-medium focus:outline-none focus:border-[#F47A35]"
-                        />
-                        <button
-                          type="submit"
-                          className="w-full sm:w-auto px-4 py-2.5 bg-[#F47A35] hover:bg-[#D45E1A] text-white font-bold text-xs rounded-xl transition-colors cursor-pointer whitespace-nowrap"
-                        >
-                          Log Expense
-                        </button>
-                      </div>
-                    </div>
-                  </form>
-                </div>
-
-                {/* History Table */}
-                <div className="bg-white rounded-2xl border border-[#EFDCB4] shadow-xs overflow-hidden">
-                  <div className="p-4 border-b border-[#EFDCB4] flex flex-wrap justify-between items-center gap-x-3 gap-y-1.5">
-                    <h3 className="font-extrabold text-base text-[#2D1A0E] flex items-center gap-2">
-                      <span className="material-symbols-outlined text-[#F47A35]">receipt_long</span>
-                      Operational Expenses Log
-                    </h3>
-                    <span className="text-xs font-semibold text-[#9B7B52]">{opExpenses.length} entries</span>
-                  </div>
-
-                  <div className="overflow-x-auto">
-                    <table className="data-table text-left text-sm">
-                      <thead className="bg-[#FDF7EA] text-[#6B4A28] font-bold text-xs uppercase border-b border-[#EFDCB4]">
-                        <tr>
-                          <th className="py-3.5 px-4">Date</th>
-                          <th className="py-3.5 px-4">Title</th>
-                          <th className="py-3.5 px-4">Category</th>
-                          <th className="py-3.5 px-4">Amount (₹)</th>
-                          <th className="py-3.5 px-4 text-center">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[#EFDCB4]">
-                        {opExpenses.length === 0 ? (
-                          <tr>
-                            <td colSpan={5} className="py-8 text-center text-[#9B7B52] text-sm">
-                              No operational expenses logged yet.
-                            </td>
-                          </tr>
-                        ) : (
-                          opExpenses.map((row) => (
-                            <tr key={row.id} className="hover:bg-[#FDF7EA] transition-colors">
-                              <td className="py-3 px-4 font-mono text-xs text-[#5C3D1E]">{row.date}</td>
-                              <td className="py-3 px-4 font-semibold text-[#2D1A0E]">{row.title}</td>
-                              <td className="py-3 px-4">
-                                <span className={`px-2.5 py-0.5 text-xs font-extrabold rounded-full border ${
-                                  row.category === 'Gas/Fuel'
-                                    ? 'bg-[#ea580c]/10 text-[#ea580c] border-[#ea580c]/30'
-                                    : 'bg-[#7c3aed]/10 text-[#7c3aed] border-[#7c3aed]/30'
-                                }`}>
-                                  {row.category}
-                                </span>
-                              </td>
-                              <td className="py-3 px-4 font-extrabold text-[#dc2626]">₹{row.amount.toLocaleString()}</td>
-                              <td className="py-3 px-4 text-center">
-                                <button
-                                  onClick={() => handleDeleteOpExpense(row.id)}
-                                  className="p-1.5 text-[#dc2626] hover:bg-[#dc2626]/10 rounded-lg transition-colors cursor-pointer"
-                                  title="Delete Item Entry"
-                                >
-                                  <span className="material-symbols-outlined text-[18px]">delete</span>
-                                </button>
-                              </td>
-                            </tr>
-                          ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-              </div>
-            )}
 
             {/* --------------------------------------------------------- */}
             {/* SUB TAB 3: ADMINISTRATIVE EXPENSES                        */}
@@ -2446,128 +2324,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               </div>
             )}
 
-            {/* --------------------------------------------------------- */}
-            {/* SUB TAB 4: INVENTORY                                      */}
-            {/* --------------------------------------------------------- */}
-            {ledgerSubTab === 'inventory' && (
-              <div className="space-y-6 animate-fade-in">
-                
-                {/* Form Card: Add Item to Catalogue */}
-                <div className="bg-white p-5 rounded-2xl border border-[#EFDCB4] shadow-xs space-y-4">
-                  <h3 className="font-extrabold text-base text-[#2D1A0E] flex items-center gap-2">
-                    <span className="material-symbols-outlined text-[#F47A35]">add_box</span>
-                    Add New Inventory Item
-                  </h3>
-                  <p className="text-xs text-[#9B7B52]">
-                    Items added here will be available in the dropdown menu when logging Food Purchases.
-                  </p>
 
-                  <form onSubmit={handleAddInventoryCatalogItem} className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                    <div>
-                      <label className="block text-xs font-bold text-[#6B4A28] mb-1">Item Name</label>
-                      <input
-                        type="text"
-                        value={newInvName}
-                        onChange={(e) => setNewInvName(e.target.value)}
-                        placeholder="e.g. Coconut Oil / Green Gram"
-                        required
-                        className="w-full p-2.5 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-sm font-medium focus:outline-none focus:border-[#F47A35]"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-xs font-bold text-[#6B4A28] mb-1">Unit</label>
-                      <input
-                        type="text"
-                        value={newInvUnit}
-                        onChange={(e) => setNewInvUnit(e.target.value)}
-                        placeholder="e.g. kg, L, pcs, bags, tins"
-                        required
-                        className="w-full p-2.5 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-sm font-medium focus:outline-none focus:border-[#F47A35]"
-                      />
-                    </div>
-
-                    <div className="flex items-end">
-                      <button
-                        type="submit"
-                        className="w-full py-2.5 bg-[#F47A35] hover:bg-[#D45E1A] text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center justify-center gap-1.5"
-                      >
-                        <span className="material-symbols-outlined text-[18px]">add_circle</span>
-                        Add Item to Catalogue
-                      </button>
-                    </div>
-                  </form>
-                </div>
-
-                {/* Inventory Items Catalogue Table Card */}
-                <div className="bg-white rounded-2xl border border-[#EFDCB4] shadow-xs overflow-hidden">
-                  <div className="p-4 border-b border-[#EFDCB4] flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
-                    <div>
-                      <h3 className="font-extrabold text-base text-[#2D1A0E] flex items-center gap-2">
-                        <span className="material-symbols-outlined text-[#F47A35]">inventory_2</span>
-                        Inventory Items Catalogue
-                      </h3>
-                      <p className="text-xs text-[#9B7B52]">
-                        Registered mess items ({inventoryCatalog.length} total)
-                      </p>
-                    </div>
-
-                    <div className="relative w-full md:w-72">
-                      <span className="material-symbols-outlined absolute left-3 top-2 text-[#BFA37A] text-[18px]">
-                        search
-                      </span>
-                      <input
-                        type="text"
-                        value={invSearch}
-                        onChange={(e) => setInvSearch(e.target.value)}
-                        placeholder="Search items by name..."
-                        className="w-full pl-9 pr-3 py-1.5 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-xs font-medium focus:outline-none focus:border-[#F47A35]"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="overflow-x-auto">
-                    <table className="data-table text-left text-sm">
-                      <thead className="bg-[#FDF7EA] text-[#6B4A28] font-bold text-xs uppercase border-b border-[#EFDCB4]">
-                        <tr>
-                          <th className="py-3.5 px-4">Item Name</th>
-                          <th className="py-3.5 px-4">Unit</th>
-                          <th className="py-3.5 px-4 text-center">Action</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[#EFDCB4]">
-                        {inventoryCatalog.filter(i => !invSearch || i.name.toLowerCase().includes(invSearch.toLowerCase())).length === 0 ? (
-                          <tr>
-                            <td colSpan={3} className="py-8 text-center text-[#9B7B52] text-sm">
-                              No inventory items found. Add items above.
-                            </td>
-                          </tr>
-                        ) : (
-                          inventoryCatalog
-                            .filter(i => !invSearch || i.name.toLowerCase().includes(invSearch.toLowerCase()))
-                            .map((row) => (
-                              <tr key={row.id} className="hover:bg-[#FDF7EA] transition-colors">
-                                <td className="py-3.5 px-4 font-semibold text-[#2D1A0E]">{row.name}</td>
-                                <td className="py-3.5 px-4 font-mono text-xs font-bold text-[#F47A35]">{row.unit}</td>
-                                <td className="py-3.5 px-4 text-center">
-                                  <button
-                                    onClick={() => handleDeleteInventoryCatalogItem(row.id)}
-                                    className="p-1.5 text-[#dc2626] hover:bg-[#dc2626]/10 rounded-lg transition-colors cursor-pointer"
-                                    title="Delete Inventory Item"
-                                  >
-                                    <span className="material-symbols-outlined text-[18px]">delete</span>
-                                  </button>
-                                </td>
-                              </tr>
-                            ))
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-
-              </div>
-            )}
 
           </section>
         )}
@@ -2813,6 +2570,41 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               </div>
 
               <div className="p-5 space-y-4">
+                {/* Stock Amounts Input Form Card for Selected Month */}
+                <div className="bg-[#FDF7EA] p-4 rounded-xl border border-[#E3CB9B] grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-bold text-[#6B4A28] mb-1">
+                      1. Opening Stock Amount (₹) <span className="font-normal text-[#9B7B52]">(Last Month Closing Value)</span>
+                    </label>
+                    <input
+                      type="number"
+                      value={billingOpeningStock}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value || '0');
+                        setOpeningStockMap({ ...openingStockMap, [billingKey]: val });
+                      }}
+                      placeholder="Enter Opening Stock Amount"
+                      className="w-full p-2.5 bg-white border border-[#E3CB9B] rounded-xl text-sm font-extrabold text-[#2D1A0E] focus:outline-none focus:border-[#F47A35]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-[#6B4A28] mb-1">
+                      4. Closing Stock Amount (₹) <span className="font-normal text-[#9B7B52]">(Current Month End Value)</span>
+                    </label>
+                    <input
+                      type="number"
+                      value={billingClosingStock}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value || '0');
+                        setClosingStockMap({ ...closingStockMap, [billingKey]: val });
+                      }}
+                      placeholder="Enter Closing Stock Amount"
+                      className="w-full p-2.5 bg-white border border-[#E3CB9B] rounded-xl text-sm font-extrabold text-[#dc2626] focus:outline-none focus:border-[#dc2626]"
+                    />
+                  </div>
+                </div>
+
                 <div className="overflow-x-auto">
                   <table className="data-table text-left text-sm">
                     <thead className="bg-[#FDF7EA] text-[#6B4A28] font-bold text-xs uppercase border-b border-[#EFDCB4]">
@@ -2827,33 +2619,33 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                       
                       {/* 1. Opening Stock */}
                       <tr
-                        onClick={() => setBillingModal({ isOpen: true, title: `Opening Stock Valuation (${billingMonth} ${billingYear})`, type: 'STOCK' })}
+                        onClick={() => setBillingModal({ isOpen: true, title: `Opening Stock Amount (${billingMonth} ${billingYear})`, type: 'STOCK' })}
                         className="hover:bg-[#FDF7EA] transition-colors cursor-pointer group"
                       >
                         <td className="py-3.5 px-4 font-bold text-[#2D1A0E] flex items-center gap-2">
                           <span className="w-6 h-6 rounded-full bg-[#F7EEDA] text-[#F47A35] text-xs font-black flex items-center justify-center">1</span>
                           <span>Opening Stock</span>
                         </td>
-                        <td className="py-3.5 px-4 text-center text-xs text-[#9B7B52]">Beginning stock inventory value</td>
+                        <td className="py-3.5 px-4 text-center text-xs text-[#9B7B52]">Beginning stock value (Last month closing)</td>
                         <td className="py-3.5 px-4 text-right font-mono font-bold text-[#2D1A0E]">₹{billingOpeningStock.toLocaleString()}</td>
                         <td className="py-3.5 px-4 text-center">
                           <span className="text-xs font-bold text-[#F47A35] group-hover:underline flex items-center justify-center gap-1">
-                            <span>Inspect</span>
+                            <span>Update Amount</span>
                             <span className="material-symbols-outlined text-[14px]">chevron_right</span>
                           </span>
                         </td>
                       </tr>
 
-                      {/* 2. Food Purchase */}
+                      {/* 2. Purchases */}
                       <tr
-                        onClick={() => setBillingModal({ isOpen: true, title: `Food Purchases Log (${billingMonth} ${billingYear})`, type: 'FOOD' })}
+                        onClick={() => setBillingModal({ isOpen: true, title: `Purchases Log (${billingMonth} ${billingYear})`, type: 'FOOD' })}
                         className="hover:bg-[#FDF7EA] transition-colors cursor-pointer group"
                       >
                         <td className="py-3.5 px-4 font-bold text-[#2D1A0E] flex items-center gap-2">
                           <span className="w-6 h-6 rounded-full bg-[#F7EEDA] text-[#F47A35] text-xs font-black flex items-center justify-center">2</span>
-                          <span>Food Purchase</span>
+                          <span>Purchases</span>
                         </td>
-                        <td className="py-3.5 px-4 text-center text-xs text-[#9B7B52]">{monthFoodPurchases.length} food purchase entries logged</td>
+                        <td className="py-3.5 px-4 text-center text-xs text-[#9B7B52]">{monthFoodPurchases.length} logged purchase entries</td>
                         <td className="py-3.5 px-4 text-right font-mono font-bold text-[#2D1A0E]">₹{totalFoodPurchasesAmount.toLocaleString()}</td>
                         <td className="py-3.5 px-4 text-center">
                           <span className="text-xs font-bold text-[#F47A35] group-hover:underline flex items-center justify-center gap-1">
@@ -2863,33 +2655,14 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                         </td>
                       </tr>
 
-                      {/* 3. Gas/Fuel Operational */}
-                      <tr
-                        onClick={() => setBillingModal({ isOpen: true, title: `Gas/Fuel Operational Expenses (${billingMonth} ${billingYear})`, type: 'GAS' })}
-                        className="hover:bg-[#FDF7EA] transition-colors cursor-pointer group"
-                      >
-                        <td className="py-3.5 px-4 font-bold text-[#2D1A0E] flex items-center gap-2">
-                          <span className="w-6 h-6 rounded-full bg-[#F7EEDA] text-[#F47A35] text-xs font-black flex items-center justify-center">3</span>
-                          <span>Gas / Fuel Operational</span>
-                        </td>
-                        <td className="py-3.5 px-4 text-center text-xs text-[#9B7B52]">LPG Cylinders & kitchen fuel expenses</td>
-                        <td className="py-3.5 px-4 text-right font-mono font-bold text-[#2D1A0E]">₹{totalGasExpensesAmount.toLocaleString()}</td>
-                        <td className="py-3.5 px-4 text-center">
-                          <span className="text-xs font-bold text-[#F47A35] group-hover:underline flex items-center justify-center gap-1">
-                            <span>View Gas Expenses</span>
-                            <span className="material-symbols-outlined text-[14px]">chevron_right</span>
-                          </span>
-                        </td>
-                      </tr>
-
-                      {/* 4. Administration */}
+                      {/* 3. Administrative */}
                       <tr
                         onClick={() => setBillingModal({ isOpen: true, title: `Administrative Expenses Breakdown (${billingMonth} ${billingYear})`, type: 'ADMIN' })}
                         className="hover:bg-[#FDF7EA] transition-colors cursor-pointer group"
                       >
                         <td className="py-3.5 px-4 font-bold text-[#2D1A0E] flex items-center gap-2">
-                          <span className="w-6 h-6 rounded-full bg-[#F7EEDA] text-[#F47A35] text-xs font-black flex items-center justify-center">4</span>
-                          <span>Administration</span>
+                          <span className="w-6 h-6 rounded-full bg-[#F7EEDA] text-[#F47A35] text-xs font-black flex items-center justify-center">3</span>
+                          <span>Administrative Expenses</span>
                         </td>
                         <td className="py-3.5 px-4 text-center text-xs text-[#9B7B52]">Workers Salary, Allowance, Stationary & Misc</td>
                         <td className="py-3.5 px-4 text-right font-mono font-bold text-[#2D1A0E]">₹{totalAdminExpenseAmount.toLocaleString()}</td>
@@ -2901,20 +2674,20 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                         </td>
                       </tr>
 
-                      {/* 5. Closing Stock */}
+                      {/* 4. Closing Stock */}
                       <tr
-                        onClick={() => setBillingModal({ isOpen: true, title: `Closing Stock Valuation (${billingMonth} ${billingYear})`, type: 'STOCK' })}
+                        onClick={() => setBillingModal({ isOpen: true, title: `Closing Stock Amount (${billingMonth} ${billingYear})`, type: 'STOCK' })}
                         className="hover:bg-[#FDF7EA] transition-colors cursor-pointer group"
                       >
                         <td className="py-3.5 px-4 font-bold text-[#2D1A0E] flex items-center gap-2">
-                          <span className="w-6 h-6 rounded-full bg-[#F7EEDA] text-[#dc2626] text-xs font-black flex items-center justify-center">5</span>
+                          <span className="w-6 h-6 rounded-full bg-[#F7EEDA] text-[#dc2626] text-xs font-black flex items-center justify-center">4</span>
                           <span>Closing Stock</span>
                         </td>
-                        <td className="py-3.5 px-4 text-center text-xs text-[#9B7B52]">End-of-month remaining inventory stock</td>
+                        <td className="py-3.5 px-4 text-center text-xs text-[#9B7B52]">End-of-month remaining stock value</td>
                         <td className="py-3.5 px-4 text-right font-mono font-bold text-[#dc2626]">- ₹{billingClosingStock.toLocaleString()}</td>
                         <td className="py-3.5 px-4 text-center">
                           <span className="text-xs font-bold text-[#F47A35] group-hover:underline flex items-center justify-center gap-1">
-                            <span>Inspect</span>
+                            <span>Update Amount</span>
                             <span className="material-symbols-outlined text-[14px]">chevron_right</span>
                           </span>
                         </td>
@@ -2923,7 +2696,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                       {/* Actual Expenditure Row */}
                       <tr className="bg-[#FDF7EA] font-extrabold border-t-2 border-[#E3CB9B]">
                         <td colSpan={2} className="py-4 px-4 text-[#2D1A0E]">
-                          Actual Expenditure <span className="text-xs font-normal text-[#9B7B52]">(1 + 2 + 3 + 4 - 5)</span>
+                          Actual Expenditure <span className="text-xs font-normal text-[#9B7B52]">(Formula: 1 + 2 + 3 - 4)</span>
                         </td>
                         <td className="py-4 px-4 text-right font-mono text-base text-[#F47A35]">₹{actualCost.toLocaleString()}</td>
                         <td></td>
@@ -2942,7 +2715,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                   </table>
                 </div>
 
-                {/* Highlighted Blue Box for Mess Daily Rate */}
+                {/* Highlighted Box for Mess Daily Rate */}
                 <div className="bg-[#F47A35] text-white p-6 rounded-2xl shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4">
                   <div className="space-y-1 text-center sm:text-left">
                     <span className="text-xs font-bold uppercase tracking-wider bg-white/20 px-3 py-1 rounded-full text-white inline-block">
@@ -2975,7 +2748,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                     Breakdown Expenses Statement - {billingMonth} {billingYear}
                   </h3>
                   <p className="text-xs text-[#9B7B52] mt-0.5">
-                    Itemized breakdown statements of food purchases, stock valuations, operational & administrative expenses
+                    Itemized breakdown statements of purchases, stock values, and administrative expenses
                   </p>
                 </div>
 
@@ -2988,11 +2761,23 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 </button>
               </div>
 
-              {/* 1. Food & Grocery Purchase */}
+              {/* 1. Opening Stock */}
               <div className="space-y-3">
                 <h4 className="font-extrabold text-sm text-[#2D1A0E] flex items-center gap-2">
                   <span className="w-5 h-5 rounded-full bg-[#F47A35]/10 text-[#F47A35] text-xs flex items-center justify-center font-bold">1</span>
-                  Food & Grocery Purchase
+                  Opening Stock
+                </h4>
+                <div className="p-4 bg-[#FDF7EA] border border-[#EFDCB4] rounded-xl flex justify-between items-center text-xs font-bold">
+                  <span className="text-[#6B4A28]">Opening Stock Amount (Last Month Closing Stock Value):</span>
+                  <span className="font-mono text-sm text-[#F47A35]">₹{billingOpeningStock.toLocaleString()}</span>
+                </div>
+              </div>
+
+              {/* 2. Purchases */}
+              <div className="space-y-3">
+                <h4 className="font-extrabold text-sm text-[#2D1A0E] flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-[#F47A35]/10 text-[#F47A35] text-xs flex items-center justify-center font-bold">2</span>
+                  Purchases Log
                 </h4>
                 <div className="overflow-x-auto border border-[#EFDCB4] rounded-xl">
                   <table className="data-table text-left text-xs">
@@ -3000,23 +2785,31 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                       <tr>
                         <th className="py-2.5 px-3">Sl No</th>
                         <th className="py-2.5 px-3">Date</th>
-                        <th className="py-2.5 px-3">Item Name</th>
-                        <th className="py-2.5 px-3">Quantity</th>
+                        <th className="py-2.5 px-3">Category</th>
+                        <th className="py-2.5 px-3">Description / Notes</th>
                         <th className="py-2.5 px-3 text-right">Amount (₹)</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#EFDCB4]">
-                      {monthFoodPurchases.map((fp, idx) => (
-                        <tr key={fp.id} className="hover:bg-[#FDF7EA]">
-                          <td className="py-2.5 px-3 text-[#9B7B52]">{idx + 1}</td>
-                          <td className="py-2.5 px-3 font-mono text-[#5C3D1E]">{fp.date}</td>
-                          <td className="py-2.5 px-3 font-bold text-[#2D1A0E]">{fp.item}</td>
-                          <td className="py-2.5 px-3 font-mono text-[#6B4A28]">{fp.qty}</td>
-                          <td className="py-2.5 px-3 text-right font-mono font-bold text-[#2D1A0E]">₹{fp.amount.toLocaleString()}</td>
+                      {monthFoodPurchases.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="py-6 text-center text-[#9B7B52]">
+                            No purchases logged for {billingMonth} {billingYear}.
+                          </td>
                         </tr>
-                      ))}
+                      ) : (
+                        monthFoodPurchases.map((fp, idx) => (
+                          <tr key={fp.id} className="hover:bg-[#FDF7EA]">
+                            <td className="py-2.5 px-3 text-[#9B7B52]">{idx + 1}</td>
+                            <td className="py-2.5 px-3 font-mono text-[#5C3D1E]">{fp.date}</td>
+                            <td className="py-2.5 px-3 font-bold text-[#F47A35]">{fp.category}</td>
+                            <td className="py-2.5 px-3 font-semibold text-[#2D1A0E]">{fp.title || fp.category}</td>
+                            <td className="py-2.5 px-3 text-right font-mono font-bold text-[#16a34a]">₹{fp.amount.toLocaleString()}</td>
+                          </tr>
+                        ))
+                      )}
                       <tr className="bg-[#FDF7EA] font-bold border-t border-[#E3CB9B]">
-                        <td colSpan={4} className="py-3 px-3 text-[#2D1A0E]">Total Food & Grocery Purchase</td>
+                        <td colSpan={4} className="py-3 px-3 text-[#2D1A0E]">Total Purchases</td>
                         <td className="py-3 px-3 text-right font-mono text-sm text-[#F47A35]">₹{totalFoodPurchasesAmount.toLocaleString()}</td>
                       </tr>
                     </tbody>
@@ -3024,286 +2817,10 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 </div>
               </div>
 
-              {/* 2. Opening Stock */}
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <h4 className="font-extrabold text-sm text-[#2D1A0E] flex items-center gap-2">
-                    <span className="w-5 h-5 rounded-full bg-[#F47A35]/10 text-[#F47A35] text-xs flex items-center justify-center font-bold">2</span>
-                    Opening Stock
-                  </h4>
-                  <span className="text-[11px] font-semibold text-[#16a34a] bg-[#16a34a]/10 px-2.5 py-0.5 rounded-full border border-[#16a34a]/30">
-                    ⚡ Directly taken by app from previous month closing
-                  </span>
-                </div>
-                <div className="overflow-x-auto border border-[#EFDCB4] rounded-xl">
-                  <table className="data-table text-left text-xs">
-                    <thead className="bg-[#FDF7EA] text-[#6B4A28] font-bold uppercase border-b border-[#EFDCB4]">
-                      <tr>
-                        <th className="py-2.5 px-3">Sl No</th>
-                        <th className="py-2.5 px-3">Item Name</th>
-                        <th className="py-2.5 px-3">Qty</th>
-                        <th className="py-2.5 px-3 text-right">WAC Price (₹)</th>
-                        <th className="py-2.5 px-3 text-right">Value (₹)</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#EFDCB4]">
-                      {openingStockItems.map((op, idx) => (
-                        <tr key={op.id} className="hover:bg-[#FDF7EA]">
-                          <td className="py-2.5 px-3 text-[#9B7B52]">{idx + 1}</td>
-                          <td className="py-2.5 px-3 font-bold text-[#2D1A0E]">{op.itemName}</td>
-                          <td className="py-2.5 px-3 font-mono text-[#6B4A28]">{op.qty}</td>
-                          <td className="py-2.5 px-3 text-right font-mono text-[#6B4A28]">₹{op.wacPrice}</td>
-                          <td className="py-2.5 px-3 text-right font-mono font-bold text-[#2D1A0E]">₹{(op.qty * op.wacPrice).toLocaleString()}</td>
-                        </tr>
-                      ))}
-                      <tr className="bg-[#FDF7EA] font-bold border-t border-[#E3CB9B]">
-                        <td colSpan={4} className="py-3 px-3 text-[#2D1A0E]">Total Opening Stock</td>
-                        <td className="py-3 px-3 text-right font-mono text-sm text-[#F47A35]">₹{billingOpeningStock.toLocaleString()}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* 3. Closing Stock */}
-              <div className="space-y-3">
-                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-1">
-                  <h4 className="font-extrabold text-sm text-[#2D1A0E] flex items-center gap-2">
-                    <span className="w-5 h-5 rounded-full bg-[#dc2626]/10 text-[#dc2626] text-xs flex items-center justify-center font-bold">3</span>
-                    Closing Stock
-                  </h4>
-                  <span className="text-[11px] font-semibold text-[#9B7B52]">
-                    (Added by admin after physical stock count at month end)
-                  </span>
-                </div>
-
-                {/* Form to add closing stock item with Live Item Suggestions Dropdown */}
-                {(() => {
-                  const closingInputLower = newClosingName.trim().toLowerCase();
-                  // Match items starting with input first, then containing input
-                  const matches = closingInputLower
-                    ? inventoryCatalog.filter(i => i.name.toLowerCase().startsWith(closingInputLower))
-                    : [];
-                  const fallbackMatches = closingInputLower && matches.length === 0
-                    ? inventoryCatalog.filter(i => i.name.toLowerCase().includes(closingInputLower))
-                    : [];
-                  const closingSuggestions = [...matches, ...fallbackMatches].slice(0, 6);
-
-                  const defaultWacRatesMap: Record<string, number> = {
-                    'inv-cat-1': 40, 'inv-cat-2': 42, 'inv-cat-3': 52, 'inv-cat-4': 6,
-                    'inv-cat-5': 190, 'inv-cat-6': 170, 'inv-cat-7': 30, 'inv-cat-8': 120,
-                    'inv-cat-9': 317, 'inv-cat-10': 350, 'inv-cat-11': 420, 'inv-cat-12': 1850,
-                    'inv-cat-13': 42, 'inv-cat-14': 360, 'inv-cat-15': 65, 'inv-cat-16': 480,
-                    'inv-cat-17': 45, 'inv-cat-18': 40, 'inv-cat-19': 35, 'inv-cat-20': 110,
-                  };
-
-                  return (
-                    <form onSubmit={handleAddClosingStockItem} className="bg-[#FDF7EA] p-3 rounded-xl border border-[#E3CB9B] grid grid-cols-1 md:grid-cols-4 gap-2 relative">
-                      
-                      {/* Item Name Input with Floating Suggestions Dropdown */}
-                      <div className="relative">
-                        <input
-                          type="text"
-                          value={newClosingName}
-                          onChange={(e) => {
-                            setNewClosingName(e.target.value);
-                            setShowClosingSuggestions(true);
-                          }}
-                          onFocus={() => setShowClosingSuggestions(true)}
-                          placeholder="Item Name (e.g. Rice, Beef...)"
-                          className="w-full p-2 bg-white border border-[#E3CB9B] rounded-lg text-xs font-bold text-[#2D1A0E] focus:outline-none focus:border-[#F47A35]"
-                        />
-
-                        {/* Floating Dropdown Suggestion Menu */}
-                        {showClosingSuggestions && closingSuggestions.length > 0 && (
-                          <div className="absolute left-0 right-0 top-full mt-1.5 bg-white border-2 border-[#F47A35] rounded-xl shadow-2xl z-50 overflow-hidden divide-y divide-[#EFDCB4] animate-fade-in">
-                            <div className="bg-[#F47A35] px-3 py-1.5 text-white text-[10px] font-black uppercase tracking-wider flex justify-between items-center">
-                              <span>Select Stock Item Suggestion</span>
-                              <span>{closingSuggestions.length} Matches</span>
-                            </div>
-                            <div className="max-h-48 overflow-y-auto">
-                              {closingSuggestions.map((item) => {
-                                const wacPrice = defaultWacRatesMap[item.id] || 50;
-                                return (
-                                  <div
-                                    key={item.id}
-                                    onClick={() => {
-                                      setNewClosingName(item.name);
-                                      setNewClosingWac(wacPrice.toString());
-                                      setShowClosingSuggestions(false);
-                                    }}
-                                    className="px-3 py-2 hover:bg-[#F47A35]/10 cursor-pointer transition-colors flex items-center justify-between group"
-                                  >
-                                    <div className="flex items-center gap-2">
-                                      <span className="material-symbols-outlined text-[16px] text-[#F47A35] group-hover:scale-110 transition-transform">
-                                        inventory_2
-                                      </span>
-                                      <span className="font-extrabold text-xs text-[#2D1A0E] group-hover:text-[#F47A35]">
-                                        {item.name}
-                                      </span>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-[10px] font-mono font-semibold text-[#9B7B52] bg-[#F7EEDA] px-1.5 py-0.5 rounded">
-                                        {item.unit}
-                                      </span>
-                                      <span className="text-[11px] font-mono font-black text-[#16a34a]">
-                                        ₹{wacPrice}
-                                      </span>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      <input
-                        type="number"
-                        value={newClosingQty}
-                        onChange={(e) => setNewClosingQty(e.target.value)}
-                        placeholder="Physical Qty"
-                        className="p-2 bg-white border border-[#E3CB9B] rounded-lg text-xs font-bold text-[#2D1A0E] focus:outline-none focus:border-[#F47A35]"
-                      />
-                      <input
-                        type="number"
-                        value={newClosingWac}
-                        onChange={(e) => setNewClosingWac(e.target.value)}
-                        placeholder="WAC Price (₹)"
-                        className="p-2 bg-white border border-[#E3CB9B] rounded-lg text-xs font-bold text-[#2D1A0E] focus:outline-none focus:border-[#F47A35]"
-                      />
-                      <button
-                        type="submit"
-                        className="py-2 bg-[#F47A35] text-white font-bold text-xs rounded-lg hover:bg-[#D45E1A] cursor-pointer flex items-center justify-center gap-1 shadow-xs"
-                      >
-                        <span className="material-symbols-outlined text-[16px]">add</span>
-                        Add Closing Item
-                      </button>
-                    </form>
-                  );
-                })()}
-
-                <div className="overflow-x-auto border border-[#EFDCB4] rounded-xl">
-                  <table className="data-table text-left text-xs">
-                    <thead className="bg-[#FDF7EA] text-[#6B4A28] font-bold uppercase border-b border-[#EFDCB4]">
-                      <tr>
-                        <th className="py-2.5 px-3">Sl No</th>
-                        <th className="py-2.5 px-3">Item Name</th>
-                        <th className="py-2.5 px-3">Qty</th>
-                        <th className="py-2.5 px-3 text-right">WAC Price (₹)</th>
-                        <th className="py-2.5 px-3 text-right">Value (₹)</th>
-                        <th className="py-2.5 px-3 text-center">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#EFDCB4]">
-                      {closingStockItems.map((cl, idx) => (
-                        <tr key={cl.id} className="hover:bg-[#FDF7EA]">
-                          <td className="py-2.5 px-3 text-[#9B7B52]">{idx + 1}</td>
-                          <td className="py-2.5 px-3 font-bold text-[#2D1A0E]">{cl.itemName}</td>
-                          <td className="py-2.5 px-3 font-mono text-[#6B4A28]">{cl.qty}</td>
-                          <td className="py-2.5 px-3 text-right font-mono text-[#6B4A28]">₹{cl.wacPrice}</td>
-                          <td className="py-2.5 px-3 text-right font-mono font-bold text-[#dc2626]">₹{(cl.qty * cl.wacPrice).toLocaleString()}</td>
-                          <td className="py-2.5 px-3 text-center">
-                            <button
-                              onClick={() => handleDeleteClosingStockItem(cl.id)}
-                              className="p-1 text-[#dc2626] hover:bg-[#dc2626]/10 rounded cursor-pointer"
-                              title="Delete Item"
-                            >
-                              <span className="material-symbols-outlined text-[16px]">delete</span>
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                      <tr className="bg-[#FDF7EA] font-bold border-t border-[#E3CB9B]">
-                        <td colSpan={4} className="py-3 px-3 text-[#2D1A0E]">Total Closing Stock</td>
-                        <td className="py-3 px-3 text-right font-mono text-sm text-[#dc2626]">₹{billingClosingStock.toLocaleString()}</td>
-                        <td></td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* 4. Actual Food Cost Calculation */}
+              {/* 3. Administrational Expenses */}
               <div className="space-y-3">
                 <h4 className="font-extrabold text-sm text-[#2D1A0E] flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-[#F47A35]/10 text-[#F47A35] text-xs flex items-center justify-center font-bold">4</span>
-                  Actual Food Cost Calculation
-                </h4>
-                <div className="bg-[#FDF7EA] p-4 rounded-xl border border-[#E3CB9B] space-y-2 text-xs">
-                  <div className="flex justify-between items-center">
-                    <span className="text-[#6B4A28]">1. Total Food Purchase Amount:</span>
-                    <span className="font-mono font-bold text-[#2D1A0E]">₹{totalFoodPurchasesAmount.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[#6B4A28]">2. Add Opening Stock Amount:</span>
-                    <span className="font-mono font-bold text-[#16a34a]">+ ₹{billingOpeningStock.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-[#6B4A28]">3. Less Closing Stock Amount:</span>
-                    <span className="font-mono font-bold text-[#dc2626]">- ₹{billingClosingStock.toLocaleString()}</span>
-                  </div>
-                  <div className="pt-2 border-t border-[#E3CB9B] flex justify-between items-center font-extrabold text-sm">
-                    <span className="text-[#2D1A0E]">Actual Food Cost of Month (1 + 2 - 3):</span>
-                    <span className="font-mono text-[#F47A35]">₹{actualFoodCost.toLocaleString()}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* 5. Operational Expenses */}
-              <div className="space-y-3">
-                <h4 className="font-extrabold text-sm text-[#2D1A0E] flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-[#F47A35]/10 text-[#F47A35] text-xs flex items-center justify-center font-bold">5</span>
-                  Operational Expenses
-                </h4>
-                <div className="overflow-x-auto border border-[#EFDCB4] rounded-xl">
-                  <table className="data-table text-left text-xs">
-                    <thead className="bg-[#FDF7EA] text-[#6B4A28] font-bold uppercase border-b border-[#EFDCB4]">
-                      <tr>
-                        <th className="py-2.5 px-3">Sl No</th>
-                        <th className="py-2.5 px-3">Date</th>
-                        <th className="py-2.5 px-3">Category Dropdown</th>
-                        <th className="py-2.5 px-3 text-right">Amount (₹)</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#EFDCB4]">
-                      {monthOperationalExpenses.map((op, idx) => (
-                        <tr key={op.id} className="hover:bg-[#FDF7EA]">
-                          <td className="py-2.5 px-3 text-[#9B7B52]">{idx + 1}</td>
-                          <td className="py-2.5 px-3 font-mono text-[#5C3D1E]">{op.date}</td>
-                          <td className="py-2.5 px-3">
-                            <select
-                              value={op.category}
-                              onChange={(e) => {
-                                const newCat = e.target.value as any;
-                                setOpExpenses(opExpenses.map(o => o.id === op.id ? { ...o, category: newCat } : o));
-                              }}
-                              className="bg-white border border-[#E3CB9B] rounded-lg px-2 py-1 text-xs font-bold text-[#2D1A0E] cursor-pointer"
-                            >
-                              <option value="Gas/Fuel">Gas/Fuel</option>
-                              <option value="Maintenance">Maintenance</option>
-                              <option value="Utilities">Utilities</option>
-                              <option value="Miscellaneous">Miscellaneous</option>
-                              <option value="Other">Other</option>
-                            </select>
-                            <span className="ml-2 text-xs text-[#9B7B52]">({op.title})</span>
-                          </td>
-                          <td className="py-2.5 px-3 text-right font-mono font-bold text-[#2D1A0E]">₹{op.amount.toLocaleString()}</td>
-                        </tr>
-                      ))}
-                      <tr className="bg-[#FDF7EA] font-bold border-t border-[#E3CB9B]">
-                        <td colSpan={3} className="py-3 px-3 text-[#2D1A0E]">Total Operational Expenses</td>
-                        <td className="py-3 px-3 text-right font-mono text-sm text-[#F47A35]">₹{totalOperationalExpensesAmount.toLocaleString()}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              {/* 6. Administrational Expenses */}
-              <div className="space-y-3">
-                <h4 className="font-extrabold text-sm text-[#2D1A0E] flex items-center gap-2">
-                  <span className="w-5 h-5 rounded-full bg-[#F47A35]/10 text-[#F47A35] text-xs flex items-center justify-center font-bold">6</span>
+                  <span className="w-5 h-5 rounded-full bg-[#F47A35]/10 text-[#F47A35] text-xs flex items-center justify-center font-bold">3</span>
                   Administrational Expenses
                 </h4>
                 <div className="overflow-x-auto border border-[#EFDCB4] rounded-xl">
@@ -3345,6 +2862,48 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 </div>
               </div>
 
+              {/* 4. Closing Stock */}
+              <div className="space-y-3">
+                <h4 className="font-extrabold text-sm text-[#2D1A0E] flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-[#dc2626]/10 text-[#dc2626] text-xs flex items-center justify-center font-bold">4</span>
+                  Closing Stock
+                </h4>
+                <div className="p-4 bg-[#FDF7EA] border border-[#EFDCB4] rounded-xl flex justify-between items-center text-xs font-bold">
+                  <span className="text-[#6B4A28]">Closing Stock Amount (Physical Stock Value at Month End):</span>
+                  <span className="font-mono text-sm text-[#dc2626]">- ₹{billingClosingStock.toLocaleString()}</span>
+                </div>
+              </div>
+
+              {/* 5. Actual Expenditure Calculation Summary */}
+              <div className="space-y-3">
+                <h4 className="font-extrabold text-sm text-[#2D1A0E] flex items-center gap-2">
+                  <span className="w-5 h-5 rounded-full bg-[#F47A35]/10 text-[#F47A35] text-xs flex items-center justify-center font-bold">5</span>
+                  Actual Expenditure Calculation (1 + 2 + 3 - 4)
+                </h4>
+                <div className="bg-[#FDF7EA] p-4 rounded-xl border border-[#E3CB9B] space-y-2 text-xs">
+                  <div className="flex justify-between items-center">
+                    <span className="text-[#6B4A28]">1. Add Opening Stock Amount:</span>
+                    <span className="font-mono font-bold text-[#16a34a]">+ ₹{billingOpeningStock.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[#6B4A28]">2. Total Purchases Amount:</span>
+                    <span className="font-mono font-bold text-[#2D1A0E]">+ ₹{totalFoodPurchasesAmount.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[#6B4A28]">3. Total Administrational Expenses:</span>
+                    <span className="font-mono font-bold text-[#2D1A0E]">+ ₹{totalAdminExpenseAmount.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-[#6B4A28]">4. Less Closing Stock Amount:</span>
+                    <span className="font-mono font-bold text-[#dc2626]">- ₹{billingClosingStock.toLocaleString()}</span>
+                  </div>
+                  <div className="pt-2 border-t border-[#E3CB9B] flex justify-between items-center font-extrabold text-sm">
+                    <span className="text-[#2D1A0E]">Actual Expenditure of Month (1 + 2 + 3 - 4):</span>
+                    <span className="font-mono text-[#F47A35]">₹{actualCost.toLocaleString()}</span>
+                  </div>
+                </div>
+              </div>
+
               {/* HIGHLIGHTED GRAND TOTAL EXPENSE OF MONTH */}
               <div className="bg-gradient-to-br from-[#1e3a8a] to-[#F47A35] text-white p-6 rounded-2xl shadow-xl space-y-4">
                 <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 border-b border-white/20 pb-4">
@@ -3358,24 +2917,29 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                   </div>
 
                   <div className="bg-white/15 backdrop-blur-md px-6 py-3 rounded-2xl border border-white/20 text-right">
-                    <span className="text-3xl font-black">₹{grandTotalMonthExpense.toLocaleString()}</span>
+                    <span className="text-3xl font-black">₹{actualCost.toLocaleString()}</span>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs font-semibold">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs font-semibold">
                   <div className="bg-white/10 p-3 rounded-xl border border-white/15">
-                    <span className="opacity-80 block text-[11px] uppercase">Actual Food Cost</span>
-                    <span className="text-base font-bold mt-0.5 block">₹{actualFoodCost.toLocaleString()}</span>
+                    <span className="opacity-80 block text-[11px] uppercase">1. Opening Stock</span>
+                    <span className="text-base font-bold mt-0.5 block">₹{billingOpeningStock.toLocaleString()}</span>
                   </div>
 
                   <div className="bg-white/10 p-3 rounded-xl border border-white/15">
-                    <span className="opacity-80 block text-[11px] uppercase">Operational Expenses</span>
-                    <span className="text-base font-bold mt-0.5 block">₹{totalOperationalExpensesAmount.toLocaleString()}</span>
+                    <span className="opacity-80 block text-[11px] uppercase">2. Purchases</span>
+                    <span className="text-base font-bold mt-0.5 block">₹{totalFoodPurchasesAmount.toLocaleString()}</span>
                   </div>
 
                   <div className="bg-white/10 p-3 rounded-xl border border-white/15">
-                    <span className="opacity-80 block text-[11px] uppercase">Administrational Expenses</span>
+                    <span className="opacity-80 block text-[11px] uppercase">3. Administrative</span>
                     <span className="text-base font-bold mt-0.5 block">₹{totalAdminExpenseAmount.toLocaleString()}</span>
+                  </div>
+
+                  <div className="bg-white/10 p-3 rounded-xl border border-white/15">
+                    <span className="opacity-80 block text-[11px] uppercase">4. Less Closing Stock</span>
+                    <span className="text-base font-bold mt-0.5 block text-[#fca5a5]">- ₹{billingClosingStock.toLocaleString()}</span>
                   </div>
                 </div>
               </div>
@@ -4309,43 +3873,48 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
               </div>
             )}
 
-            {billingModal.type === 'GAS' && (
-              <div className="space-y-3">
-                <p className="text-xs text-[#9B7B52]">
-                  Showing all gas and fuel operational expense records for <span className="font-bold text-[#2D1A0E]">{billingMonth} {billingYear}</span>:
-                </p>
-                <div className="overflow-x-auto border border-[#EFDCB4] rounded-xl">
-                  <table className="data-table text-left text-xs">
-                    <thead className="bg-[#FDF7EA] text-[#6B4A28] font-bold uppercase border-b border-[#EFDCB4]">
-                      <tr>
-                        <th className="py-2.5 px-3">Date</th>
-                        <th className="py-2.5 px-3">Title / Description</th>
-                        <th className="py-2.5 px-3">Category</th>
-                        <th className="py-2.5 px-3 text-right">Amount (₹)</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#EFDCB4]">
-                      {monthGasExpenses.length === 0 ? (
+            {billingModal.type === 'GAS' && (() => {
+              const monthGasExpenses = foodPurchases.filter(
+                p => p.month === billingMonth && p.year === billingYear && (p.category === 'Gas' || p.category === 'Gas/Fuel')
+              );
+              return (
+                <div className="space-y-3">
+                  <p className="text-xs text-[#9B7B52]">
+                    Showing all gas and fuel operational expense records for <span className="font-bold text-[#2D1A0E]">{billingMonth} {billingYear}</span>:
+                  </p>
+                  <div className="overflow-x-auto border border-[#EFDCB4] rounded-xl">
+                    <table className="data-table text-left text-xs">
+                      <thead className="bg-[#FDF7EA] text-[#6B4A28] font-bold uppercase border-b border-[#EFDCB4]">
                         <tr>
-                          <td colSpan={4} className="py-6 text-center text-[#9B7B52]">
-                            No gas/fuel operational expenses logged for {billingMonth} {billingYear}.
-                          </td>
+                          <th className="py-2.5 px-3">Date</th>
+                          <th className="py-2.5 px-3">Title / Description</th>
+                          <th className="py-2.5 px-3">Category</th>
+                          <th className="py-2.5 px-3 text-right">Amount (₹)</th>
                         </tr>
-                      ) : (
-                        monthGasExpenses.map((gp) => (
-                          <tr key={gp.id} className="hover:bg-[#FDF7EA]">
-                            <td className="py-2.5 px-3 font-mono text-[#5C3D1E]">{gp.date}</td>
-                            <td className="py-2.5 px-3 font-bold text-[#2D1A0E]">{gp.title}</td>
-                            <td className="py-2.5 px-3 text-[#F47A35] font-semibold">{gp.category}</td>
-                            <td className="py-2.5 px-3 text-right font-mono font-bold text-[#2D1A0E]">₹{gp.amount.toLocaleString()}</td>
+                      </thead>
+                      <tbody className="divide-y divide-[#EFDCB4]">
+                        {monthGasExpenses.length === 0 ? (
+                          <tr>
+                            <td colSpan={4} className="py-6 text-center text-[#9B7B52]">
+                              No gas/fuel operational expenses logged for {billingMonth} {billingYear}.
+                            </td>
                           </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
+                        ) : (
+                          monthGasExpenses.map((gp) => (
+                            <tr key={gp.id} className="hover:bg-[#FDF7EA]">
+                              <td className="py-2.5 px-3 font-mono text-[#5C3D1E]">{gp.date}</td>
+                              <td className="py-2.5 px-3 font-bold text-[#2D1A0E]">{gp.title || gp.item || 'Gas Purchase'}</td>
+                              <td className="py-2.5 px-3 text-[#F47A35] font-semibold">{gp.category}</td>
+                              <td className="py-2.5 px-3 text-right font-mono font-bold text-[#2D1A0E]">₹{gp.amount.toLocaleString()}</td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {billingModal.type === 'ADMIN' && (
               <div className="space-y-4">
@@ -4379,36 +3948,15 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
             {billingModal.type === 'STOCK' && (() => {
               const isModalMonthPublished = !!isBillPublishedMap[`${billingMonth}-${billingYear}`];
-              const searchLower = billingStockSearchPrefix.trim().toLowerCase();
-              
-              // Filter catalog items with prefix match first, then substring match
-              let modalFilteredItems = inventoryCatalog;
-              if (searchLower) {
-                const prefixMatches = inventoryCatalog.filter(i => i.name.toLowerCase().startsWith(searchLower));
-                modalFilteredItems = prefixMatches.length > 0
-                  ? prefixMatches
-                  : inventoryCatalog.filter(i => i.name.toLowerCase().includes(searchLower));
-              }
-
-              // Suggestion items list (up to 5 live suggestions)
-              const suggestionsList = searchLower
-                ? inventoryCatalog.filter(i => i.name.toLowerCase().includes(searchLower)).slice(0, 5)
-                : [];
-
-              const defaultOpMap: Record<string, number> = {
-                'inv-cat-1': 100, 'inv-cat-2': 50, 'inv-cat-3': 40, 'inv-cat-4': 150,
-                'inv-cat-5': 10, 'inv-cat-6': 20, 'inv-cat-7': 60, 'inv-cat-8': 30,
-              };
-              const defaultWacRates: Record<string, number> = {
-                'inv-cat-1': 49, 'inv-cat-2': 42, 'inv-cat-3': 52, 'inv-cat-4': 6,
-                'inv-cat-5': 190, 'inv-cat-6': 130, 'inv-cat-7': 30, 'inv-cat-8': 120,
-              };
+              const billingKey = `${billingMonth}-${billingYear}`;
+              const billingOpeningStock = openingStockMap[billingKey] ?? 15000;
+              const billingClosingStock = closingStockMap[billingKey] ?? 12000;
 
               return (
                 <div className="space-y-4 text-xs">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-[#9B7B52]">
-                      Inventory & Closing Stock Valuation breakdown for <span className="font-bold text-[#2D1A0E]">{billingMonth} {billingYear}</span>:
+                      Stock Valuation breakdown for <span className="font-bold text-[#2D1A0E]">{billingMonth} {billingYear}</span>:
                     </p>
                     {isModalMonthPublished && (
                       <span className="px-2.5 py-0.5 bg-[#9B7B52]/10 text-[#6B4A28] border border-[#9B7B52]/30 font-extrabold text-[11px] rounded-full">
@@ -4417,121 +3965,45 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                     )}
                   </div>
 
-                  {/* Prefix Search Bar with Live Suggestions */}
-                  <div className="space-y-2">
-                    <label className="block text-xs font-extrabold text-[#2D1A0E]">
-                      Search Stock Item Suggestions
-                    </label>
-                    <div className="relative">
-                      <span className="material-symbols-outlined absolute left-3 top-2.5 text-[#BFA37A] text-[18px]">
-                        search
-                      </span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="p-4 bg-[#FDF7EA] rounded-xl border border-[#EFDCB4] space-y-2">
+                      <label className="block text-xs font-extrabold uppercase text-[#9B7B52]">
+                        Opening Stock Amount (₹)
+                      </label>
+                      <p className="text-[11px] text-[#6B4A28]">
+                        Lump-sum opening stock value carried over from previous month.
+                      </p>
                       <input
-                        type="text"
-                        value={billingStockSearchPrefix}
-                        onChange={(e) => setBillingStockSearchPrefix(e.target.value)}
-                        placeholder='Type prefix e.g. "B" for Beans/Butter, "Be" for Beef, "P" for Ponni Rice...'
-                        className="w-full pl-9 pr-8 py-2 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-xs font-bold text-[#2D1A0E] focus:outline-none focus:border-[#F47A35]"
+                        type="number"
+                        min="0"
+                        disabled={isModalMonthPublished}
+                        value={billingOpeningStock}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value || '0');
+                          setOpeningStockMap(prev => ({ ...prev, [billingKey]: val }));
+                        }}
+                        className="w-full px-3 py-2 bg-white border border-[#E3CB9B] rounded-xl font-mono text-base font-black text-[#2D1A0E] focus:outline-none focus:border-[#F47A35] disabled:bg-gray-100 disabled:cursor-not-allowed"
                       />
-                      {billingStockSearchPrefix && (
-                        <button
-                          onClick={() => setBillingStockSearchPrefix('')}
-                          className="absolute right-2.5 top-2 text-[#9B7B52] hover:text-[#2D1A0E]"
-                        >
-                          <span className="material-symbols-outlined text-[16px]">cancel</span>
-                        </button>
-                      )}
                     </div>
 
-                    {/* Live Suggestion Pills */}
-                    {suggestionsList.length > 0 && (
-                      <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-[#9B7B52]">Suggestions:</span>
-                        {suggestionsList.map((sug) => (
-                          <button
-                            key={sug.id}
-                            type="button"
-                            onClick={() => setBillingStockSearchPrefix(sug.name)}
-                            className="px-2.5 py-1 bg-[#F47A35]/10 hover:bg-[#F47A35] text-[#F47A35] hover:text-white border border-[#F47A35]/30 text-[11px] font-extrabold rounded-lg transition-colors cursor-pointer flex items-center gap-1"
-                          >
-                            <span>{sug.name}</span>
-                            <span className="text-[9px] opacity-75">({sug.unit})</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Stock Valuation Table */}
-                  <div className="overflow-x-auto border border-[#EFDCB4] rounded-xl max-h-56">
-                    <table className="data-table text-left text-xs">
-                      <thead className="bg-[#FDF7EA] text-[#6B4A28] font-extrabold uppercase border-b border-[#EFDCB4] sticky top-0">
-                        <tr>
-                          <th className="py-2.5 px-3">Item Name</th>
-                          <th className="py-2.5 px-3">Unit</th>
-                          <th className="py-2.5 px-3 text-center">Physical Closing Qty</th>
-                          <th className="py-2.5 px-3 text-right">Closing Valuation (₹)</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-[#EFDCB4]">
-                        {modalFilteredItems.length === 0 ? (
-                          <tr>
-                            <td colSpan={4} className="py-6 text-center text-[#9B7B52] font-medium">
-                              No stock items matching "{billingStockSearchPrefix}"
-                            </td>
-                          </tr>
-                        ) : (
-                          modalFilteredItems.map((item) => {
-                            const stockKey = `${billingMonth}-${billingYear}-${item.id}`;
-                            const defaultQty = defaultOpMap[item.id] ?? 20;
-                            const physicalClosingQty = physicalClosingStockMap[stockKey] !== undefined
-                              ? physicalClosingStockMap[stockKey]
-                              : defaultQty;
-                            const wacRate = defaultWacRates[item.id] ?? 50;
-                            const itemClosingValue = physicalClosingQty * wacRate;
-
-                            return (
-                              <tr key={item.id} className="hover:bg-[#FDF7EA]">
-                                <td className="py-2.5 px-3 font-bold text-[#2D1A0E]">{item.name}</td>
-                                <td className="py-2.5 px-3 font-mono text-[#9B7B52]">{item.unit}</td>
-                                <td className="py-2.5 px-3 text-center">
-                                  {isModalMonthPublished ? (
-                                    <span className="font-mono font-bold text-[#2D1A0E] bg-[#9B7B52]/10 px-2 py-0.5 rounded border border-[#9B7B52]/20">
-                                      {physicalClosingQty} 🔒
-                                    </span>
-                                  ) : (
-                                    <input
-                                      type="number"
-                                      value={physicalClosingQty}
-                                      onChange={(e) => {
-                                        const val = parseFloat(e.target.value || '0');
-                                        handleUpdatePhysicalClosingStock(item.id, val);
-                                      }}
-                                      className="w-20 px-2 py-1 bg-white border border-[#E3CB9B] rounded font-mono font-bold text-center text-[#2D1A0E] focus:outline-none focus:border-[#F47A35]"
-                                    />
-                                  )}
-                                </td>
-                                <td className="py-2.5 px-3 text-right font-mono font-bold text-[#F47A35]">
-                                  ₹{itemClosingValue.toLocaleString()}
-                                </td>
-                              </tr>
-                            );
-                          })
-                        )}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  {/* Summary Inputs Sync */}
-                  <div className="grid grid-cols-2 gap-3 pt-1">
-                    <div className="p-3 bg-[#FDF7EA] rounded-xl border border-[#EFDCB4]">
-                      <span className="text-[11px] font-extrabold uppercase text-[#9B7B52] block mb-1">Opening Stock Valuation</span>
-                      <span className="text-base font-black text-[#2D1A0E] font-mono">₹{billingOpeningStock.toLocaleString()}</span>
-                    </div>
-
-                    <div className="p-3 bg-[#F47A35]/5 rounded-xl border border-[#F47A35]/20">
-                      <span className="text-[11px] font-extrabold uppercase text-[#F47A35] block mb-1">Closing Stock Valuation</span>
-                      <span className="text-base font-black text-[#F47A35] font-mono">₹{billingClosingStock.toLocaleString()}</span>
+                    <div className="p-4 bg-[#F47A35]/5 rounded-xl border border-[#F47A35]/20 space-y-2">
+                      <label className="block text-xs font-extrabold uppercase text-[#F47A35]">
+                        Closing Stock Amount (₹)
+                      </label>
+                      <p className="text-[11px] text-[#6B4A28]">
+                        Lump-sum physical closing stock value calculated at month-end.
+                      </p>
+                      <input
+                        type="number"
+                        min="0"
+                        disabled={isModalMonthPublished}
+                        value={billingClosingStock}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value || '0');
+                          setClosingStockMap(prev => ({ ...prev, [billingKey]: val }));
+                        }}
+                        className="w-full px-3 py-2 bg-white border border-[#F47A35]/30 rounded-xl font-mono text-base font-black text-[#F47A35] focus:outline-none focus:border-[#F47A35] disabled:bg-gray-100 disabled:cursor-not-allowed"
+                      />
                     </div>
                   </div>
                 </div>
