@@ -292,9 +292,6 @@ export function App() {
             {currentTab === 'admin-payments' && (
               <AdminDashboardView initialModuleTab="payments" onNavigate={handleTabChange} />
             )}
-            {currentTab === 'admin-stocks' && (
-              <AdminDashboardView initialModuleTab="stocks" onNavigate={handleTabChange} />
-            )}
             {currentTab === 'alerts' && (
               <AlertsView alerts={alerts} onMarkAllRead={handleMarkAllAlertsRead} />
             )}

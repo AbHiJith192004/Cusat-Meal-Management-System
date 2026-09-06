@@ -56,7 +56,6 @@ export const ADMIN_GROUPS: NavGroup[] = [
       { id: 'admin-ledger',   label: 'Ledger',   short: 'Ledger',   icon: 'account_balance_wallet' },
       { id: 'admin-billing',  label: 'Billing',  short: 'Billing',  icon: 'receipt_long' },
       { id: 'admin-payments', label: 'Payments', short: 'Payments', icon: 'payments' },
-      { id: 'admin-stocks',   label: 'Stocks',   short: 'Stocks',   icon: 'inventory_2' },
     ],
   },
   {
@@ -81,7 +80,7 @@ const BAR_IDS: Record<UserRole, ActiveTab[]> = {
   student: ['home', 'calendar', 'qr', 'bill'],
   admin: [
     'admin-dashboard', 'admin-scanner', 'admin-menu', 'admin-students',
-    'admin-ledger', 'admin-billing', 'admin-payments', 'admin-stocks',
+    'admin-ledger', 'admin-billing', 'admin-payments',
   ],
 };
 

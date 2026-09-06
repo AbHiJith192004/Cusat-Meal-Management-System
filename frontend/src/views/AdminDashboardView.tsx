@@ -8,7 +8,7 @@ interface AdminDashboardViewProps {
   initialModuleTab?: AdminModuleTab;
 }
 
-type AdminModuleTab = 'daily-summary' | 'weekly-menu' | 'ledger' | 'student-data' | 'billing' | 'payments' | 'stocks';
+type AdminModuleTab = 'daily-summary' | 'weekly-menu' | 'ledger' | 'student-data' | 'billing' | 'payments';
 type LedgerSubTab = 'food-purchases' | 'operational-expenses' | 'admin-expenses' | 'inventory';
 
 interface DrillDownState {
