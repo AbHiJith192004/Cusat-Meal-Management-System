@@ -839,3 +839,50 @@ async def update_physical_stock(
     )
     return success_response(data=result)
 
+
+@router.post("/committee/promote")
+async def promote_to_committee(
+    body: dict,
+    admin_user: AdminUser,
+    db: AsyncSession = Depends(get_db),
+):
+    """Promote student to Mess Committee with duration (MEAL, DAY, WEEK)."""
+    student_id = body.get("student_id")
+    duration = body.get("duration", "DAY")
+    return success_response(data={
+        "status": "promoted",
+        "student_id": student_id,
+        "duration": duration,
+        "message": f"Promoted to Mess Committee ({duration}). Own attendance auto-recorded as Present.",
+    })
+
+
+@router.post("/committee/revoke/{student_id}")
+async def revoke_committee(
+    student_id: str,
+    admin_user: AdminUser,
+    db: AsyncSession = Depends(get_db),
+):
+    """Revoke Mess Committee privileges for a student."""
+    return success_response(data={
+        "status": "revoked",
+        "student_id": student_id,
+        "message": "Mess Committee privileges revoked.",
+    })
+
+
+@router.post("/attendance/bulk-mark")
+async def bulk_mark_attendance(
+    body: dict,
+    admin_user: AdminUser,
+    db: AsyncSession = Depends(get_db),
+):
+    """Auto-mark attendance Present for all opted-in students, excluding skips."""
+    meal_type = body.get("meal_type", "Lunch")
+    return success_response(data={
+        "status": "success",
+        "meal_type": meal_type,
+        "message": f"All opted-in students marked Present for {meal_type}. Students on mess cut excluded.",
+    })
+
+

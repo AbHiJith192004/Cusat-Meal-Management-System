@@ -244,6 +244,23 @@ export const adminApi = {
       body: JSON.stringify({ student_id, meal_date, meal_type, attendance_type, reason }),
     }),
 
+  promoteToCommittee: (student_id: string, duration: 'MEAL' | 'DAY' | 'WEEK') =>
+    request<any>('/admin/committee/promote', {
+      method: 'POST',
+      body: JSON.stringify({ student_id, duration }),
+    }),
+
+  revokeCommittee: (student_id: string) =>
+    request<any>(`/admin/committee/revoke/${student_id}`, {
+      method: 'POST',
+    }),
+
+  bulkMarkAttendance: (meal_type: string) =>
+    request<any>('/admin/attendance/bulk-mark', {
+      method: 'POST',
+      body: JSON.stringify({ meal_type }),
+    }),
+
   listFines: (status?: string) => {
     const q = status ? `?status=${status}` : '';
     return request<any[]>(`/admin/fines${q}`);

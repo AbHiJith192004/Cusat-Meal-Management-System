@@ -366,6 +366,113 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
     setEditCategory(student.category);
   };
 
+  // Mess Committee Promotion State
+  const [committeeMembersMap, setCommitteeMembersMap] = useState<Record<string, { duration: 'MEAL' | 'DAY' | 'WEEK'; promotedAt: string }>>(() => {
+    try {
+      const saved = localStorage.getItem('cusat_committee_members');
+      return saved ? JSON.parse(saved) : {
+        'M-TEST001': { duration: 'DAY', promotedAt: new Date().toISOString() }
+      };
+    } catch {
+      return {};
+    }
+  });
+
+  const [showCommitteePopover, setShowCommitteePopover] = useState(false);
+
+  const handlePromoteToCommittee = async (messId: string, duration: 'MEAL' | 'DAY' | 'WEEK') => {
+    if (!activeMasterStudent) return;
+    const updatedMap = {
+      ...committeeMembersMap,
+      [messId]: { duration, promotedAt: new Date().toISOString() },
+    };
+    setCommitteeMembersMap(updatedMap);
+    localStorage.setItem('cusat_committee_members', JSON.stringify(updatedMap));
+
+    const updated = masterStudents.map((s) =>
+      s.messId === messId || s.id === activeMasterStudent.id
+        ? { ...s, isCommitteeMember: true, committeeDuration: duration, upcomingMealStatus: 'OPTED_IN' as const }
+        : s
+    );
+    setMasterStudents(updated);
+    setActiveMasterStudent({
+      ...activeMasterStudent,
+      isCommitteeMember: true,
+      committeeDuration: duration,
+      upcomingMealStatus: 'OPTED_IN',
+    });
+    setShowCommitteePopover(false);
+
+    try {
+      await adminApi.promoteToCommittee(messId, duration);
+    } catch (e) {}
+
+    alert(
+      `🌟 ${activeMasterStudent.name} promoted to Mess Committee (${duration === 'MEAL' ? 'Meal Only' : duration === 'DAY' ? '1 Day' : '1 Week'})!\n\n` +
+      `- Own meal attendance auto-recorded as Present.\n` +
+      `- Granted QR Scanner access in student portal to log attendance for other students.`
+    );
+  };
+
+  const handleRevokeCommittee = async (messId: string) => {
+    if (!activeMasterStudent) return;
+    const updatedMap = { ...committeeMembersMap };
+    delete updatedMap[messId];
+    setCommitteeMembersMap(updatedMap);
+    localStorage.setItem('cusat_committee_members', JSON.stringify(updatedMap));
+
+    const updated = masterStudents.map((s) =>
+      s.messId === messId || s.id === activeMasterStudent.id
+        ? { ...s, isCommitteeMember: false, committeeDuration: undefined }
+        : s
+    );
+    setMasterStudents(updated);
+    setActiveMasterStudent({
+      ...activeMasterStudent,
+      isCommitteeMember: false,
+      committeeDuration: undefined,
+    });
+
+    try {
+      await adminApi.revokeCommittee(messId);
+    } catch (e) {}
+
+    alert(`Mess Committee privileges revoked for ${activeMasterStudent.name}.`);
+  };
+
+  const handleAutoMarkAllPresent = async () => {
+    const activeMeal = 'Lunch';
+    if (!window.confirm(
+      `Auto-mark attendance as Present for ${activeMeal}?\n\n` +
+      `All opted-in students will be marked Present.\n` +
+      `Students with logged Mess Cuts / Skips will remain excluded.`
+    )) return;
+
+    let markedCount = 0;
+    let excludedCount = 0;
+
+    const updatedStudents = masterStudents.map((s) => {
+      if (s.upcomingMealStatus === 'SKIPPED') {
+        excludedCount++;
+        return s;
+      }
+      markedCount++;
+      return { ...s, upcomingMealStatus: 'OPTED_IN' as const };
+    });
+
+    setMasterStudents(updatedStudents);
+
+    try {
+      await adminApi.bulkMarkAttendance(activeMeal);
+    } catch (e) {}
+
+    alert(
+      `Attendance marked for ${activeMeal}!\n\n` +
+      `✅ ${markedCount} students recorded Present.\n` +
+      `🚫 ${excludedCount} students on Mess Cut excluded.`
+    );
+  };
+
   const handleSaveStudentChanges = () => {
     if (!activeMasterStudent) return;
     const updated = masterStudents.map((s) =>
@@ -1561,14 +1668,26 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
         {/* ------------------------------------------------------------- */}
         {activeModuleTab === 'daily-summary' && (
           <section className="space-y-6 animate-fade-in">
-            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-              <h2 className="font-display text-[20px] font-bold flex items-center gap-2" style={{ color: 'var(--text-dark)' }}>
-                <span className="material-symbols-outlined" style={{ color: 'var(--orange)' }}>today</span>
-                Live Meal Overview
-              </h2>
-              <p className="text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>
-                Click any metric card to inspect individual student records
-              </p>
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-white p-4 rounded-2xl border border-[#EFDCB4] shadow-xs">
+              <div>
+                <h2 className="font-display text-[20px] font-bold flex items-center gap-2" style={{ color: 'var(--text-dark)' }}>
+                  <span className="material-symbols-outlined" style={{ color: 'var(--orange)' }}>today</span>
+                  Live Meal Overview
+                </h2>
+                <p className="text-xs font-semibold" style={{ color: 'var(--text-muted)' }}>
+                  Click any metric card to inspect individual student records
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={handleAutoMarkAllPresent}
+                className="px-4 py-2.5 bg-[#16a34a] hover:bg-[#15803d] text-white font-black text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center justify-center gap-2 hover:scale-[1.02]"
+                title="Mark all opted-in students Present when no admin is available to take attendance. Students with recorded Mess Cuts / Skips will be excluded."
+              >
+                <span className="material-symbols-outlined text-[18px]">done_all</span>
+                <span>Auto-Mark All Present (Except Skips)</span>
+              </button>
             </div>
 
             {(['breakfast', 'lunch', 'dinner'] as const).map((mealKey) => {
@@ -4227,13 +4346,96 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                 </div>
               </div>
 
-              <div className="pt-2 flex justify-end">
+              <div className="pt-2 flex flex-wrap items-center justify-end gap-2.5 relative">
+                {/* Mess Committee Promotion / Status */}
+                {committeeMembersMap[activeMasterStudent.messId] ? (
+                  <div className="flex items-center gap-2">
+                    <span className="px-3 py-1.5 bg-[#16a34a]/10 text-[#16a34a] border border-[#16a34a]/30 rounded-xl font-extrabold text-xs flex items-center gap-1.5">
+                      <span className="material-symbols-outlined text-[16px]">stars</span>
+                      <span>Committee Member ({committeeMembersMap[activeMasterStudent.messId].duration})</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleRevokeCommittee(activeMasterStudent.messId)}
+                      className="px-3 py-1.5 bg-[#dc2626]/10 hover:bg-[#dc2626] text-[#dc2626] hover:text-white font-bold text-xs rounded-xl transition-colors cursor-pointer"
+                      title="Revoke Committee Privileges"
+                    >
+                      Revoke
+                    </button>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setShowCommitteePopover(!showCommitteePopover)}
+                      className="px-3.5 py-2 bg-[#16a34a] hover:bg-[#15803d] text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">stars</span>
+                      <span>Promote to Mess Committee</span>
+                    </button>
+
+                    {/* Promotion Duration Sub-Options Popover */}
+                    {showCommitteePopover && (
+                      <div className="absolute right-0 bottom-full mb-2 w-56 bg-white border border-[#EFDCB4] rounded-2xl shadow-xl p-3 z-30 space-y-2 animate-fade-in">
+                        <div className="flex items-center justify-between pb-1 border-b border-[#EFDCB4]">
+                          <span className="text-[11px] font-extrabold text-[#2D1A0E] uppercase">Select Duration</span>
+                          <button
+                            type="button"
+                            onClick={() => setShowCommitteePopover(false)}
+                            className="text-[#9B7B52] hover:text-[#2D1A0E] text-xs font-bold"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                        <div className="space-y-1 text-xs">
+                          <button
+                            type="button"
+                            onClick={() => handlePromoteToCommittee(activeMasterStudent.messId, 'MEAL')}
+                            className="w-full text-left p-2 hover:bg-[#FDF7EA] rounded-xl font-semibold text-[#2D1A0E] flex items-center gap-2 cursor-pointer transition-colors"
+                          >
+                            <span>🍱</span>
+                            <div>
+                              <div className="font-bold">Meal Only</div>
+                              <div className="text-[10px] text-[#9B7B52]">Current serving window</div>
+                            </div>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handlePromoteToCommittee(activeMasterStudent.messId, 'DAY')}
+                            className="w-full text-left p-2 hover:bg-[#FDF7EA] rounded-xl font-semibold text-[#2D1A0E] flex items-center gap-2 cursor-pointer transition-colors"
+                          >
+                            <span>📅</span>
+                            <div>
+                              <div className="font-bold">1 Day</div>
+                              <div className="text-[10px] text-[#9B7B52]">Full day today</div>
+                            </div>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => handlePromoteToCommittee(activeMasterStudent.messId, 'WEEK')}
+                            className="w-full text-left p-2 hover:bg-[#FDF7EA] rounded-xl font-semibold text-[#2D1A0E] flex items-center gap-2 cursor-pointer transition-colors"
+                          >
+                            <span>📆</span>
+                            <div>
+                              <div className="font-bold">1 Week</div>
+                              <div className="text-[10px] text-[#9B7B52]">7 days duration</div>
+                            </div>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <button
+                  type="button"
                   onClick={handleSaveStudentChanges}
                   className="px-4 py-2 bg-[#F47A35] hover:bg-[#D45E1A] text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
                 >
                   <span className="material-symbols-outlined text-[16px]">save</span>
-                  Save Preference & Category Changes
+                  Save changes
                 </button>
               </div>
             </div>

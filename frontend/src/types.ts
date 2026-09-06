@@ -42,6 +42,16 @@ export interface DayMealPlan {
   };
 }
 
+export type CommitteeDuration = 'MEAL' | 'DAY' | 'WEEK';
+
+export interface CommitteeMemberRecord {
+  messId: string;
+  studentName: string;
+  duration: CommitteeDuration;
+  promotedAt: string;
+  expiresAt?: string;
+}
+
 export interface StudentRecord {
   id: string;
   messId: string;
@@ -58,7 +68,10 @@ export interface StudentRecord {
   campusLocation?: 'MAIN_CAMPUS' | 'LAKESIDE_CAMPUS';
   mealsDone?: number;
   mealsSkipped?: number;
+  isCommitteeMember?: boolean;
+  committeeDuration?: CommitteeDuration;
 }
+
 
 export interface ScanLog {
   id: string;
