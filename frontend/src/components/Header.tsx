@@ -24,7 +24,6 @@ const PAGE_META: Partial<Record<ActiveTab, { title: string; sub: string }>> = {
   'admin-ledger':    { title: 'Ledger',            sub: 'Purchases, expenses and reconciliation' },
   'admin-billing':   { title: 'Billing',           sub: 'Monthly bills and fine adjustments' },
   'admin-payments':  { title: 'Payments',          sub: 'Collections and pending dues' },
-  'admin-stocks':    { title: 'Stocks',            sub: 'Inventory and closing stock' },
 };
 
 /**
