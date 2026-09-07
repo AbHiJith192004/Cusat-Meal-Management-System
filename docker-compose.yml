@@ -45,7 +45,7 @@ services:
     # that terminates TLS in front of it, not directly from the internet.
     ports:
       - "127.0.0.1:8000:8000"
-    environment:
+    environment: &backend-environment
       # Names below match app/config.py exactly.
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:?set JWT_SECRET_KEY in .env}
@@ -67,7 +67,18 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
+  migrate:
+    build: ./backend
+    environment: *backend-environment
+    command: ["alembic", "upgrade", "head"]
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Development frontend only. Production on Render uses the root Dockerfile.
   # 3. React frontend
   frontend:
     build:

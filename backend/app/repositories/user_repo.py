@@ -50,7 +50,7 @@ class RefreshTokenRepository(BaseRepository[RefreshToken]):
                 RefreshToken.token_hash == token_hash,
                 RefreshToken.is_revoked == False,
             )
-        )
+        ).with_for_update()
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 

@@ -10,7 +10,7 @@ from app.models.notification import Notification
 from app.models.audit import AuditLog
 from app.models.settings import SystemSetting
 from app.models.meal_rate import DailyMealRate
-from app.models.billing import BillingPeriod, StockCount
+from app.models.billing import BillingPeriod, StockCount, StudentBillSnapshot
 
 __all__ = [
     "Base",

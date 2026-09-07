@@ -1,56 +1,51 @@
-# 🏛️ CUSAT Meal Management System
+# CUSAT Meal Management System
 
-> **Full-Stack Hostel Mess Management Application** for Cochin University of Science and Technology (CUSAT). Includes FastAPI backend REST API, PostgreSQL/SQLite database ORM, React 19 PWA frontend, anti-fraud QR scanner, and automated fine reconciliation.
+MessConnect is a hostel meal-management application for CUSAT. It combines a FastAPI API, PostgreSQL persistence, a React PWA, QR attendance, monthly billing, and daily fine reconciliation.
 
----
-
-## 📁 Repository Structure
+## Repository layout
 
 ```text
-Cusat-Meal-Management-System/
-├── backend/                  # FastAPI Python Backend REST API
-│   ├── app/                  # Application code (Routers, Services, Models, Repositories)
-│   ├── migrations/           # Alembic Database Migrations
-│   ├── scripts/              # Fine Reconciliation & Demo Seeding Scripts
-│   ├── tests/                # PyTest Unit Test Suite (16/16 Passed)
-│   └── Dockerfile            # Python 3.11 Backend Container Spec
-├── frontend/                 # React 19 + Vite + Tailwind CSS PWA
-│   ├── src/                  # React Components, Views, and API Wrapper
-│   ├── public/               # PWA Manifest, Service Worker & App Icons
-│   └── Dockerfile            # Node 20 Frontend Container Spec
-└── docker-compose.yml        # Orchestrates PostgreSQL + Backend + Frontend
+backend/             FastAPI application, Alembic migrations, scripts and tests
+frontend/            React 19 and Vite PWA
+.do/app.yaml         DigitalOcean App Platform production specification
+Dockerfile           Combined production frontend/API image
+docker-compose.yml   Local PostgreSQL, API and frontend environment
+docs/                Deployment runbook and verification evidence
 ```
 
----
+## Local development
 
-## ⚡ Quick Start Instructions
+Copy `.env.docker.example` to `.env` and replace every required value. The signing keys must be different. Then run:
 
-### 1. Localhost Dev Execution
 ```bash
-# Start Backend
+docker compose up --build
+```
+
+The database is available only inside the Compose network. The API is exposed on loopback port 8000 and the development frontend on loopback port 3000.
+
+For direct development without Compose, create a Python 3.11 environment, install `backend/requirements.txt`, set `DATABASE_URL`, `JWT_SECRET_KEY`, and `QR_SECRET_KEY`, run `alembic upgrade head` from `backend/`, and start Uvicorn. Install frontend dependencies with `npm ci` and start Vite with `npm run dev`.
+
+Demo data is never created during application startup. `python -m scripts.seed_demo_data` is development-only and refuses to run when `APP_ENV` is not `development`.
+
+## Verification
+
+```bash
 cd backend
-python -m venv venv
-venv/Scripts/activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
+pytest tests/unit -q
+pytest prod_tests -q
+alembic check
 
-# Start Frontend
 cd ../frontend
-npm install
-npm run dev
+npm ci
+npm run lint
+npm run build
+npm audit --audit-level=moderate
 ```
 
-### 2. Docker Compose Execution
-```bash
-docker compose up --build -d
-```
+Database-backed tests require a separate disposable PostgreSQL database through `TEST_DATABASE_URL`. The test safeguards reject production-like or non-test database targets.
 
----
+## Production deployment
 
-## 🔑 Demo Test Credentials
+The supported deployment target is DigitalOcean App Platform in Bangalore. The tracked specification uses one 1 vCPU/1 GiB web container, an attached managed PostgreSQL 16 database, a pre-deploy migration, and a daily reconciliation job.
 
-| Role | Registration No | Password | Capabilities |
-|---|---|---|---|
-| **Student** | `TEST001` | `password123` | Meal planning, 9:00 PM cutoff lock, 60s signed JWT QR code |
-| **Admin** | `ADMIN001` | `password123` | Live WebCam scanner, student directory, monthly Excel/PDF reports |
-| **Super Admin** | `SADMIN001` | `password123` | Student Excel bulk import, system settings batch update |
+Read [the DigitalOcean production runbook](docs/digitalocean-production-readiness.md) before applying `.do/app.yaml`. The database cluster name and encrypted signing secrets must be supplied in DigitalOcean; no production credential belongs in this repository.

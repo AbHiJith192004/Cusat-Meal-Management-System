@@ -18,7 +18,7 @@ async def get_my_notifications(
     current_user: CurrentUser,
     page: Annotated[int, Query(ge=1)] = 1,
     per_page: Annotated[int, Query(ge=1, le=100)] = 20,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """Get student's notifications (unread first)."""
     stmt = (
@@ -49,7 +49,7 @@ async def get_my_notifications(
 async def mark_notification_read(
     notification_id: Annotated[UUID, Path(description="Notification UUID")],
     current_user: CurrentUser,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """Mark a notification as read."""
     stmt = select(Notification).where(
@@ -62,4 +62,5 @@ async def mark_notification_read(
         raise NotFoundException(message="Notification not found.")
 
     notif.is_read = True
+    await db.commit()
     return success_response(data={"message": "Notification marked as read."})

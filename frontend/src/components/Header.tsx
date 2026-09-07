@@ -19,11 +19,8 @@ const PAGE_META: Partial<Record<ActiveTab, { title: string; sub: string }>> = {
   'profile':         { title: 'Profile',           sub: 'Your account and dining preferences' },
   'admin-dashboard': { title: 'Overview',          sub: 'Live mess operations at a glance' },
   'admin-scanner':   { title: 'QR Scanner',        sub: 'Verify passes at the entrance' },
-  'admin-menu':      { title: 'Weekly Menu',       sub: 'Plan and publish the mess menu' },
   'admin-students':  { title: 'Students',          sub: 'Directory and mess membership' },
-  'admin-ledger':    { title: 'Ledger',            sub: 'Purchases, expenses and reconciliation' },
   'admin-billing':   { title: 'Billing',           sub: 'Monthly bills and fine adjustments' },
-  'admin-payments':  { title: 'Payments',          sub: 'Collections and pending dues' },
 };
 
 /**

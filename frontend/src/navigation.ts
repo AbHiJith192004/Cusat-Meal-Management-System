@@ -4,8 +4,7 @@ import { ActiveTab, UserRole } from './types';
  * Single source of truth for navigation.
  *
  * The sidebar and the bottom bar used to keep their own hardcoded lists, which
- * drifted: the admin bottom bar was missing Ledger, Billing, Payments, Stocks
- * and Alerts entirely, so five screens were unreachable on a phone. Both now
+ * drifted between screen sizes. Both now
  * read from here, and a destination added below shows up in both places.
  */
 
@@ -46,16 +45,13 @@ export const ADMIN_GROUPS: NavGroup[] = [
     items: [
       { id: 'admin-dashboard', label: 'Overview',    short: 'Overview', icon: 'space_dashboard' },
       { id: 'admin-scanner',   label: 'QR Scanner',  short: 'Scan',     icon: 'qr_code_scanner' },
-      { id: 'admin-menu',      label: 'Weekly Menu', short: 'Menu',     icon: 'restaurant_menu' },
       { id: 'admin-students',  label: 'Students',    short: 'Students', icon: 'group' },
     ],
   },
   {
     heading: 'Finance',
     items: [
-      { id: 'admin-ledger',   label: 'Ledger',   short: 'Ledger',   icon: 'account_balance_wallet' },
       { id: 'admin-billing',  label: 'Billing',  short: 'Billing',  icon: 'receipt_long' },
-      { id: 'admin-payments', label: 'Payments', short: 'Payments', icon: 'payments' },
     ],
   },
   {
@@ -79,8 +75,7 @@ export const groupsFor = (role: UserRole): NavGroup[] =>
 const BAR_IDS: Record<UserRole, ActiveTab[]> = {
   student: ['home', 'calendar', 'qr', 'bill'],
   admin: [
-    'admin-dashboard', 'admin-scanner', 'admin-menu', 'admin-students',
-    'admin-ledger', 'admin-billing', 'admin-payments',
+    'admin-dashboard', 'admin-scanner', 'admin-students', 'admin-billing',
   ],
 };
 

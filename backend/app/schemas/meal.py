@@ -1,3 +1,4 @@
+from typing import Literal
 from datetime import date, datetime
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
@@ -17,7 +18,7 @@ class MealSelectionItem(BaseModel):
 
 
 class UpdateMealSelectionRequest(BaseModel):
-    status: str = Field(..., description="Target status: CONFIRMED or SKIPPED")
+    status: Literal["CONFIRMED", "SKIPPED"]
 
 
 class DailyMealOverview(BaseModel):
@@ -31,7 +32,7 @@ class DailyMealOverview(BaseModel):
 
 class HolidayCreateRequest(BaseModel):
     date: date
-    meal_type: str | None = Field(None, description="Null for full-day holiday, or BREAKFAST/LUNCH/DINNER")
+    meal_type: Literal["BREAKFAST", "LUNCH", "DINNER"] | None = Field(None, description="Null for full-day holiday, or BREAKFAST/LUNCH/DINNER")
     reason: str = Field(..., min_length=3, max_length=500)
 
 

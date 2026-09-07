@@ -1,6 +1,8 @@
 import uuid
 from datetime import date
 
+from sqlalchemy import select
+from app.models.user import User
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.meal import MealSelection
@@ -40,14 +42,16 @@ class MealService:
             meal_type=meal_type,
             status=status,
         )
-        self.session.add(selection)
-        await self.session.flush()
         return selection
 
     async def update_meal_selection(
-        self, student_id: uuid.UUID, meal_date: date, meal_type: str, target_status: str, actor_id: uuid.UUID
+        self, student_id: uuid.UUID, meal_date: date, meal_type: str, target_status: str, actor_id: uuid.UUID, whole_day: bool = False
     ) -> MealSelection:
         """Update meal selection status enforcing 9:00 PM cutoff, holiday checks, valid daily opt-out combinations (0, 1, or 3 meals), and max 10 mess cuts/month."""
+        from app.services.billing_lock import lock_open_period
+        await lock_open_period(self.session, meal_date)
+        # Lock the existing parent even when no selection rows exist yet.
+        await self.session.execute(select(User.id).where(User.id == student_id).with_for_update())
         # Check cutoff
         if await self.timing_service.is_selection_locked(meal_date):
             raise MealSelectionLockedException(
@@ -68,7 +72,12 @@ class MealService:
 
         # Build projected state
         projected_map = dict(current_map)
-        projected_map[meal_type.upper()] = target_status
+        if whole_day:
+            if await self.holiday_repo.get_for_date(meal_date):
+                raise HolidayConflictException(message="Cannot change a holiday as a full-day selection.")
+            projected_map = {mt: target_status for mt in all_meals}
+        else:
+            projected_map[meal_type.upper()] = target_status
 
         skipped_meals = [mt for mt, st in projected_map.items() if st == MealStatus.SKIPPED.value]
         was_full_day_mess_cut = all(st == MealStatus.SKIPPED.value for st in current_map.values())
@@ -92,24 +101,20 @@ class MealService:
                     message="Maximum number of mess cuts allowed is 10 per month."
                 )
 
-        selection = await self.get_or_create_selection(student_id, meal_date, meal_type)
-        old_status = selection.status
-        selection.status = target_status
-        selection.updated_at = now_ist()
-        selection.updated_by = actor_id
-
-        await self.audit_repo.log(
-            actor_id=actor_id,
-            action="MEAL_SELECTION_UPDATED",
-            target_type="meal_selection",
-            target_id=selection.id,
-            metadata={
-                "student_id": str(student_id),
-                "meal_date": meal_date.isoformat(),
-                "meal_type": meal_type,
-                "old_status": old_status,
-                "new_status": target_status,
-            },
-        )
-        return selection
-
+        selections = []
+        for mt in (all_meals if whole_day else [meal_type]):
+            selection = await self.get_or_create_selection(student_id, meal_date, mt)
+            old_status = selection.status
+            selection.status = target_status
+            selection.updated_at = now_ist()
+            selection.updated_by = actor_id
+            self.session.add(selection)
+            await self.session.flush()
+            await self.audit_repo.log(
+                actor_id=actor_id, action="MEAL_SELECTION_UPDATED",
+                target_type="meal_selection", target_id=selection.id,
+                metadata={"student_id": str(student_id), "meal_date": meal_date.isoformat(),
+                          "meal_type": mt, "old_status": old_status, "new_status": target_status},
+            )
+            selections.append(selection)
+        return selections[0]

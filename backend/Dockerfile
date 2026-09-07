@@ -1,23 +1,12 @@
-FROM python:3.11-slim
-
+FROM python:3.11-slim-bookworm
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 PYTHONPATH=/app
 WORKDIR /app
-
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    libpq-dev \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Python packages
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy application source code
-COPY . .
-
-# Expose port
+COPY requirements.lock ./
+RUN pip install --no-cache-dir -r requirements.lock && useradd --uid 10001 --create-home appuser
+COPY app ./app
+COPY migrations ./migrations
+COPY scripts ./scripts
+COPY alembic.ini ./
+USER appuser
 EXPOSE 8000
-
-# Entrypoint script: wait for DB, run alembic, seed demo data, and start uvicorn
-CMD ["sh", "-c", "alembic upgrade head && python scripts/seed_demo_data.py && uvicorn app.main:app --host 0.0.0.0 --port 8000"]
+CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers ${WEB_CONCURRENCY:-1} --no-proxy-headers"]

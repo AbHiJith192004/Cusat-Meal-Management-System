@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import { attendanceApi } from '../services/api';
 import { ChefMascot } from '../components/FoodIllustrations';
 import { AdminScannerView } from './AdminScannerView';
@@ -36,20 +37,8 @@ export const StudentQrView: React.FC<StudentQrViewProps> = ({ studentName, regNo
   const [error, setError] = useState<string | null>(null);
 
   // Mess Committee Active Check
-  const [committeeInfo, setCommitteeInfo] = useState<{ isMember: boolean; duration?: string }>(() => {
-    try {
-      const saved = localStorage.getItem('cusat_committee_members');
-      if (!saved) return { isMember: false };
-      const map = JSON.parse(saved);
-      const keys = Object.keys(map);
-      if (keys.length > 0) {
-        return { isMember: true, duration: map[keys[0]].duration };
-      }
-      return { isMember: false };
-    } catch {
-      return { isMember: false };
-    }
-  });
+  // Committee privileges require a persisted server assignment; browser storage is not authority.
+  const committeeInfo: { isMember: boolean; duration?: string } = { isMember: false };
 
   const [activeSubView, setActiveSubView] = useState<'scanner' | 'pass'>(
     committeeInfo.isMember ? 'scanner' : 'pass'
@@ -64,6 +53,7 @@ export const StudentQrView: React.FC<StudentQrViewProps> = ({ studentName, regNo
     setIsRefreshing(true);
     setIsAlreadyRecorded(false);
     setError(null);
+    setQrToken(null);
     try {
       const res = await attendanceApi.getQrToken(type);
       setQrToken(res.qr_token);
@@ -98,12 +88,6 @@ export const StudentQrView: React.FC<StudentQrViewProps> = ({ studentName, regNo
     }, 1000);
     return () => clearInterval(t);
   }, [mealType]);
-
-  const qrCodeUrl = qrToken
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(
-        qrToken
-      )}&bgcolor=ffffff&color=2D1A0E`
-    : null;
 
   const today = new Date().toLocaleDateString('en-IN', {
     day: 'numeric',
@@ -262,10 +246,12 @@ export const StudentQrView: React.FC<StudentQrViewProps> = ({ studentName, regNo
                     Try again
                   </button>
                 </div>
-              ) : qrCodeUrl ? (
-                <img
-                  src={qrCodeUrl}
-                  alt={`Mess pass QR code for ${mealType}`}
+              ) : qrToken ? (
+                <QRCodeSVG
+                  value={qrToken}
+                  size={260}
+                  marginSize={4}
+                  title={`Mess pass QR code for ${mealType}`}
                   className="w-full max-w-[220px] h-auto"
                   style={{ opacity: isRefreshing ? 0.35 : 1, transition: 'opacity 0.3s' }}
                 />

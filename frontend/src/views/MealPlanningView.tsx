@@ -9,16 +9,6 @@ import {
 
 type MealKey = 'breakfast' | 'lunch' | 'dinner';
 
-const MENU_ITEMS: Record<MealKey, string> = {
-  breakfast: 'Chapati / Malabar Porotta, Egg Roast, Coconut Chutney, Tea/Coffee',
-  lunch: 'Kerala Rice Meals with Fish Curry / Chicken Curry, Vegetable Stir-fry, Buttermilk',
-  dinner: 'Chapati / Malabar Porotta, Chicken Curry / Paneer Masala, Mixed Veg Salad',
-};
-const MEAL_TIMES: Record<MealKey, string> = {
-  breakfast: '7:30 AM – 9:00 AM',
-  lunch: '12:30 PM – 2:00 PM',
-  dinner: '7:30 PM – 9:00 PM',
-};
 const MEAL_LABELS: Record<MealKey, string> = {
   breakfast: 'Breakfast',
   lunch: 'Lunch',
@@ -40,6 +30,7 @@ const MEALS: MealKey[] = ['breakfast', 'lunch', 'dinner'];
 export const MealPlanningView: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [mealPlans, setMealPlans] = useState<any[]>([]);
+  const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -64,9 +55,11 @@ export const MealPlanningView: React.FC = () => {
     };
 
   const todayStr = new Date().toISOString().split('T')[0];
-  const isLocked = selectedDate <= todayStr;
+  const isLocked = loading || saving || !activePlan.cutoff_at || Date.now() >= new Date(activePlan.cutoff_at).getTime();
 
   const handleToggle = async (meal: MealKey) => {
+    if (isLocked) return;
+    setSaving(true);
     const cur = activePlan[meal]?.status || 'CONFIRMED';
     const next = cur === 'CONFIRMED' ? 'SKIPPED' : 'CONFIRMED';
     try {
@@ -79,7 +72,19 @@ export const MealPlanningView: React.FC = () => {
       );
     } catch (e: any) {
       setErrorMsg(e.message || 'Could not save. The cutoff may have passed.');
-    }
+    } finally { setSaving(false); }
+  };
+
+  const handleFullDay = async () => {
+    if (isLocked) return;
+    setSaving(true);
+    const status = MEALS.every(m => activePlan[m]?.status === 'SKIPPED') ? 'CONFIRMED' : 'SKIPPED';
+    try {
+      await mealApi.updateFullDay(selectedDate, status);
+      setMealPlans(await mealApi.getMeals());
+      setErrorMsg(null);
+    } catch (e: any) { setErrorMsg(e.message); }
+    finally { setSaving(false); }
   };
 
   const dateChips =
@@ -95,6 +100,17 @@ export const MealPlanningView: React.FC = () => {
     m => (activePlan[m]?.status || 'CONFIRMED') === 'CONFIRMED'
   ).length;
 
+  if (!loading && errorMsg && mealPlans.length === 0) {
+    return (
+      <main className="page-container">
+        <div role="alert" className="rounded-xl border border-[#F6C8C3] bg-[#FDECEA] p-5 text-sm font-bold" style={{ color: 'var(--red)' }}>
+          {errorMsg} Meal choices are hidden because the current server state could not be loaded.
+        </div>
+        <button className="btn-secondary mt-4" type="button" onClick={() => window.location.reload()}>Retry</button>
+      </main>
+    );
+  }
+
   return (
     <main className="page-container">
       {errorMsg && (
@@ -108,6 +124,9 @@ export const MealPlanningView: React.FC = () => {
         </div>
       )}
 
+      <button className="btn-secondary mb-4" disabled={isLocked || MEALS.some(m => activePlan[m]?.status === "NO_SERVICE")} onClick={handleFullDay}>
+        {saving ? "Saving…" : MEALS.every(m => activePlan[m]?.status === "SKIPPED") ? "Restore all meals" : "Skip the whole day"}
+      </button>
       {/* ── Date selector ──────────────────────────────────────────── */}
       <div className="flex gap-2.5 pb-4 overflow-x-auto hide-scrollbar snap-x lg:flex-wrap lg:overflow-visible lg:pb-5">
         {dateChips.map(date => {
@@ -167,7 +186,7 @@ export const MealPlanningView: React.FC = () => {
           : MEALS.map(meal => {
               const Ill = MEAL_ILL[meal];
               const confirmed = (activePlan[meal]?.status || 'CONFIRMED') === 'CONFIRMED';
-              const menuText = activePlan[meal]?.items?.join(', ') || MENU_ITEMS[meal];
+              const menuText = activePlan[meal]?.items?.join(', ') || 'Menu details have not been published.';
 
               return (
                 <section
@@ -190,7 +209,7 @@ export const MealPlanningView: React.FC = () => {
                         className="text-xs font-bold mt-1"
                         style={{ color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}
                       >
-                        {MEAL_TIMES[meal]}
+                        {activePlan[meal]?.time_window || 'Serving window unavailable'}
                       </p>
                     </div>
                     <div className="shrink-0 float-gentle-alt">
@@ -232,6 +251,7 @@ export const MealPlanningView: React.FC = () => {
                         <input
                           type="checkbox"
                           checked={confirmed}
+                          disabled={isLocked || activePlan[meal]?.status === "NO_SERVICE"}
                           onChange={() => handleToggle(meal)}
                           aria-label={`${MEAL_LABELS[meal]} — ${confirmed ? 'eating' : 'skipping'}`}
                         />

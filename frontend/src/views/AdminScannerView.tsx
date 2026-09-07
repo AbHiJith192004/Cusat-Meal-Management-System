@@ -174,10 +174,11 @@ export const AdminScannerView: React.FC<AdminScannerViewProps> = ({ scanLogs, on
             placeholder="Paste a token manually"
             className="stitch-input flex-1"
             style={{ fontSize: '0.8rem' }}
-            onKeyDown={e => { if (e.key === 'Enter') handleToken(manualToken || 'TEST-TOKEN-001'); }}
+            onKeyDown={e => { if (e.key === 'Enter' && manualToken.trim()) void handleToken(manualToken.trim()); }}
           />
           <button
-            onClick={() => handleToken(manualToken || 'TEST-TOKEN-001')}
+            onClick={() => void handleToken(manualToken.trim())}
+            disabled={!manualToken.trim()}
             className="btn-primary shrink-0"
             style={{ padding: '10px 18px' }}
           >

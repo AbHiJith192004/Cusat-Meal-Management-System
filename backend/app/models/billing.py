@@ -48,6 +48,9 @@ class BillingPeriod(Base, TimestampMixin):
     grand_total_expense: Mapped[Decimal] = mapped_column(sa.Numeric(12, 2), nullable=False, default=Decimal("0.00"))
     mess_daily_rate: Mapped[Decimal] = mapped_column(sa.Numeric(10, 2), nullable=False, default=Decimal("0.00"))
 
+    revision: Mapped[int] = mapped_column(sa.Integer, nullable=False, server_default="0")
+    calculation: Mapped[dict | None] = mapped_column(sa.JSON, nullable=True)
+
     unpublish_reason: Mapped[str | None] = mapped_column(sa.String(500), nullable=True)
 
     __table_args__ = (
@@ -93,3 +96,15 @@ class StockCount(Base, TimestampMixin):
         sa.Index("ix_stock_count_year_month", "year", "month"),
         sa.CheckConstraint("physical_closing_qty >= 0", name="ck_stock_count_qty_non_negative"),
     )
+
+
+class StudentBillSnapshot(Base):
+    """Append-only published invoice revisions. Never recomputed from attendance."""
+    __tablename__ = 'student_bill_snapshots'
+    id: Mapped[uuid.UUID] = mapped_column(sa.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    period_id: Mapped[uuid.UUID] = mapped_column(sa.UUID(as_uuid=True), sa.ForeignKey('billing_periods.id'), nullable=False)
+    student_id: Mapped[uuid.UUID] = mapped_column(sa.UUID(as_uuid=True), sa.ForeignKey('users.id'), nullable=False)
+    revision: Mapped[int] = mapped_column(sa.Integer, nullable=False)
+    payload: Mapped[dict] = mapped_column(sa.JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), server_default=sa.func.now(), nullable=False)
+    __table_args__ = (sa.UniqueConstraint('period_id', 'revision', 'student_id', name='uq_student_bill_revision'),)

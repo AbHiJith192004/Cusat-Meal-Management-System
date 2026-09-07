@@ -1,6 +1,10 @@
 import logging
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
+import secrets
+import hmac
+from sqlalchemy import select
+from starlette.concurrency import run_in_threadpool
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -34,142 +38,42 @@ settings = get_settings()
 class AuthService:
     """Service handling activation, login, logout, and token refresh."""
 
-    # Deliberately identical whether the account is missing, has no profile,
-    # or simply has a different DOB on file. Distinct messages let anyone
-    # confirm which registration numbers exist, and they are sequential.
-    GENERIC_ACTIVATION_FAILURE = (
-        "We could not activate this account. Check the registration number "
-        "and date of birth, then try again."
-    )
-    GENERIC_RESET_FAILURE = (
-        "We could not verify those details. Check the registration number "
-        "and date of birth, then try again."
-    )
-
-    @staticmethod
-    def _assert_not_locked(lockout_key: str) -> None:
-        """Per-account lockout, layered on top of the per-IP rate limit.
-
-        The IP limit stops one host hammering the service; this stops a
-        distributed guess against a single low-entropy factor (date of
-        birth) spread across many hosts.
-        """
-        cfg = get_settings()
-        if account_lockout.is_locked(
-            lockout_key, cfg.AUTH_MAX_FAILED_ATTEMPTS, cfg.AUTH_LOCKOUT_MINUTES * 60
-        ):
-            raise RateLimitExceededException(
-                message=(
-                    "Too many failed attempts for this account. "
-                    f"Try again in {cfg.AUTH_LOCKOUT_MINUTES} minutes."
-                )
-            )
-
     def __init__(self, db: AsyncSession):
         self.db = db
         self.user_repo = UserRepository(db)
         self.token_repo = RefreshTokenRepository(db)
         self.audit_repo = AuditRepository(db)
 
-    async def activate_account(
-        self, registration_number: str, date_of_birth: str, password: str
-    ) -> dict:
-        """Activate a pre-imported student account.
+    async def issue_setup_code(self, student_id: uuid.UUID, actor_id: uuid.UUID, reason: str) -> dict:
+        from app.utils.exceptions import ValidationException
+        user = (await self.db.execute(select(User).where(User.id == student_id).with_for_update())).scalar_one_or_none()
+        if not user or user.role != "STUDENT" or user.account_status == "SUSPENDED":
+            raise ValidationException(message="An eligible student account is required.")
+        code = secrets.token_urlsafe(32)
+        user.setup_code_hash = hash_refresh_token(code)
+        user.setup_code_expires_at = now_ist() + timedelta(minutes=30)
+        await self.audit_repo.log(actor_id=actor_id, action="ACCOUNT_SETUP_CODE_ISSUED",
+                                  target_type="user", target_id=user.id, metadata={"reason": reason})
+        # Only the digest is stored. Staff delivers this once after checking identity.
+        return {"setup_code": code, "expires_at": user.setup_code_expires_at.isoformat()}
 
-        Steps:
-        1. Find user by registration number
-        2. Verify account is PENDING
-        3. Verify DOB matches
-        4. Hash password with Argon2id
-        5. Update status to ACTIVE
-        6. Write audit log
-        """
-        lockout_key = f"activate:{registration_number.strip().upper()}"
-        self._assert_not_locked(lockout_key)
-
-        user = await self.user_repo.get_by_registration_number(registration_number)
-
-        try:
-            provided_dob = date.fromisoformat(date_of_birth)
-        except ValueError:
-            raise InvalidCredentialsException(message=self.GENERIC_ACTIVATION_FAILURE)
-
-        # One generic failure covers "no such account", "no profile", and
-        # "wrong DOB" so none of them can be told apart from outside.
-        if user is None or user.profile is None or user.profile.date_of_birth != provided_dob:
-            account_lockout.record_failure(lockout_key)
-            logger.warning("Failed activation attempt for %s", registration_number)
-            raise InvalidCredentialsException(message=self.GENERIC_ACTIVATION_FAILURE)
-
-        # Past this point the caller has proved they know the DOB, so the
-        # account's real state is safe to disclose.
-        if user.account_status == AccountStatus.ACTIVE.value:
-            raise AccountAlreadyActivatedException()
-
-        if user.account_status == AccountStatus.SUSPENDED.value:
-            raise AccountSuspendedException()
-
-        account_lockout.clear(lockout_key)
-
-        # Activate
-        now = now_ist()
-        user.password_hash = hash_password(password)
-        user.account_status = AccountStatus.ACTIVE.value
-        user.activated_at = now
-
-        await self.audit_repo.log(
-            actor_id=user.id,
-            action="STUDENT_ACTIVATED",
-            target_type="user",
-            target_id=user.id,
-            metadata={"registration_number": registration_number},
-        )
-
-        await self.db.commit()
-        logger.info("Account activated: %s", registration_number)
-        return {"message": "Account activated successfully. You can now log in."}
-
-    async def reset_password_by_dob(
-        self, registration_number: str, date_of_birth: str, new_password: str
-    ) -> dict:
-        """Reset password for a student account by verifying Date of Birth."""
-        lockout_key = f"reset:{registration_number.strip().upper()}"
-        self._assert_not_locked(lockout_key)
-
-        user = await self.user_repo.get_by_registration_number(registration_number)
-
-        try:
-            provided_dob = date.fromisoformat(date_of_birth)
-        except ValueError:
-            raise InvalidCredentialsException(message=self.GENERIC_RESET_FAILURE)
-
-        if user is None or user.profile is None or user.profile.date_of_birth != provided_dob:
-            account_lockout.record_failure(lockout_key)
-            logger.warning("Failed DOB password reset attempt for %s", registration_number)
-            raise InvalidCredentialsException(message=self.GENERIC_RESET_FAILURE)
-
-        if user.account_status == AccountStatus.SUSPENDED.value:
-            raise AccountSuspendedException()
-
-        account_lockout.clear(lockout_key)
-
-        now = now_ist()
-        user.password_hash = hash_password(new_password)
-        if user.account_status == AccountStatus.PENDING.value:
-            user.account_status = AccountStatus.ACTIVE.value
-            user.activated_at = now
-
-        await self.audit_repo.log(
-            actor_id=user.id,
-            action="PASSWORD_RESET_DOB",
-            target_type="user",
-            target_id=user.id,
-            metadata={"registration_number": registration_number},
-        )
-
-        await self.db.commit()
-        logger.info("Password reset via DOB for: %s", registration_number)
-        return {"message": "Password reset successfully! You can now log in with your new password."}
+    async def set_password_with_code(self, registration_number: str, setup_code: str, password: str) -> dict:
+        user = (await self.db.execute(select(User).where(
+            User.registration_number == registration_number.strip().upper()).with_for_update())).scalar_one_or_none()
+        if (not user or user.account_status == "SUSPENDED" or not user.setup_code_hash
+                or not user.setup_code_expires_at or user.setup_code_expires_at <= now_ist()
+                or not hmac.compare_digest(user.setup_code_hash, hash_refresh_token(setup_code))):
+            raise InvalidCredentialsException(message="Setup code is invalid or expired. Contact mess staff.")
+        user.password_hash = await run_in_threadpool(hash_password, password)
+        user.account_status = "ACTIVE"
+        user.activated_at = user.activated_at or now_ist()
+        user.setup_code_hash = None
+        user.setup_code_expires_at = None
+        user.session_version += 1
+        await self.token_repo.revoke_all_user_tokens(user.id)
+        await self.audit_repo.log(actor_id=user.id, action="PASSWORD_SET_WITH_CODE",
+                                  target_type="user", target_id=user.id)
+        return {"message": "Password saved. Sign in with your new password."}
 
     async def login(
         self, registration_number: str, password: str
@@ -179,13 +83,9 @@ class AuthService:
         Returns:
             Tuple of (access_token, refresh_token, expires_in_seconds)
         """
-        lockout_key = f"login:{registration_number.strip().upper()}"
-        self._assert_not_locked(lockout_key)
+        user = (await self.db.execute(select(User).where(User.registration_number == registration_number.strip().upper()).with_for_update())).scalar_one_or_none()
 
-        user = await self.user_repo.get_by_registration_number(registration_number)
-
-        if user is None or not user.password_hash or not verify_password(password, user.password_hash):
-            account_lockout.record_failure(lockout_key)
+        if user is None or not user.password_hash or not await run_in_threadpool(verify_password, password, user.password_hash):
             raise InvalidCredentialsException()
 
         # Credentials check out, so the account's own state can be reported
@@ -196,10 +96,9 @@ class AuthService:
         if user.account_status == AccountStatus.SUSPENDED.value:
             raise AccountSuspendedException()
 
-        account_lockout.clear(lockout_key)
 
         # Generate tokens
-        access_token = create_access_token(str(user.id), user.role)
+        access_token = create_access_token(str(user.id), user.role, {"sv": user.session_version})
         refresh_token = generate_refresh_token()
 
         # Store refresh token hash
@@ -234,12 +133,18 @@ class AuthService:
         5. Link old → new for audit trail
         """
         token_hash = hash_refresh_token(refresh_token)
+        owner_id = await self.db.scalar(select(RefreshToken.user_id).where(
+            RefreshToken.token_hash == token_hash, RefreshToken.is_revoked.is_(False)))
+        if owner_id is None:
+            raise UnauthorizedException(message="Invalid refresh token")
+        # Use the same user-then-token lock order as password changes.
+        await self.db.execute(select(User.id).where(User.id == owner_id).with_for_update())
         token_record = await self.token_repo.get_by_token_hash(token_hash)
 
         if token_record is None:
             raise UnauthorizedException(message="Invalid refresh token")
 
-        if token_record.expires_at.replace(tzinfo=None) < now_ist().replace(tzinfo=None):
+        if token_record.expires_at <= now_ist():
             token_record.is_revoked = True
             raise UnauthorizedException(message="Refresh token expired")
 
@@ -265,7 +170,7 @@ class AuthService:
         self.db.add(new_token_record)
         await self.db.commit()
 
-        access_token = create_access_token(str(user.id), user.role)
+        access_token = create_access_token(str(user.id), user.role, {"sv": user.session_version})
         expires_in = settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60
 
         return access_token, new_refresh, expires_in

@@ -21,28 +21,51 @@ async def get_my_meals(
     current_user: CurrentUser,
     start_date: Annotated[date | None, Query(description="Start date (YYYY-MM-DD)")] = None,
     end_date: Annotated[date | None, Query(description="End date (YYYY-MM-DD)")] = None,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """Get student's meal selections for a date range (defaults to next 7 days)."""
     start = start_date or today_ist()
-    end = end_date or (start + timedelta(days=7))
+    end = end_date or (start + timedelta(days=6))
 
-    meal_service = MealService(db)
-    
-    # Return selections for all days in range
+    from app.utils.exceptions import ValidationException
+    if end < start or (end - start).days > 30:
+        raise ValidationException(message="Select a date range of 1 to 31 days.")
+    service = MealService(db)
+    selections = {(m.meal_date, m.meal_type): m for m in
+                  await service.meal_repo.get_student_meals_range(current_user.id, start, end)}
+    holidays = {(h.holiday_date, h.meal_type) for h in
+                await service.holiday_repo.get_in_range(start, end)}
+    from app.services.meal_timing_service import DEFAULT_SETTINGS
+    stored_settings = {
+        setting.key: setting.value
+        for setting in await service.timing_service.settings_repo.get_all_settings()
+    }
+    setting_value = lambda key: stored_settings.get(key, DEFAULT_SETTINGS[key])
+    cutoff_time = setting_value("selection_cutoff_time")
+    advance_days = int(setting_value("selection_cutoff_advance_days"))
+    meal_windows = {}
+    for meal_type in ("BREAKFAST", "LUNCH", "DINNER"):
+        key = meal_type.lower()
+        meal_windows[meal_type] = (
+            f"{setting_value(f'meal_window_{key}_start')}–"
+            f"{setting_value(f'meal_window_{key}_end')} IST"
+        )
+    from datetime import datetime
+    from app.utils.timezone import IST, now_ist
     result_days = []
     curr = start
     while curr <= end:
-        b = await meal_service.get_or_create_selection(current_user.id, curr, MealType.BREAKFAST.value)
-        l = await meal_service.get_or_create_selection(current_user.id, curr, MealType.LUNCH.value)
-        d = await meal_service.get_or_create_selection(current_user.id, curr, MealType.DINNER.value)
-        
-        result_days.append({
-            "meal_date": curr.isoformat(),
-            "breakfast": {"id": str(b.id), "status": b.status},
-            "lunch": {"id": str(l.id), "status": l.status},
-            "dinner": {"id": str(d.id), "status": d.status},
-        })
+        cutoff = datetime.combine(curr - timedelta(days=advance_days), datetime.strptime(cutoff_time, "%H:%M").time(), tzinfo=IST)
+        day = {"meal_date": curr.isoformat(), "locked": now_ist() >= cutoff, "cutoff_at": cutoff.isoformat()}
+        for mt in ("BREAKFAST", "LUNCH", "DINNER"):
+            selection = selections.get((curr, mt))
+            holiday = (curr, None) in holidays or (curr, mt) in holidays
+            day[mt.lower()] = {
+                "id": str(selection.id) if selection else None,
+                "status": "NO_SERVICE" if holiday else (selection.status if selection else "CONFIRMED"),
+                "time_window": meal_windows[mt],
+            }
+        result_days.append(day)
         curr += timedelta(days=1)
 
     return success_response(data=result_days)
@@ -54,7 +77,7 @@ async def update_meal_selection(
     meal_type: Annotated[str, Path(description="BREAKFAST, LUNCH, or DINNER")],
     body: UpdateMealSelectionRequest,
     current_user: CurrentUser,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """Update student's meal selection (CONFIRMED or SKIPPED). Subject to 9:00 PM cutoff."""
     mt = meal_type.upper()
@@ -84,3 +107,15 @@ async def update_meal_selection(
             "updated_at": selection.updated_at.isoformat() if selection.updated_at else None,
         }
     )
+
+
+@router.put("/{meal_date}")
+async def update_full_day(
+    meal_date: date, body: UpdateMealSelectionRequest, current_user: CurrentUser,
+    db: AsyncSession = Depends(get_db, scope="function"),
+):
+    """Atomically opt in or out of all three meals without invalid intermediate states."""
+    await MealService(db).update_meal_selection(
+        current_user.id, meal_date, "BREAKFAST", body.status, current_user.id, whole_day=True,
+    )
+    return success_response(data={"meal_date": meal_date.isoformat(), "status": body.status})

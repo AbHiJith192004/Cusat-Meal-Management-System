@@ -1,10 +1,14 @@
 import uuid
+import calendar
+import hashlib
+import json
+from datetime import date
 from decimal import Decimal, InvalidOperation
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.billing import BillingPeriod, StockCount
+from app.models.billing import BillingPeriod, StockCount, StudentBillSnapshot
 from app.repositories.audit_repo import AuditRepository
 from app.utils.exceptions import (
     ConflictException,
@@ -42,6 +46,8 @@ class BillingService:
             d = Decimal(str(value))
         except (InvalidOperation, TypeError):
             raise ValidationException(message=f"{field} must be a number.")
+        if not d.is_finite():
+            raise ValidationException(message=f"{field} must be finite.")
         if d < 0:
             raise ValidationException(message=f"{field} cannot be negative.")
         return d
@@ -57,6 +63,12 @@ class BillingService:
         period = await self.get_period(month, year)
         return bool(period and period.is_published)
 
+    async def _lock_period(self, month: int, year: int):
+        self._validate_period(month, year)
+        # Transaction-level lock covers first publication, when no period row exists.
+        await self.session.execute(text("SELECT pg_advisory_xact_lock(734201, :period)"),
+                                   {"period": year * 12 + month})
+
     # -- status -------------------------------------------------------------
 
     async def get_status(self, month: int, year: int) -> dict:
@@ -65,6 +77,8 @@ class BillingService:
         return {
             "month": month,
             "year": year,
+            "revision": period.revision if period else 0,
+            "calculation": period.calculation if period else None,
             "is_published": published,
             # Stock is editable exactly while the month is open. This is
             # enforced server-side in record_stock_count, not just hidden in
@@ -77,108 +91,71 @@ class BillingService:
 
     # -- publish ------------------------------------------------------------
 
-    async def publish(
-        self,
-        month: int,
-        year: int,
-        figures: dict,
-        actor_id: uuid.UUID,
-    ) -> dict:
-        """Freeze a month and snapshot its computed figures.
+    async def preview(self, month: int, year: int, figures: dict) -> dict:
+        from app.services.billing_calculator import calculate_bills
+        await self._lock_period(month, year)
+        amounts = {key: self._to_decimal(figures.get(key, 0), key) for key in (
+            "opening_stock_value", "purchases_value", "closing_stock_value",
+            "operational_expenses", "administrative_expenses")}
+        if any(v != v.quantize(Decimal("0.01")) or v > Decimal("9999999999.99") for v in amounts.values()):
+            raise ValidationException(message="Amounts must have at most two decimal places and fit the billing limit.")
+        food = amounts["opening_stock_value"] + amounts["purchases_value"] - amounts["closing_stock_value"]
+        if food < 0:
+            raise ValidationException(message="Closing stock exceeds opening stock plus purchases.")
+        total = food + amounts["operational_expenses"] + amounts["administrative_expenses"]
+        if total > Decimal("9999999999.99"):
+            raise ValidationException(message="Total expense exceeds the billing limit.")
+        calculation = await calculate_bills(self.session, year, month, total)
+        period = await self.get_period(month, year)
+        result = {**calculation, "month": month, "year": year,
+                  "figures": {k: str(v.quantize(Decimal("0.01"))) for k, v in amounts.items()},
+                  "actual_food_cost": str(food.quantize(Decimal("0.01"))),
+                  "grand_total_expense": str(total.quantize(Decimal("0.01"))),
+                  "revision": (period.revision if period else 0) + 1}
+        result["preview_token"] = hashlib.sha256(json.dumps(result, sort_keys=True).encode()).hexdigest()
+        return result
 
-        All-or-nothing: the period row, the derived totals, and the audit entry
-        commit together, so a half-published month cannot exist.
-        """
+    async def publish(self, month: int, year: int, figures: dict, actor_id: uuid.UUID) -> dict:
+        """Publish a reviewed, completed month's invoices in one atomic revision."""
         self._validate_period(month, year)
-
+        if date(year, month, calendar.monthrange(year, month)[1]) >= now_ist().date():
+            raise ValidationException(message="Publish only after the billing month has ended in IST.")
+        await self._lock_period(month, year)
         period = await self.get_period(month, year)
         if period and period.is_published:
-            raise ConflictException(
-                message=f"Billing for {month:02d}/{year} is already published.",
-                code="BILL_ALREADY_PUBLISHED",
-            )
-
-        opening = self._to_decimal(figures.get("opening_stock_value", 0), "Opening stock")
-        purchases = self._to_decimal(figures.get("purchases_value", 0), "Purchases")
-        closing = self._to_decimal(figures.get("closing_stock_value", 0), "Closing stock")
-        operational = self._to_decimal(figures.get("operational_expenses", 0), "Operational expenses")
-        administrative = self._to_decimal(figures.get("administrative_expenses", 0), "Administrative expenses")
-
-        chargeable_days = figures.get("chargeable_days", 0)
-        if not isinstance(chargeable_days, int) or chargeable_days <= 0:
-            # Guarding the divisor explicitly: the rate formula divides by this,
-            # and a zero here would either crash the publish or silently write a
-            # nonsense rate that students get charged against.
-            raise ValidationException(
-                message="Chargeable days must be a positive whole number to compute a daily rate."
-            )
-
-        actual_food_cost = opening + purchases - closing
-        if actual_food_cost < 0:
-            raise ValidationException(
-                message=(
-                    "Closing stock exceeds opening stock plus purchases, which "
-                    "would make food cost negative. Re-check the closing count."
-                )
-            )
-
-        grand_total = actual_food_cost + operational + administrative
-        daily_rate = (actual_food_cost / Decimal(chargeable_days)).quantize(Decimal("0.01"))
-
-        now = now_ist()
-
+            raise ConflictException(message="This month is already published.", code="BILL_ALREADY_PUBLISHED")
+        preview = await self.preview(month, year, figures)
+        if not preview['chargeable_days']:
+            raise ValidationException(message="No opted-in student-days exist for this month.")
+        if figures.get('preview_token') != preview['preview_token']:
+            raise ConflictException(message="Billing inputs changed or have not been reviewed. Preview again before publishing.", code="BILL_PREVIEW_CHANGED")
         if period is None:
             period = BillingPeriod(id=uuid.uuid4(), month=month, year=year)
             self.session.add(period)
-
+        now = now_ist()
+        period.revision = preview['revision']
         period.is_published = True
         period.published_at = now
         period.published_by = actor_id
-        period.opening_stock_value = opening
-        period.purchases_value = purchases
-        period.closing_stock_value = closing
-        period.operational_expenses = operational
-        period.administrative_expenses = administrative
-        period.chargeable_days = chargeable_days
-        period.actual_food_cost = actual_food_cost
-        period.grand_total_expense = grand_total
-        period.mess_daily_rate = daily_rate
         period.unpublish_reason = None
-
+        for key, value in preview['figures'].items():
+            setattr(period, key, Decimal(value))
+        period.chargeable_days = preview['chargeable_days']
+        period.actual_food_cost = Decimal(preview['actual_food_cost'])
+        period.grand_total_expense = Decimal(preview['grand_total_expense'])
+        period.mess_daily_rate = Decimal(preview['mess_daily_rate'])
+        period.calculation = {k: v for k, v in preview.items() if k != 'students'}
         await self.session.flush()
-
-        await self.audit_repo.log(
-            actor_id=actor_id,
-            action="BILL_PUBLISHED",
-            target_type="billing_period",
-            target_id=period.id,
-            metadata={
-                "month": month,
-                "year": year,
-                "opening_stock_value": str(opening),
-                "purchases_value": str(purchases),
-                "closing_stock_value": str(closing),
-                "operational_expenses": str(operational),
-                "administrative_expenses": str(administrative),
-                "chargeable_days": chargeable_days,
-                "actual_food_cost": str(actual_food_cost),
-                "grand_total_expense": str(grand_total),
-                "mess_daily_rate": str(daily_rate),
-            },
-        )
-
+        for student in preview['students']:
+            payload = {**student, 'revision': period.revision, 'published_at': now.isoformat()}
+            self.session.add(StudentBillSnapshot(period_id=period.id,
+                student_id=uuid.UUID(student['student_id']), revision=period.revision, payload=payload))
+        await self.audit_repo.log(actor_id=actor_id, action="BILL_PUBLISHED",
+            target_type="billing_period", target_id=period.id,
+            metadata={**period.calculation, 'students_billed': len(preview['students'])})
         await self.session.commit()
-
-        return {
-            "month": month,
-            "year": year,
-            "is_published": True,
-            "is_stocks_read_only": True,
-            "actual_food_cost": str(actual_food_cost),
-            "grand_total_expense": str(grand_total),
-            "mess_daily_rate": str(daily_rate),
-            "published_at": now.isoformat(),
-        }
+        return {**period.calculation, 'is_published': True, 'is_stocks_read_only': True,
+                'published_at': now.isoformat()}
 
     # -- unpublish ----------------------------------------------------------
 
@@ -197,6 +174,7 @@ class BillingService:
                 message="A reason of at least 3 characters is required to unpublish a bill."
             )
 
+        await self._lock_period(month, year)
         period = await self.get_period(month, year)
         if period is None or not period.is_published:
             raise ConflictException(
@@ -249,7 +227,7 @@ class BillingService:
         unit_cost=0,
     ) -> dict:
         """Persist a physical closing-stock count, unless the month is frozen."""
-        self._validate_period(month, year)
+        await self._lock_period(month, year)
 
         if not item_id or not item_id.strip():
             raise ValidationException(message="An item is required.")

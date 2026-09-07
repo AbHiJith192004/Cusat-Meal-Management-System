@@ -3,6 +3,9 @@ import jwt
 from datetime import datetime, timedelta
 from typing import Any
 
+from sqlalchemy import select
+from app.models.user import User
+from app.repositories.holiday_repo import HolidayRepository
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
@@ -12,6 +15,7 @@ from app.repositories.meal_repo import MealRepository
 from app.repositories.user_repo import UserRepository
 from app.repositories.audit_repo import AuditRepository
 from app.services.meal_timing_service import MealTimingService
+from app.services.billing_lock import lock_open_period
 from app.utils.enums import MealStatus, AttendanceType
 from app.utils.exceptions import (
     QRExpiredException,
@@ -25,11 +29,6 @@ from app.utils.exceptions import (
 from app.utils.timezone import now_ist
 
 settings = get_settings()
-
-# In-memory verification cache mapping verification_id -> payload
-# Cleaned up on confirmation or expiry
-_pending_verifications: dict[str, dict[str, Any]] = {}
-
 
 class QRService:
     def __init__(self, session: AsyncSession):
@@ -52,6 +51,8 @@ class QRService:
             raise AttendanceUnavailableException(
                 message=f"Current time is outside the {meal_type} service window."
             )
+
+        await self._check_eligibility(student_id, today, meal_type)
 
         # Check selection status
         selection = await self.meal_repo.get_student_meal(student_id, today, meal_type)
@@ -102,9 +103,13 @@ class QRService:
         if payload.get("type") != "qr":
             raise QRInvalidException(message="Invalid token payload type")
 
-        student_id = uuid.UUID(payload["sub"])
-        meal_type = payload["meal"]
-        meal_date = datetime.strptime(payload["date"], "%Y-%m-%d").date()
+        try:
+            student_id = uuid.UUID(payload["sub"])
+            meal_type = payload["meal"]
+            meal_date = datetime.strptime(payload["date"], "%Y-%m-%d").date()
+        except (ValueError, TypeError, KeyError):
+            raise QRInvalidException()
+        await self._check_eligibility(student_id, meal_date, meal_type)
 
         # Re-check user & attendance
         user = await self.user_repo.get_user_with_profile(student_id)
@@ -116,7 +121,9 @@ class QRService:
             raise AttendanceAlreadyRecordedException()
 
         # Create verification ticket
-        verification_id = str(uuid.uuid4())
+        verification_id = jwt.encode({
+            **payload, "type": "qr_confirmation", "admin_id": str(admin_id),
+        }, settings.QR_SECRET_KEY, algorithm="HS256")
         exp_dt = datetime.fromtimestamp(payload["exp"], tz=now_ist().tzinfo)
 
         verification_payload = {
@@ -131,21 +138,29 @@ class QRService:
             "jti": payload["jti"],
         }
 
-        _pending_verifications[verification_id] = verification_payload
-
         return verification_payload
 
     async def confirm_attendance(
         self, verification_id: str, admin_id: uuid.UUID
     ) -> Attendance:
         """Admin confirms attendance: lock row, insert record, write audit log."""
-        ticket = _pending_verifications.pop(verification_id, None)
-        if not ticket:
-            raise QRInvalidException(message="Verification ticket expired or invalid.")
-
-        student_id = uuid.UUID(ticket["student_id"])
-        meal_date = datetime.strptime(ticket["meal_date"], "%Y-%m-%d").date()
-        meal_type = ticket["meal_type"]
+        try:
+            claims = jwt.decode(verification_id, settings.QR_SECRET_KEY, algorithms=["HS256"],
+                                options={"require": ["sub", "date", "meal", "exp", "jti", "type", "admin_id"]})
+            if claims["type"] != "qr_confirmation" or claims["admin_id"] != str(admin_id):
+                raise QRInvalidException()
+            student_id = uuid.UUID(claims["sub"])
+            meal_date = datetime.strptime(claims["date"], "%Y-%m-%d").date()
+            meal_type = claims["meal"]
+        except jwt.ExpiredSignatureError:
+            raise QRExpiredException()
+        except (jwt.InvalidTokenError, ValueError, TypeError, KeyError):
+            raise QRInvalidException()
+        await lock_open_period(self.session, meal_date)
+        # The existing parent row serializes concurrent scans, including absent attendance rows.
+        await self.session.execute(select(User.id).where(User.id == student_id).with_for_update())
+        await self._check_eligibility(student_id, meal_date, meal_type)
+        ticket = {"meal_date": meal_date.isoformat(), "jti": claims["jti"]}
 
         # Transactional lock to prevent concurrency duplicate
         existing = await self.attendance_repo.get_for_update(student_id, meal_date, meal_type)
@@ -177,3 +192,19 @@ class QRService:
             },
         )
         return attendance
+
+    async def _check_eligibility(self, student_id, meal_date, meal_type):
+        if meal_type not in {"BREAKFAST", "LUNCH", "DINNER"}:
+            raise QRInvalidException()
+        user = await self.user_repo.get_by_id(student_id)
+        if not user or user.account_status != "ACTIVE" or user.role != "STUDENT":
+            raise QRInvalidException(message="Student account is not active.")
+        if not await self.timing_service.is_within_meal_window(meal_type, meal_date, now_ist()):
+            raise AttendanceUnavailableException()
+        if await HolidayRepository(self.session).get_for_date(meal_date, meal_type):
+            raise AttendanceUnavailableException()
+        selection = await self.meal_repo.get_student_meal(student_id, meal_date, meal_type)
+        if selection and selection.status == "SKIPPED":
+            raise MealSkippedException()
+        if selection and selection.status == "NO_SERVICE":
+            raise AttendanceUnavailableException()

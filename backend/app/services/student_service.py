@@ -57,16 +57,15 @@ class StudentService:
         users = res.scalars().all()
 
         from app.models.meal import MealSelection
+        from app.models.attendance import Attendance
+        ids = [u.id for u in users]
+        done = dict((await self.session.execute(select(Attendance.student_id, func.count()).where(
+            Attendance.student_id.in_(ids)).group_by(Attendance.student_id))).all()) if ids else {}
+        skipped = dict((await self.session.execute(select(MealSelection.student_id, func.count()).where(
+            MealSelection.student_id.in_(ids), MealSelection.status == "SKIPPED").group_by(MealSelection.student_id))).all()) if ids else {}
         results = []
         for u in users:
-            done_cnt = (await self.session.execute(
-                select(func.count()).where(MealSelection.student_id == u.id, MealSelection.status == "ATTENDED")
-            )).scalar_one() or 0
-
-            skipped_cnt = (await self.session.execute(
-                select(func.count()).where(MealSelection.student_id == u.id, MealSelection.status == "SKIPPED")
-            )).scalar_one() or 0
-
+            done_cnt, skipped_cnt = done.get(u.id, 0), skipped.get(u.id, 0)
             results.append({
                 "id": str(u.id),
                 "registration_number": u.registration_number,
@@ -74,7 +73,6 @@ class StudentService:
                 "account_status": u.account_status,
                 "activated_at": u.activated_at.isoformat() if u.activated_at else None,
                 "mess_id": u.profile.mess_id if u.profile else None,
-                "date_of_birth": u.profile.date_of_birth.isoformat() if u.profile else None,
                 "student_type": u.profile.student_type if u.profile else None,
                 "campus_location": u.profile.campus_location if (u.profile and hasattr(u.profile, "campus_location")) else "MAIN_CAMPUS",
                 "photo_url": u.profile.photo_url if u.profile else None,

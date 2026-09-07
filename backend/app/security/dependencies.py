@@ -28,7 +28,7 @@ async def get_current_user(
     credentials: Annotated[
         HTTPAuthorizationCredentials | None, Depends(bearer_scheme)
     ],
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ) -> User:
     """Extract and validate the current user from the JWT access token.
 
@@ -50,7 +50,11 @@ async def get_current_user(
     if not user_id:
         raise UnauthorizedException(message="Invalid token payload")
 
-    stmt = select(User).where(User.id == UUID(user_id))
+    try:
+        parsed_user_id = UUID(user_id)
+    except (ValueError, TypeError, AttributeError):
+        raise UnauthorizedException(message="Invalid token payload")
+    stmt = select(User).where(User.id == parsed_user_id)
     result = await db.execute(stmt)
     user = result.scalar_one_or_none()
 
@@ -59,6 +63,12 @@ async def get_current_user(
 
     if user.account_status == AccountStatus.SUSPENDED.value:
         raise AccountSuspendedException()
+
+    if user.account_status != AccountStatus.ACTIVE.value:
+        raise UnauthorizedException(message="Account not active")
+
+    if payload.get("sv") != user.session_version:
+        raise UnauthorizedException(message="Session revoked. Sign in again.")
 
     return user
 

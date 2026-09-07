@@ -25,3 +25,8 @@ build/
 .idea/
 .vscode/
 *.swp
+
+# Local production-audit tooling and generated evidence
+/audit/
+/.audit-private/
+/.audit-venv/

@@ -23,7 +23,7 @@ router = APIRouter(prefix="/api/v1", tags=["Student"])
 @router.get("/me")
 async def get_current_user_profile(
     current_user: CurrentUser,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """Get the current user's profile information."""
     user_repo = UserRepository(db)
@@ -56,7 +56,7 @@ async def get_current_user_profile(
 @router.get("/me/dashboard")
 async def get_student_dashboard(
     current_user: CurrentUser,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """Get the student dashboard summary for today."""
     from app.services.meal_service import MealService
@@ -108,7 +108,7 @@ async def get_my_bill(
     current_user: CurrentUser,
     month: Annotated[int, Query(ge=1, le=12)],
     year: Annotated[int, Query(ge=2000, le=2100)],
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """The signed-in student's own bill for a month.
 

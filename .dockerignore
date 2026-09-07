@@ -1,0 +1,12 @@
+.git
+**/.env
+**/.env.*
+.audit-*
+audit
+**/node_modules
+**/__pycache__
+**/.pytest_cache
+**/.venv
+**/dist
+**/*.dump
+**/*.log

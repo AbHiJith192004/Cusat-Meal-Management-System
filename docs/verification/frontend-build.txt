@@ -1,0 +1,10 @@
+TypeScript: npm run lint passed.
+Production Vite build passed.
+Initial JS: 271.94 kB / 80.80 kB gzip.
+Admin overview: lazy chunk 3.01 kB / 1.24 kB gzip.
+Billing management: lazy chunk 5.47 kB / 2.23 kB gzip.
+Prototype admin module: excluded from production routes and build.
+QR scanner library: lazy chunk 334.58 kB / 99.38 kB gzip.
+No large-chunk warning after splitting.
+npm audit: 0 vulnerabilities.
+Browser smoke: compiled sign-in, live admin overview, persisted student directory and failure-safe scanner loaded from FastAPI at localhost:8000.

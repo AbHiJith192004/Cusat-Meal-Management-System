@@ -1,4 +1,5 @@
 import logging
+import json
 import time
 import uuid
 
@@ -31,15 +32,14 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         response.headers["X-Request-ID"] = request_id
 
         logger.info(
-            "request_completed",
-            extra={
+            json.dumps({
+                "event": "request_completed",
                 "request_id": request_id,
                 "method": request.method,
                 "path": request.url.path,
                 "status_code": response.status_code,
                 "duration_ms": duration_ms,
-                "client_ip": request.client.host if request.client else "unknown",
-            },
+            }, separators=(",", ":")),
         )
 
         return response

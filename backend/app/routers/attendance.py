@@ -19,7 +19,7 @@ router = APIRouter(prefix="/api/v1/attendance", tags=["Attendance"])
 async def generate_qr_code(
     current_user: CurrentUser,
     meal_type: Annotated[str, Query(description="BREAKFAST, LUNCH, or DINNER")],
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """Generate a signed, short-lived QR token for student attendance (60s TTL)."""
     mt = meal_type.upper()
@@ -42,7 +42,7 @@ async def generate_qr_code(
 async def verify_qr_code(
     body: QRVerifyRequest,
     admin_user: AdminUser,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """Admin scans QR: verify token validity, return student details."""
     qr_service = QRService(db)
@@ -54,7 +54,7 @@ async def verify_qr_code(
 async def confirm_qr_attendance(
     body: QRConfirmRequest,
     admin_user: AdminUser,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """Admin confirms scanned QR: record attendance atomically."""
     qr_service = QRService(db)

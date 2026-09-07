@@ -16,14 +16,17 @@ router = APIRouter(prefix="/api/v1/super-admin", tags=["Super Admin Operations"]
 async def import_students(
     super_admin: SuperAdminUser,
     file: UploadFile = File(..., description="Excel file (.xlsx) containing student records"),
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """Super Admin: Bulk import pre-registered students from Excel file."""
-    if not file.filename.endswith((".xlsx", ".xls")):
+    if not (file.filename or "").lower().endswith(".xlsx"):
         from app.utils.exceptions import ValidationException
         raise ValidationException(message="Only Excel files (.xlsx) are accepted.")
 
-    contents = await file.read()
+    contents = await file.read(5 * 1024 * 1024 + 1)
+    if len(contents) > 5 * 1024 * 1024:
+        from app.utils.exceptions import ValidationException
+        raise ValidationException(message="Excel uploads must be at most 5 MB.")
     service = SuperAdminService(db)
     summary = await service.import_students_from_excel(contents, super_admin.id)
     return success_response(data=summary)
@@ -33,7 +36,7 @@ async def import_students(
 async def create_admin_user(
     body: CreateAdminRequest,
     super_admin: SuperAdminUser,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """Super Admin: Create a new ADMIN or SUPER_ADMIN user account."""
     service = SuperAdminService(db)
@@ -58,7 +61,7 @@ async def create_admin_user(
 @router.get("/settings")
 async def get_system_settings(
     super_admin: SuperAdminUser,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """Super Admin: Get all system settings."""
     service = SuperAdminService(db)
@@ -80,7 +83,7 @@ async def get_system_settings(
 async def update_system_settings(
     body: BatchUpdateSettingsRequest,
     super_admin: SuperAdminUser,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """Super Admin: Batch update system settings."""
     service = SuperAdminService(db)

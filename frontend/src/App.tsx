@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { UserRole, ActiveTab, StudentRecord, ScanLog, AlertItem } from './types';
 import {
   INITIAL_STUDENT,
@@ -12,10 +12,11 @@ import { SideNav } from './components/SideNav';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { StudentHomeView } from './views/StudentHomeView';
 import { MealPlanningView } from './views/MealPlanningView';
-import { StudentQrView } from './views/StudentQrView';
+const StudentQrView = lazy(() => import('./views/StudentQrView').then(module => ({ default: module.StudentQrView })));
 import { StudentBillView } from './views/StudentBillView';
-import { AdminDashboardView } from './views/AdminDashboardView';
-import { AdminScannerView } from './views/AdminScannerView';
+const AdminOverviewView = lazy(() => import('./views/AdminOverviewView').then(module => ({ default: module.AdminOverviewView })));
+const BillingManagementView = lazy(() => import('./views/BillingManagementView').then(module => ({ default: module.BillingManagementView })));
+const AdminScannerView = lazy(() => import('./views/AdminScannerView').then(module => ({ default: module.AdminScannerView })));
 import { StudentDirectoryView } from './views/StudentDirectoryView';
 import { ProfileView } from './views/ProfileView';
 import { AlertsView } from './views/AlertsView';
@@ -61,22 +62,23 @@ export function App() {
 
       if (token) {
         try {
-          setUserRole(savedRole);
-          setCurrentTab(savedTab);
 
           // /me works for every role — without this an admin's name resets to
           // the placeholder on every refresh.
           const profile = await studentApi.getProfile();
+          const verifiedRole: UserRole = ["ADMIN", "SUPER_ADMIN"].includes(profile.role) ? "admin" : "student";
+          setUserRole(verifiedRole);
+          setCurrentTab(verifiedRole === "admin" ? "admin-dashboard" : "home");
           setStudentInfo((prev) => ({
             ...prev,
             name: profile.name || prev.name,
             regNo: profile.registration_number || prev.regNo,
-            hostel: savedRole === 'admin' ? 'CUSAT Mess Administration' : prev.hostel,
+            hostel: verifiedRole === 'admin' ? 'CUSAT Mess Administration' : prev.hostel,
           }));
           setIsLoggedIn(true);
         } catch (e) {
           // Token expired or invalid — clear session
-          localStorage.clear();
+          ['messconnect_role', 'messconnect_tab', 'access_token'].forEach(key => localStorage.removeItem(key));
           setIsLoggedIn(false);
           setIsLoginOpen(true);
         }
@@ -90,8 +92,7 @@ export function App() {
     checkSession();
   }, []);
 
-  const adminAvatar =
-    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80';
+  const adminAvatar = '';
 
   const handleRoleChange = async (role: UserRole) => {
     setUserRole(role);
@@ -115,7 +116,7 @@ export function App() {
           regNo: profile.registration_number || regNo,
           hostel: 'CUSAT Hostel Mess 1',
           category: 'Hosteller',
-          avatar: profile.profile?.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name || name)}&background=2563eb&color=fff`,
+            avatar: profile.profile?.photo_url || '',
         });
       } catch (e) {
         setStudentInfo({
@@ -123,7 +124,7 @@ export function App() {
           regNo: regNo,
           hostel: 'CUSAT Hostel Mess 1',
           category: 'Hosteller',
-          avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=2563eb&color=fff`,
+          avatar: '',
         });
       }
       handleTabChange('home');
@@ -134,7 +135,7 @@ export function App() {
         regNo: regNo,
         hostel: 'CUSAT Mess Administration',
         category: 'Hosteller',
-        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(adminDisplayName)}&background=2563eb&color=fff`,
+        avatar: '',
       });
       handleTabChange('admin-dashboard');
     }
@@ -164,7 +165,7 @@ export function App() {
     try {
       await authApi.logout();
     } catch (e) {}
-    localStorage.clear();
+    ['messconnect_role', 'messconnect_tab', 'access_token'].forEach(key => localStorage.removeItem(key));
     setIsLoggedIn(false);
     setUserRole('student');
     setCurrentTab('home');
@@ -237,7 +238,7 @@ export function App() {
 
       {/* View Switcher Container */}
       <div className="flex-1 w-full flex flex-col">
-        <ErrorBoundary resetKey={currentTab}>
+        <ErrorBoundary resetKey={currentTab}><Suspense fallback={<p role="status" className="p-6">Loading…</p>}>
         {userRole === 'student' && (
           <>
             {(currentTab === 'home' || currentTab === 'admin-dashboard') && (
@@ -271,26 +272,15 @@ export function App() {
 
         {userRole === 'admin' && (
           <>
-            {(currentTab === 'admin-dashboard' || currentTab === 'home') && (
-              <AdminDashboardView initialModuleTab="daily-summary" onNavigate={handleTabChange} />
-            )}
-            {currentTab === 'admin-menu' && (
-              <AdminDashboardView initialModuleTab="weekly-menu" onNavigate={handleTabChange} />
-            )}
-            {currentTab === 'admin-ledger' && (
-              <AdminDashboardView initialModuleTab="ledger" onNavigate={handleTabChange} />
-            )}
+            {(currentTab === 'admin-dashboard' || currentTab === 'home') && <AdminOverviewView />}
             {currentTab === 'admin-students' && (
-              <AdminDashboardView initialModuleTab="student-data" onNavigate={handleTabChange} />
+              <StudentDirectoryView students={students} onAddStudent={handleAddStudent} />
             )}
             {currentTab === 'admin-scanner' && (
               <AdminScannerView scanLogs={scanLogs} onAddScanLog={handleAddScanLog} />
             )}
             {currentTab === 'admin-billing' && (
-              <AdminDashboardView initialModuleTab="billing" onNavigate={handleTabChange} />
-            )}
-            {currentTab === 'admin-payments' && (
-              <AdminDashboardView initialModuleTab="payments" onNavigate={handleTabChange} />
+              <BillingManagementView />
             )}
             {currentTab === 'alerts' && (
               <AlertsView alerts={alerts} onMarkAllRead={handleMarkAllAlertsRead} />
@@ -308,7 +298,7 @@ export function App() {
             )}
           </>
         )}
-        </ErrorBoundary>
+        </Suspense></ErrorBoundary>
       </div>
 
         {/* Bottom Navigation for Mobile */}

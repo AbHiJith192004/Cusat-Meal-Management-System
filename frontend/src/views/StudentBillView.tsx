@@ -15,7 +15,9 @@ interface BillData {
   student: { name: string; registration_number: string };
   mess_daily_rate: string;
   effective_days: number;
-  days_attended: string[];
+  opted_in_days: string[];
+  revision: number;
+  base_charge: string;
   food_charge: string;
   fines: FineLine[];
   total_fines: string;
@@ -53,6 +55,7 @@ export const StudentBillView: React.FC = () => {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setBill(null);
     setNotPublished(false);
     setError(null);
 
@@ -77,7 +80,7 @@ export const StudentBillView: React.FC = () => {
   const yearOptions = Array.from({ length: 4 }, (_, i) => now.getFullYear() - i);
 
   const billNo = bill
-    ? `MC-${bill.year}${String(bill.month).padStart(2, '0')}-${bill.student.registration_number}`
+    ? `MC-${bill.year}${String(bill.month).padStart(2, '0')}-${bill.student.registration_number}-R${bill.revision}`
     : '';
 
   return (
@@ -117,7 +120,7 @@ export const StudentBillView: React.FC = () => {
             ))}
           </select>
 
-          {bill && (
+          {bill && !loading && !error && !notPublished && (
             <button onClick={() => window.print()} className="btn-primary" style={{ padding: '10px 18px' }}>
               <span className="material-symbols-outlined" style={{ fontSize: 17 }}>download</span>
               Download
@@ -165,7 +168,7 @@ export const StudentBillView: React.FC = () => {
         </div>
       )}
 
-      {!loading && bill && (
+      {!loading && !error && !notPublished && bill && (
         <div className="bill-sheet">
           {/* Letterhead */}
           <div className="bill-header">
@@ -205,12 +208,12 @@ export const StudentBillView: React.FC = () => {
             <tbody>
               <tr>
                 <td>
-                  Mess food charge
-                  <span className="bill-line-note">Days attended this month, at the published daily rate</span>
+                  Base mess charge
+                  <span className="bill-line-note">Food, operating and administrative costs allocated by opted-in days; rounded to the nearest paisa</span>
                 </td>
                 <td className="num">{bill.effective_days}</td>
                 <td className="num">₹{inr(bill.mess_daily_rate)}</td>
-                <td className="num">₹{inr(bill.food_charge)}</td>
+                <td className="num">₹{inr(bill.base_charge)}</td>
               </tr>
 
               {bill.fines.map((f, i) => (
@@ -239,15 +242,15 @@ export const StudentBillView: React.FC = () => {
           {/* Totals */}
           <div className="bill-totals">
             <div className="bill-totals-row">
-              <span>Food charge</span>
-              <span>₹{inr(bill.food_charge)}</span>
+              <span>Base mess charge</span>
+              <span>₹{inr(bill.base_charge)}</span>
             </div>
             <div className="bill-totals-row">
               <span>Fines</span>
               <span>₹{inr(bill.total_fines)}</span>
             </div>
             <div className="bill-totals-row bill-grand-total">
-              <span>Total due</span>
+              <span>Total charges</span>
               <span>₹{inr(bill.grand_total)}</span>
             </div>
           </div>

@@ -5,7 +5,7 @@ export const INITIAL_STUDENT = {
   regNo: 'STUDENT',
   hostel: 'CUSAT Hostel Mess 1',
   category: 'Hosteller',
-  avatar: 'https://ui-avatars.com/api/?name=Student&background=2563eb&color=fff'
+  avatar: ''
 };
 
 export const INITIAL_MEAL_PLANS: DayMealPlan[] = [];

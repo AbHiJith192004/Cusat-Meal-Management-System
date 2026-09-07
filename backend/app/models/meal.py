@@ -1,3 +1,7 @@
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from app.models.user import User
+
 import uuid
 from datetime import date, datetime
 
@@ -16,6 +20,7 @@ class MealSelection(Base):
     meal_date: Mapped[date] = mapped_column(sa.Date, nullable=False)
     meal_type: Mapped[str] = mapped_column(sa.String(20), nullable=False)
     status: Mapped[str] = mapped_column(sa.String(20), nullable=False, default=MealStatus.CONFIRMED.value)
+    status_before_holiday: Mapped[str | None] = mapped_column(sa.String(20), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), server_default=sa.func.now(), onupdate=sa.func.now())
     updated_by: Mapped[uuid.UUID | None] = mapped_column(sa.UUID(as_uuid=True), sa.ForeignKey("users.id"), nullable=True)
 

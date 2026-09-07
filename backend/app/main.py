@@ -43,8 +43,9 @@ def create_app() -> FastAPI:
         title="CUSAT Mess Management API",
         description="Backend API for CUSAT Boys Hostel Mess Management System",
         version="1.0.0",
-        docs_url="/docs",
-        redoc_url="/redoc",
+        docs_url="/docs" if settings.is_development else None,
+        redoc_url="/redoc" if settings.is_development else None,
+        openapi_url="/openapi.json" if settings.is_development else None,
         lifespan=lifespan,
     )
     
@@ -56,6 +57,8 @@ def create_app() -> FastAPI:
     
     # Add request logging middleware
     app.add_middleware(RequestLoggingMiddleware)
+    from app.middleware.security import SecurityMiddleware
+    app.add_middleware(SecurityMiddleware)
     
     # Include routers
     app.include_router(health.router)
@@ -67,13 +70,10 @@ def create_app() -> FastAPI:
     app.include_router(notifications.router)
     app.include_router(super_admin.router)
 
-    from fastapi.responses import RedirectResponse
+    if settings.STATIC_DIR:
+        from app.static import SPAStaticFiles
+        app.mount("/", SPAStaticFiles(directory=settings.STATIC_DIR, html=True), name="frontend")
 
-    @app.get("/", include_in_schema=False)
-    async def root_redirect():
-        """Redirect root URL to interactive Swagger UI documentation."""
-        return RedirectResponse(url="/docs")
-    
     return app
 
 
