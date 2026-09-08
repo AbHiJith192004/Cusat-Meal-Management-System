@@ -57,6 +57,13 @@ export const BillingManagementView: React.FC = () => {
       </label>)}
     </div>
     {!status?.is_published && <div className="flex flex-wrap gap-3">
+      <button className="btn-secondary" disabled={busy || !status} onClick={() => run(async () => {
+        const totals = await adminApi.getLedgerPeriodSummary(month, year);
+        setFigures({...figures, purchases_value:totals.purchases_value,
+          operational_expenses:totals.operational_expenses,
+          administrative_expenses:totals.administrative_expenses});
+        setPreview(null);
+      })}>Fill costs from ledger</button>
       <button className="btn-secondary" disabled={busy || !status} onClick={() => run(async () => setPreview(await adminApi.previewBill(payload())))}>Preview student bills</button>
       <button className="btn-primary" disabled={busy || !preview || preview.chargeable_days === 0} onClick={() => run(async () => {
         const result = await adminApi.publishBill({...payload(), preview_token: preview.preview_token} as Parameters<typeof adminApi.publishBill>[0]);

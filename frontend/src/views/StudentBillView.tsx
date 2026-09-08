@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { studentApi } from '../services/api';
+import { paymentApi, studentApi } from '../services/api';
 import { ChefMascot } from '../components/FoodIllustrations';
 
 interface FineLine {
@@ -51,6 +51,13 @@ export const StudentBillView: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [notPublished, setNotPublished] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [payments, setPayments] = useState<any[]>([]);
+  const [utr, setUtr] = useState('');
+  const [paymentMessage, setPaymentMessage] = useState<string | null>(null);
+  const [submittingPayment, setSubmittingPayment] = useState(false);
+
+  const loadPayments = () => paymentApi.listMine().then(setPayments).catch(() => setPayments([]));
+  useEffect(() => { loadPayments(); }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -169,6 +176,7 @@ export const StudentBillView: React.FC = () => {
       )}
 
       {!loading && !error && !notPublished && bill && (
+        <>
         <div className="bill-sheet">
           {/* Letterhead */}
           <div className="bill-header">
@@ -259,6 +267,20 @@ export const StudentBillView: React.FC = () => {
             <p>This is a system-generated bill from CUSAT MessConnect. For queries, contact the mess office.</p>
           </div>
         </div>
+        <section className="no-print rounded-2xl p-5 mt-5" style={{background:'var(--card)',border:'1px solid var(--line)'}}>
+          <h3 className="font-display text-base font-bold" style={{color:'var(--text-dark)'}}>Payment confirmation</h3>
+          {(() => {
+            const existing = payments.find(p => p.month === month && p.year === year && p.bill_revision === bill.revision);
+            if (existing && existing.status !== 'REJECTED') return <div className="mt-3 rounded-xl p-3 text-sm" style={{background:existing.status==='VERIFIED'?'#EAF8F0':'#FFF7E7'}}><strong>{existing.status === 'VERIFIED'?'Payment verified':'Verification pending'}</strong><br/><span className="text-xs">UTR {existing.utr} · ₹{inr(existing.amount)}</span></div>;
+            return <form className="mt-3 flex flex-col sm:flex-row gap-2" onSubmit={async e=>{e.preventDefault();setSubmittingPayment(true);setPaymentMessage(null);try{await paymentApi.submit(month,year,utr,Number(bill.grand_total));setUtr('');setPaymentMessage('UTR submitted for staff verification.');await loadPayments();}catch(err:any){setPaymentMessage(err.message);}finally{setSubmittingPayment(false);}}}>
+              <input className="stitch-input flex-1" required minLength={6} maxLength={64} pattern="[A-Za-z0-9-]+" placeholder="Bank UTR / transaction reference" value={utr} onChange={e=>setUtr(e.target.value)}/>
+              <button className="btn-primary justify-center" disabled={submittingPayment}>{submittingPayment?'Submitting…':existing?'Resubmit payment':'Submit payment'}</button>
+            </form>;
+          })()}
+          {paymentMessage && <p role="alert" className="text-xs font-bold mt-2" style={{color:paymentMessage.startsWith('UTR')?'#087443':'var(--red)'}}>{paymentMessage}</p>}
+          <p className="text-[11px] mt-3" style={{color:'var(--text-muted)'}}>Submit only after paying the exact published total of ₹{inr(bill.grand_total)}. Staff verifies the UTR against the bank credit.</p>
+        </section>
+        </>
       )}
     </main>
   );

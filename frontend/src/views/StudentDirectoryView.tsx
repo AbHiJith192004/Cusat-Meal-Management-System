@@ -1,16 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { StudentRecord } from '../types';
 import { adminApi } from '../services/api';
 
-interface StudentDirectoryViewProps {
-  students: StudentRecord[];
-  onAddStudent: (student: StudentRecord) => void;
-}
-
-export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({
-  students: _initialStudents,
-  onAddStudent,
-}) => {
+export const StudentDirectoryView: React.FC = () => {
+  const requestSequence = useRef(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [selectedStudent, setSelectedStudent] = useState<StudentRecord | null>(null);
@@ -39,10 +32,12 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({
   });
 
   const fetchStudents = async () => {
+    const sequence = ++requestSequence.current;
     setLoading(true);
     setLoadError('');
     try {
-      const data = await adminApi.getStudents(searchQuery);
+      const data = await adminApi.getAllStudents(searchQuery);
+      if (sequence !== requestSequence.current) return;
       if (Array.isArray(data)) {
         const formatted: StudentRecord[] = data.map((s: any) => ({
           id: s.id,
@@ -65,6 +60,7 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({
         setApiStudents(formatted);
       }
     } catch (e) {
+      if (sequence !== requestSequence.current) return;
       setApiStudents([]);
       setLoadError(e instanceof Error ? e.message : 'Could not load student records.');
     } finally {
@@ -73,7 +69,8 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({
   };
 
   useEffect(() => {
-    fetchStudents();
+    const timer = window.setTimeout(fetchStudents, 250);
+    return () => window.clearTimeout(timer);
   }, [searchQuery]);
 
   const displayList = apiStudents;
@@ -126,7 +123,6 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({
         phone: newStudent.phone,
       };
 
-      onAddStudent(created);
       setApiStudents((prev) => [created, ...prev]);
       setShowAddModal(false);
       setNewStudent({
@@ -167,7 +163,7 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search name, reg no..."
-                className="w-full pl-9 pr-3 py-2 bg-[#f0f3ff] border border-[#c3c6d7] rounded-lg text-xs font-medium focus:border-[#F47A35] outline-none"
+                className="w-full pl-9 pr-3 py-2 bg-[#f0f3ff] border border-[#c3c6d7] rounded-lg text-xs font-medium focus:border-[#B7470D] outline-none"
               />
             </div>
 
@@ -185,7 +181,7 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({
             {/* Add Student Button */}
             <button
               onClick={() => setShowAddModal(true)}
-              className="flex items-center gap-1.5 px-4 py-2 bg-[#F47A35] text-white font-semibold text-xs rounded-lg hover:bg-[#D45E1A] transition-colors cursor-pointer shadow-2xs"
+              className="flex items-center gap-1.5 px-4 py-2 bg-[#B7470D] text-white font-semibold text-xs rounded-lg hover:bg-[#923606] transition-colors cursor-pointer shadow-2xs"
             >
               <span className="material-symbols-outlined text-[18px]">person_add</span>
               Add Student
@@ -202,7 +198,7 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({
           </div>
         ) : filteredStudents.length === 0 ? (
           <div className="flex flex-col items-center justify-center p-12 text-center text-[#737686] bg-white rounded-xl border border-[#c3c6d7] max-w-md mx-auto my-8">
-            <span className="material-symbols-outlined text-[48px] mb-2 text-[#D45E1A]">group_off</span>
+            <span className="material-symbols-outlined text-[48px] mb-2 text-[#923606]">group_off</span>
             <p className="font-semibold text-base text-[#151c27]">No Student Records Found</p>
             <p className="text-xs text-[#434655] mt-1">
               Use "Add Student" button above to add student records, or import from Excel.
@@ -275,7 +271,7 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({
 
             <div className="flex flex-col items-center text-center gap-2">
               {selectedStudent.avatar ? (
-                <img src={selectedStudent.avatar} alt="" className="w-20 h-20 rounded-full object-cover border-2 border-[#F47A35]" />
+                <img src={selectedStudent.avatar} alt="" className="w-20 h-20 rounded-full object-cover border-2 border-[#B7470D]" />
               ) : (
                 <span className="w-20 h-20 rounded-full bg-[#fff0e5] text-[#9a4313] flex items-center justify-center text-xl font-bold" aria-hidden="true">
                   {selectedStudent.name.split(/\s+/).slice(0, 2).map(part => part[0]).join('').toUpperCase()}
@@ -313,8 +309,8 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({
               </div>
               
               {/* Student Meal Overview */}
-              <div className="bg-[#f0f4ff] p-3 rounded-xl border border-[#F47A35]/20 my-2 space-y-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-[#F47A35] block">Student Meal Overview</span>
+              <div className="bg-[#f0f4ff] p-3 rounded-xl border border-[#B7470D]/20 my-2 space-y-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-[#B7470D] block">Student Meal Overview</span>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="bg-white p-2.5 rounded-lg border border-[#006c49]/30 flex flex-col">
                     <span className="text-[10px] font-semibold text-[#006c49] flex items-center gap-1">
@@ -361,7 +357,7 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({
 
             <button
               onClick={() => setSelectedStudent(null)}
-              className="w-full py-2 bg-[#F47A35] text-white font-semibold text-xs rounded-lg hover:bg-[#D45E1A]"
+              className="w-full py-2 bg-[#B7470D] text-white font-semibold text-xs rounded-lg hover:bg-[#923606]"
             >
               Close
             </button>
@@ -450,7 +446,7 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({
                   <select
                     value={newStudent.campusLocation}
                     onChange={(e) => setNewStudent({ ...newStudent, campusLocation: e.target.value })}
-                    className="w-full p-2 border border-[#c3c6d7] rounded-lg text-sm bg-white font-semibold text-[#F47A35]"
+                    className="w-full p-2 border border-[#c3c6d7] rounded-lg text-sm bg-white font-semibold text-[#B7470D]"
                   >
                     <option value="MAIN_CAMPUS">Main Campus (Std Bill)</option>
                     <option value="LAKESIDE_CAMPUS">Lakeside (25% Off Bill)</option>
@@ -475,7 +471,7 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({
               <button
                 type="submit"
                 disabled={addLoading}
-                className="flex-1 py-2.5 bg-[#F47A35] text-white font-semibold rounded-lg hover:bg-[#D45E1A] disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1 py-2.5 bg-[#B7470D] text-white font-semibold rounded-lg hover:bg-[#923606] disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {addLoading ? (
                   <><span className="material-symbols-outlined animate-spin text-[18px]">refresh</span> Creating...</>

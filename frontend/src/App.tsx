@@ -1,11 +1,6 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
-import { UserRole, ActiveTab, StudentRecord, ScanLog, AlertItem } from './types';
-import {
-  INITIAL_STUDENT,
-  INITIAL_STUDENTS,
-  INITIAL_SCAN_LOGS,
-  INITIAL_ALERTS
-} from './data/mockData';
+import { UserRole, ActiveTab } from './types';
+import { INITIAL_STUDENT } from './data/defaults';
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
 import { SideNav } from './components/SideNav';
@@ -17,10 +12,11 @@ import { StudentBillView } from './views/StudentBillView';
 const AdminOverviewView = lazy(() => import('./views/AdminOverviewView').then(module => ({ default: module.AdminOverviewView })));
 const BillingManagementView = lazy(() => import('./views/BillingManagementView').then(module => ({ default: module.BillingManagementView })));
 const AdminScannerView = lazy(() => import('./views/AdminScannerView').then(module => ({ default: module.AdminScannerView })));
+const AdminOperationsView = lazy(() => import('./views/AdminOperationsView').then(module => ({ default: module.AdminOperationsView })));
 import { StudentDirectoryView } from './views/StudentDirectoryView';
 import { ProfileView } from './views/ProfileView';
 import { AlertsView } from './views/AlertsView';
-import { authApi, studentApi, getAuthToken, restoreSession } from './services/api';
+import { authApi, notificationsApi, studentApi, getAuthToken, restoreSession } from './services/api';
 
 import { PwaInstallPrompt } from './components/PwaInstallPrompt';
 import { LoginModal } from './components/LoginModal';
@@ -33,12 +29,11 @@ export function App() {
     () => (localStorage.getItem('messconnect_tab') as ActiveTab) || 'home'
   );
   const [studentInfo, setStudentInfo] = useState(INITIAL_STUDENT);
-  const [students, setStudents] = useState<StudentRecord[]>(INITIAL_STUDENTS);
-  const [scanLogs, setScanLogs] = useState<ScanLog[]>(INITIAL_SCAN_LOGS);
-  const [alerts, setAlerts] = useState<AlertItem[]>(INITIAL_ALERTS);
+  const [unreadAlertsCount, setUnreadAlertsCount] = useState(0);
   const [isLoginOpen, setIsLoginOpen] = useState<boolean>(false);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [checkingSession, setCheckingSession] = useState<boolean>(true);
+  const [canScan, setCanScan] = useState(false);
 
   // Helper to change tab & persist in localStorage
   const handleTabChange = (tab: ActiveTab) => {
@@ -67,6 +62,7 @@ export function App() {
           // the placeholder on every refresh.
           const profile = await studentApi.getProfile();
           const verifiedRole: UserRole = ["ADMIN", "SUPER_ADMIN"].includes(profile.role) ? "admin" : "student";
+          setCanScan(Boolean(profile.capabilities?.attendance_scanner));
           setUserRole(verifiedRole);
           setCurrentTab(verifiedRole === "admin" ? "admin-dashboard" : "home");
           setStudentInfo((prev) => ({
@@ -75,6 +71,9 @@ export function App() {
             regNo: profile.registration_number || prev.regNo,
             hostel: verifiedRole === 'admin' ? 'CUSAT Mess Administration' : prev.hostel,
           }));
+          notificationsApi.getNotifications().then(rows => setUnreadAlertsCount(
+            Array.isArray(rows) ? rows.filter((x:any) => !x.is_read).length : 0
+          )).catch(() => {});
           setIsLoggedIn(true);
         } catch (e) {
           // Token expired or invalid — clear session
@@ -107,10 +106,14 @@ export function App() {
     setUserRole(role);
     localStorage.setItem('messconnect_role', role);
     setIsLoggedIn(true);
+    notificationsApi.getNotifications().then(rows => setUnreadAlertsCount(
+      Array.isArray(rows) ? rows.filter((x:any) => !x.is_read).length : 0
+    )).catch(() => {});
 
     if (role === 'student') {
       try {
         const profile = await studentApi.getProfile();
+        setCanScan(Boolean(profile.capabilities?.attendance_scanner));
         setStudentInfo({
           name: profile.name || name,
           regNo: profile.registration_number || regNo,
@@ -141,18 +144,6 @@ export function App() {
     }
   };
 
-  const handleAddStudent = (newStudent: StudentRecord) => {
-    setStudents((prev) => [newStudent, ...prev]);
-  };
-
-  const handleAddScanLog = (newLog: ScanLog) => {
-    setScanLogs((prev) => [newLog, ...prev]);
-  };
-
-  const handleMarkAllAlertsRead = () => {
-    setAlerts((prev) => prev.map((a) => ({ ...a, isUnread: false })));
-  };
-
   const handleUpdateStudentName = (newName: string) => {
     setStudentInfo((prev) => ({ ...prev, name: newName }));
   };
@@ -167,12 +158,11 @@ export function App() {
     } catch (e) {}
     ['messconnect_role', 'messconnect_tab', 'access_token'].forEach(key => localStorage.removeItem(key));
     setIsLoggedIn(false);
+    setUnreadAlertsCount(0);
     setUserRole('student');
     setCurrentTab('home');
     setIsLoginOpen(true);
   };
-
-  const unreadAlertsCount = alerts.filter((a) => a.isUnread).length;
 
   // Show loading spinner while checking token
   if (checkingSession) {
@@ -215,10 +205,11 @@ export function App() {
         currentTab={currentTab}
         setCurrentTab={handleTabChange}
         userRole={userRole}
-        userName={studentInfo.name}
+      userName={studentInfo.name}
         regNo={studentInfo.regNo}
         unreadAlertsCount={unreadAlertsCount}
         onLogout={handleLogout}
+        canScan={canScan}
       />
 
       <div className="app-main">
@@ -252,8 +243,11 @@ export function App() {
             {currentTab === 'qr' && (
               <StudentQrView studentName={studentInfo.name} regNo={studentInfo.regNo} />
             )}
+            {currentTab === 'admin-scanner' && canScan && (
+              <AdminScannerView />
+            )}
             {currentTab === 'alerts' && (
-              <AlertsView alerts={alerts} onMarkAllRead={handleMarkAllAlertsRead} />
+              <AlertsView onUnreadChange={setUnreadAlertsCount} />
             )}
             {currentTab === 'bill' && <StudentBillView />}
             {currentTab === 'profile' && (
@@ -274,16 +268,17 @@ export function App() {
           <>
             {(currentTab === 'admin-dashboard' || currentTab === 'home') && <AdminOverviewView />}
             {currentTab === 'admin-students' && (
-              <StudentDirectoryView students={students} onAddStudent={handleAddStudent} />
+              <StudentDirectoryView />
             )}
             {currentTab === 'admin-scanner' && (
-              <AdminScannerView scanLogs={scanLogs} onAddScanLog={handleAddScanLog} />
+              <AdminScannerView />
             )}
             {currentTab === 'admin-billing' && (
               <BillingManagementView />
             )}
+            {currentTab === 'admin-operations' && <AdminOperationsView />}
             {currentTab === 'alerts' && (
-              <AlertsView alerts={alerts} onMarkAllRead={handleMarkAllAlertsRead} />
+              <AlertsView onUnreadChange={setUnreadAlertsCount} />
             )}
             {currentTab === 'profile' && (
               <ProfileView
@@ -307,6 +302,7 @@ export function App() {
           setCurrentTab={handleTabChange}
           userRole={userRole}
           unreadAlertsCount={unreadAlertsCount}
+          canScan={canScan}
         />
       </div>
     </div>

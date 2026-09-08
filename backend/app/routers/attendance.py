@@ -6,13 +6,31 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.schemas.attendance import QRVerifyRequest, QRConfirmRequest
 from app.schemas.common import success_response
-from app.security.dependencies import CurrentUser, AdminUser
+from app.security.dependencies import CurrentUser, ScannerUser
 from app.services.qr_service import QRService
 from app.services.attendance_service import AttendanceService
 from app.utils.enums import MealType
 from app.utils.exceptions import ValidationException
 
 router = APIRouter(prefix="/api/v1/attendance", tags=["Attendance"])
+
+
+@router.get("/recent")
+async def recent_attendance(
+    scanner_user: ScannerUser,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    db: AsyncSession = Depends(get_db, scope="function"),
+):
+    """Recent persisted check-ins for the scanner log."""
+    from sqlalchemy import select
+    from app.models.attendance import Attendance
+    from app.models.user import User
+    from app.utils.timezone import today_ist
+    rows = (await db.execute(select(Attendance, User).join(User, User.id == Attendance.student_id).where(
+        Attendance.meal_date == today_ist()).order_by(Attendance.recorded_at.desc()).limit(limit))).all()
+    return success_response(data=[{"id": str(a.id), "student_name": u.name,
+        "registration_number": u.registration_number, "meal_type": a.meal_type,
+        "attendance_type": a.attendance_type, "recorded_at": a.recorded_at.isoformat()} for a, u in rows])
 
 
 @router.get("/qr")
@@ -41,7 +59,7 @@ async def generate_qr_code(
 @router.post("/verify")
 async def verify_qr_code(
     body: QRVerifyRequest,
-    admin_user: AdminUser,
+    admin_user: ScannerUser,
     db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """Admin scans QR: verify token validity, return student details."""
@@ -53,7 +71,7 @@ async def verify_qr_code(
 @router.post("/confirm")
 async def confirm_qr_attendance(
     body: QRConfirmRequest,
-    admin_user: AdminUser,
+    admin_user: ScannerUser,
     db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """Admin confirms scanned QR: record attendance atomically."""

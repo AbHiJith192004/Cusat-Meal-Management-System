@@ -852,28 +852,6 @@ async def update_physical_stock(
     return success_response(data=result)
 
 
-@router.post("/committee/promote")
-async def promote_to_committee(
-    body: dict,
-    admin_user: AdminUser,
-    db: AsyncSession = Depends(get_db, scope="function"),
-):
-    from fastapi import HTTPException
-    raise HTTPException(501, "Committee assignments are not implemented. No privileges or attendance were changed.")
-
-
-@router.post("/committee/revoke/{student_id}")
-async def revoke_committee(student_id: str, admin_user: AdminUser):
-    from fastapi import HTTPException
-    raise HTTPException(501, "Committee assignments are not implemented. No privileges were changed.")
-
-
-@router.post("/attendance/bulk-mark")
-async def bulk_mark_attendance(body: dict, admin_user: AdminUser):
-    from fastapi import HTTPException
-    raise HTTPException(501, "Bulk attendance is not implemented. Use individual attendance recording.")
-
-
 from pydantic import BaseModel, Field
 
 class SetupCodeRequest(BaseModel):

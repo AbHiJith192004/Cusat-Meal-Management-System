@@ -2,10 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { AlertItem } from '../types';
 import { notificationsApi } from '../services/api';
 
-interface AlertsViewProps {
-  alerts: AlertItem[];
-  onMarkAllRead: () => void;
-}
+interface AlertsViewProps { onUnreadChange?: (count:number) => void; }
 
 type VisualType = 'food' | 'menu' | 'bill' | 'info' | 'warning' | 'success';
 
@@ -28,7 +25,7 @@ function resolveType(alert: AlertItem): VisualType {
   return 'food';
 }
 
-export const AlertsView: React.FC<AlertsViewProps> = ({ alerts: initialAlerts, onMarkAllRead }) => {
+export const AlertsView: React.FC<AlertsViewProps> = ({ onUnreadChange }) => {
   const [alertsList, setAlertsList] = useState<AlertItem[]>([]);
   const [visualTypes, setVisualTypes] = useState<Record<string, VisualType>>({});
 
@@ -51,6 +48,7 @@ export const AlertsView: React.FC<AlertsViewProps> = ({ alerts: initialAlerts, o
             isUnread: !n.is_read,
           }));
           setAlertsList(formatted);
+          onUnreadChange?.(formatted.filter(a => a.isUnread).length);
           const types: Record<string, VisualType> = {};
           formatted.forEach(a => { types[a.id] = resolveType(a); });
           setVisualTypes(types);
@@ -69,7 +67,11 @@ export const AlertsView: React.FC<AlertsViewProps> = ({ alerts: initialAlerts, o
   const markRead = async (id: string) => {
     try {
       await notificationsApi.markRead(id);
-      setAlertsList(prev => prev.map(a => a.id === id ? { ...a, isUnread: false } : a));
+      setAlertsList(prev => {
+        const next = prev.map(a => a.id === id ? { ...a, isUnread: false } : a);
+        onUnreadChange?.(next.filter(a => a.isUnread).length);
+        return next;
+      });
     } catch { setError('Could not save read status. Please try again.'); }
   };
   const handleMarkRead = async () => {

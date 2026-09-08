@@ -40,6 +40,18 @@ async def get_current_user_profile(
             "photo_url": user.profile.photo_url,
         }
     
+    from sqlalchemy import select
+    from app.models.operations import CommitteeAssignment
+    from app.utils.timezone import now_ist
+    scanner_access = current_user.role in {"ADMIN", "SUPER_ADMIN"} or bool(await db.scalar(
+        select(CommitteeAssignment.id).where(
+            CommitteeAssignment.student_id == current_user.id,
+            CommitteeAssignment.scope == "ATTENDANCE_SCANNER",
+            CommitteeAssignment.revoked_at.is_(None),
+            CommitteeAssignment.starts_at <= now_ist(),
+            CommitteeAssignment.ends_at > now_ist(),
+        )
+    ))
     return success_response(
         data={
             "id": str(current_user.id),
@@ -49,6 +61,7 @@ async def get_current_user_profile(
             "account_status": current_user.account_status,
             "activated_at": current_user.activated_at.isoformat() if current_user.activated_at else None,
             "profile": profile_data,
+            "capabilities": {"attendance_scanner": scanner_access},
         }
     )
 

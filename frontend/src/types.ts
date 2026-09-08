@@ -12,6 +12,7 @@ export type ActiveTab =
   | 'admin-dashboard'
   | 'admin-students'
   | 'admin-scanner'
+  | 'admin-operations'
   | 'admin-billing';
 
 export interface MealOption {

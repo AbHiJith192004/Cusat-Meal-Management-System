@@ -35,6 +35,11 @@ async def get_my_meals(
                   await service.meal_repo.get_student_meals_range(current_user.id, start, end)}
     holidays = {(h.holiday_date, h.meal_type) for h in
                 await service.holiday_repo.get_in_range(start, end)}
+    from app.models.operations import MenuPublication
+    from sqlalchemy import select
+    menus = {(m.menu_date, m.meal_type): m for m in (await db.execute(
+        select(MenuPublication).where(MenuPublication.menu_date.between(start, end))
+    )).scalars().all()}
     from app.services.meal_timing_service import DEFAULT_SETTINGS
     stored_settings = {
         setting.key: setting.value
@@ -64,6 +69,8 @@ async def get_my_meals(
                 "id": str(selection.id) if selection else None,
                 "status": "NO_SERVICE" if holiday else (selection.status if selection else "CONFIRMED"),
                 "time_window": meal_windows[mt],
+                "items": menus[(curr, mt)].items if (curr, mt) in menus else [],
+                "menu_notes": menus[(curr, mt)].notes if (curr, mt) in menus else None,
             }
         result_days.append(day)
         curr += timedelta(days=1)

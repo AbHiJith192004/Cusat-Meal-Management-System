@@ -1,6 +1,6 @@
 # CUSAT Meal Management System
 
-MessConnect is a hostel meal-management application for CUSAT. It combines a FastAPI API, PostgreSQL persistence, a React PWA, QR attendance, monthly billing, and daily fine reconciliation.
+MessConnect is a hostel meal-management application for CUSAT. It combines a FastAPI API, PostgreSQL persistence, a React PWA, meal selection and menu publication, QR and bulk attendance, inventory and expense ledgers, committee scanner access, payment verification, monthly billing, and daily fine reconciliation.
 
 ## Repository layout
 
@@ -43,6 +43,8 @@ npm audit --audit-level=moderate
 ```
 
 Database-backed tests require a separate disposable PostgreSQL database through `TEST_DATABASE_URL`. The test safeguards reject production-like or non-test database targets.
+
+The Operations screen is the staff workspace for weekly menus, purchases and expenses, live inventory balances, time-limited committee assignments, atomic bulk attendance, and UTR payment review. Ledger totals can be copied into a monthly billing draft; published bill revisions and verified payments remain immutable.
 
 ## Production deployment
 

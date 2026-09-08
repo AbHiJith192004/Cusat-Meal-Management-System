@@ -10,7 +10,7 @@ from app.database import init_db, close_db
 from app.middleware.cors import setup_cors
 from app.middleware.error_handler import register_exception_handlers
 from app.middleware.logging_middleware import RequestLoggingMiddleware
-from app.routers import health, auth, student, meals, attendance, admin, notifications, super_admin
+from app.routers import health, auth, student, meals, attendance, admin, notifications, super_admin, operations
 
 def configure_logging() -> None:
     """Configure structured logging."""
@@ -69,6 +69,7 @@ def create_app() -> FastAPI:
     app.include_router(admin.router)
     app.include_router(notifications.router)
     app.include_router(super_admin.router)
+    app.include_router(operations.router)
 
     if settings.STATIC_DIR:
         from app.static import SPAStaticFiles

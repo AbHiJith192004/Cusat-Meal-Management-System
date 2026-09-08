@@ -9,6 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models.user import User
+from app.models.operations import CommitteeAssignment
+from app.utils.timezone import now_ist
 from app.security.jwt_handler import decode_access_token
 from app.utils.enums import Role, AccountStatus
 from app.utils.exceptions import (
@@ -106,3 +108,25 @@ def require_role(*roles: Role):
 CurrentUser = Annotated[User, Depends(get_current_user)]
 AdminUser = Annotated[User, Depends(require_role(Role.ADMIN, Role.SUPER_ADMIN))]
 SuperAdminUser = Annotated[User, Depends(require_role(Role.SUPER_ADMIN))]
+
+
+async def require_scanner_access(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db, scope="function"),
+) -> User:
+    if current_user.role in {Role.ADMIN.value, Role.SUPER_ADMIN.value}:
+        return current_user
+    now = now_ist()
+    assignment = await db.scalar(select(CommitteeAssignment.id).where(
+        CommitteeAssignment.student_id == current_user.id,
+        CommitteeAssignment.scope == "ATTENDANCE_SCANNER",
+        CommitteeAssignment.revoked_at.is_(None),
+        CommitteeAssignment.starts_at <= now,
+        CommitteeAssignment.ends_at > now,
+    ))
+    if not assignment:
+        raise ForbiddenException(message="An active attendance-scanner assignment is required.")
+    return current_user
+
+
+ScannerUser = Annotated[User, Depends(require_scanner_access)]

@@ -157,8 +157,18 @@ export const mealApi = {
     }),
 };
 
+export const menuApi = {
+  list: (startDate?: string, endDate?: string) => {
+    const p = new URLSearchParams();
+    if (startDate) p.set('start_date', startDate);
+    if (endDate) p.set('end_date', endDate);
+    return request<any[]>(`/menus${p.toString() ? `?${p}` : ''}`);
+  },
+};
+
 // Attendance API
 export const attendanceApi = {
+  getRecent: () => request<any[]>('/attendance/recent'),
   getQrToken: (mealType: string) =>
     request<{ qr_token: string; expires_at: string; validity_seconds: number }>(
       `/attendance/qr?meal_type=${mealType.toUpperCase()}`
@@ -188,10 +198,22 @@ export const adminApi = {
   },
 
   getStudents: (query?: string, page: number = 1) => {
-    const params = new URLSearchParams({ page: String(page) });
+    const params = new URLSearchParams({ page: String(page), per_page: '100' });
     if (query) params.append('query', query);
     return request<any[]>(`/admin/students?${params.toString()}`);
   },
+  getAllStudents: async (query?: string) => {
+    const all: any[] = [];
+    for (let page = 1; page <= 10; page++) {
+      const params = new URLSearchParams({page:String(page), per_page:'100'});
+      if (query) params.set('query', query);
+      const rows = await request<any[]>(`/admin/students?${params}`);
+      all.push(...rows);
+      if (rows.length < 100) break;
+    }
+    return all;
+  },
+  getStudentOptions: () => request<any[]>('/admin/student-options'),
 
   createStudent: (data: {
     name: string;
@@ -373,6 +395,29 @@ export const adminApi = {
   },
 
   getAuditLogs: (page: number = 1) => request<any[]>(`/admin/audit?page=${page}`),
+
+  publishMenu: (date: string, mealType: string, items: string[], notes?: string) =>
+    request<any>(`/admin/menus/${date}/${mealType}`, {method: 'PUT', body: JSON.stringify({items, notes})}),
+  getLedger: (kind?: string) => request<any>(`/admin/ledger${kind ? `?kind=${kind}` : ''}`),
+  getLedgerPeriodSummary: (month: number, year: number) => request<any>(`/admin/ledger/period-summary?month=${month}&year=${year}`),
+  createLedger: (data: any) => request<any>('/admin/ledger', {method: 'POST', body: JSON.stringify(data)}),
+  voidLedger: (id: string, reason: string) => request<any>(`/admin/ledger/${id}/void`, {method: 'POST', body: JSON.stringify({reason})}),
+  getInventory: () => request<any[]>('/admin/inventory'),
+  createInventory: (data: any) => request<any>('/admin/inventory', {method: 'POST', body: JSON.stringify(data)}),
+  adjustInventory: (id: string, data: any) => request<any>(`/admin/inventory/${id}/adjust`, {method: 'POST', body: JSON.stringify(data)}),
+  getCommittee: () => request<any[]>('/admin/committee'),
+  assignCommittee: (data: any) => request<any>('/admin/committee/promote', {method: 'POST', body: JSON.stringify(data)}),
+  revokeCommittee: (studentId: string, reason: string) => request<any>(`/admin/committee/revoke/${studentId}`, {method: 'POST', body: JSON.stringify({reason})}),
+  bulkAttendance: (data: any) => request<any>('/admin/attendance/bulk-mark', {method: 'POST', body: JSON.stringify(data)}),
+  getPayments: (status?: string) => request<any[]>(`/admin/payments${status ? `?status=${status}` : ''}`),
+  reviewPayment: (id: string, decision: 'VERIFIED' | 'REJECTED', note: string) =>
+    request<any>(`/admin/payments/${id}/review`, {method: 'POST', body: JSON.stringify({decision, note})}),
+};
+
+export const paymentApi = {
+  listMine: () => request<any[]>('/me/payments'),
+  submit: (month: number, year: number, utr: string, amount: number) =>
+    request<any>('/me/payments', {method: 'POST', body: JSON.stringify({month, year, utr, amount})}),
 };
 
 // Notifications API

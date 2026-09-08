@@ -182,6 +182,18 @@ class BillingService:
                 code="BILL_NOT_PUBLISHED",
             )
 
+        from app.models.operations import PaymentSubmission
+        payment_statuses = (await self.session.execute(select(PaymentSubmission.status).where(
+            PaymentSubmission.period_id == period.id,
+            PaymentSubmission.bill_revision == period.revision,
+            PaymentSubmission.status.in_(["PENDING", "VERIFIED"]),
+        ).limit(1))).scalar_one_or_none()
+        if payment_statuses:
+            raise ConflictException(
+                message="Resolve pending payments before reopening. A verified payment requires a separate refund/correction process.",
+                code="BILL_HAS_ACTIVE_PAYMENTS",
+            )
+
         period.is_published = False
         period.unpublish_reason = reason.strip()
 

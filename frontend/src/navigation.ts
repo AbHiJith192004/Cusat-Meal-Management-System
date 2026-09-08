@@ -46,6 +46,7 @@ export const ADMIN_GROUPS: NavGroup[] = [
       { id: 'admin-dashboard', label: 'Overview',    short: 'Overview', icon: 'space_dashboard' },
       { id: 'admin-scanner',   label: 'QR Scanner',  short: 'Scan',     icon: 'qr_code_scanner' },
       { id: 'admin-students',  label: 'Students',    short: 'Students', icon: 'group' },
+      { id: 'admin-operations', label: 'Operations', short: 'More', icon: 'inventory_2' },
     ],
   },
   {
@@ -63,8 +64,12 @@ export const ADMIN_GROUPS: NavGroup[] = [
   },
 ];
 
-export const groupsFor = (role: UserRole): NavGroup[] =>
-  role === 'student' ? STUDENT_GROUPS : ADMIN_GROUPS;
+export const groupsFor = (role: UserRole, canScan = false): NavGroup[] => {
+  if (role !== 'student') return ADMIN_GROUPS;
+  if (!canScan) return STUDENT_GROUPS;
+  return [{items:[...STUDENT_GROUPS[0].items,
+    {id:'admin-scanner',label:'Committee Scanner',short:'Scan',icon:'qr_code_scanner'}]}, ...STUDENT_GROUPS.slice(1)];
+};
 
 /**
  * Alerts and Profile already live in the top header for both roles, so they
@@ -95,22 +100,26 @@ const BOTTOM_NAV_EXCLUDE: Record<UserRole, ActiveTab[]> = {
 };
 
 /** Entries shown directly in the bottom bar, in bar order. */
-export const barEntries = (role: UserRole): NavEntry[] => {
-  const all = allEntries(role);
+export const barEntries = (role: UserRole, canScan = false): NavEntry[] => {
+  const all = groupsFor(role, canScan).flatMap(g => g.items);
+  if (role === 'student' && canScan) return ['home','qr','admin-scanner','bill']
+    .map(id => all.find(e => e.id === id)).filter((e): e is NavEntry => Boolean(e));
   return BAR_IDS[role]
     .map(id => all.find(e => e.id === id))
     .filter((e): e is NavEntry => Boolean(e));
 };
 
 /** Everything that did not fit the bar, still grouped for the "More" sheet. */
-export const overflowGroups = (role: UserRole): NavGroup[] => {
+export const overflowGroups = (role: UserRole, canScan = false): NavGroup[] => {
   const inBar = new Set(BAR_IDS[role]);
   const excluded = new Set(BOTTOM_NAV_EXCLUDE[role]);
-  return groupsFor(role)
-    .map(g => ({ heading: g.heading, items: g.items.filter(i => !inBar.has(i.id) && !excluded.has(i.id)) }))
+  const scanBar = role === 'student' && canScan
+    ? new Set<ActiveTab>(['home','qr','admin-scanner','bill']) : inBar;
+  return groupsFor(role, canScan)
+    .map(g => ({ heading: g.heading, items: g.items.filter(i => !scanBar.has(i.id) && !excluded.has(i.id)) }))
     .filter(g => g.items.length > 0);
 };
 
 /** True when the active tab lives behind "More", so that tab can be highlighted. */
-export const isOverflowTab = (role: UserRole, tab: ActiveTab): boolean =>
-  overflowGroups(role).some(g => g.items.some(i => i.id === tab));
+export const isOverflowTab = (role: UserRole, tab: ActiveTab, canScan = false): boolean =>
+  overflowGroups(role, canScan).some(g => g.items.some(i => i.id === tab));
