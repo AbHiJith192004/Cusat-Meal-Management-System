@@ -10,6 +10,7 @@ interface SideNavProps {
   regNo: string;
   unreadAlertsCount?: number;
   onLogout: () => void;
+  canScan?: boolean;
 }
 
 /**
@@ -24,9 +25,10 @@ export const SideNav: React.FC<SideNavProps> = ({
   regNo,
   unreadAlertsCount = 0,
   onLogout,
+  canScan = false,
 }) => {
   const isStudent = userRole === 'student';
-  const groups = groupsFor(userRole);
+  const groups = groupsFor(userRole, canScan);
 
   const isActive = (id: ActiveTab) => {
     if (id === 'home') return isStudent && (currentTab === 'home' || currentTab === 'admin-dashboard');

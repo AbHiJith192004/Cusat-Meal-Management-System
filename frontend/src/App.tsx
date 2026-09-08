@@ -1,25 +1,22 @@
-import { useState, useEffect } from 'react';
-import { UserRole, ActiveTab, StudentRecord, ScanLog, AlertItem } from './types';
-import {
-  INITIAL_STUDENT,
-  INITIAL_STUDENTS,
-  INITIAL_SCAN_LOGS,
-  INITIAL_ALERTS
-} from './data/mockData';
+import { useState, useEffect, lazy, Suspense } from 'react';
+import { UserRole, ActiveTab } from './types';
+import { INITIAL_STUDENT } from './data/defaults';
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
 import { SideNav } from './components/SideNav';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { StudentHomeView } from './views/StudentHomeView';
 import { MealPlanningView } from './views/MealPlanningView';
-import { StudentQrView } from './views/StudentQrView';
+const StudentQrView = lazy(() => import('./views/StudentQrView').then(module => ({ default: module.StudentQrView })));
 import { StudentBillView } from './views/StudentBillView';
-import { AdminDashboardView } from './views/AdminDashboardView';
-import { AdminScannerView } from './views/AdminScannerView';
+const AdminOverviewView = lazy(() => import('./views/AdminOverviewView').then(module => ({ default: module.AdminOverviewView })));
+const BillingManagementView = lazy(() => import('./views/BillingManagementView').then(module => ({ default: module.BillingManagementView })));
+const AdminScannerView = lazy(() => import('./views/AdminScannerView').then(module => ({ default: module.AdminScannerView })));
+const AdminOperationsView = lazy(() => import('./views/AdminOperationsView').then(module => ({ default: module.AdminOperationsView })));
 import { StudentDirectoryView } from './views/StudentDirectoryView';
 import { ProfileView } from './views/ProfileView';
 import { AlertsView } from './views/AlertsView';
-import { authApi, studentApi, getAuthToken, restoreSession } from './services/api';
+import { authApi, notificationsApi, studentApi, getAuthToken, restoreSession } from './services/api';
 
 import { PwaInstallPrompt } from './components/PwaInstallPrompt';
 import { LoginModal } from './components/LoginModal';
@@ -32,12 +29,11 @@ export function App() {
     () => (localStorage.getItem('messconnect_tab') as ActiveTab) || 'home'
   );
   const [studentInfo, setStudentInfo] = useState(INITIAL_STUDENT);
-  const [students, setStudents] = useState<StudentRecord[]>(INITIAL_STUDENTS);
-  const [scanLogs, setScanLogs] = useState<ScanLog[]>(INITIAL_SCAN_LOGS);
-  const [alerts, setAlerts] = useState<AlertItem[]>(INITIAL_ALERTS);
+  const [unreadAlertsCount, setUnreadAlertsCount] = useState(0);
   const [isLoginOpen, setIsLoginOpen] = useState<boolean>(false);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [checkingSession, setCheckingSession] = useState<boolean>(true);
+  const [canScan, setCanScan] = useState(false);
 
   // Helper to change tab & persist in localStorage
   const handleTabChange = (tab: ActiveTab) => {
@@ -61,22 +57,27 @@ export function App() {
 
       if (token) {
         try {
-          setUserRole(savedRole);
-          setCurrentTab(savedTab);
 
           // /me works for every role — without this an admin's name resets to
           // the placeholder on every refresh.
           const profile = await studentApi.getProfile();
+          const verifiedRole: UserRole = ["ADMIN", "SUPER_ADMIN"].includes(profile.role) ? "admin" : "student";
+          setCanScan(Boolean(profile.capabilities?.attendance_scanner));
+          setUserRole(verifiedRole);
+          setCurrentTab(verifiedRole === "admin" ? "admin-dashboard" : "home");
           setStudentInfo((prev) => ({
             ...prev,
             name: profile.name || prev.name,
             regNo: profile.registration_number || prev.regNo,
-            hostel: savedRole === 'admin' ? 'CUSAT Mess Administration' : prev.hostel,
+            hostel: verifiedRole === 'admin' ? 'CUSAT Mess Administration' : prev.hostel,
           }));
+          notificationsApi.getNotifications().then(rows => setUnreadAlertsCount(
+            Array.isArray(rows) ? rows.filter((x:any) => !x.is_read).length : 0
+          )).catch(() => {});
           setIsLoggedIn(true);
         } catch (e) {
           // Token expired or invalid — clear session
-          localStorage.clear();
+          ['messconnect_role', 'messconnect_tab', 'access_token'].forEach(key => localStorage.removeItem(key));
           setIsLoggedIn(false);
           setIsLoginOpen(true);
         }
@@ -90,8 +91,7 @@ export function App() {
     checkSession();
   }, []);
 
-  const adminAvatar =
-    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80';
+  const adminAvatar = '';
 
   const handleRoleChange = async (role: UserRole) => {
     setUserRole(role);
@@ -106,16 +106,20 @@ export function App() {
     setUserRole(role);
     localStorage.setItem('messconnect_role', role);
     setIsLoggedIn(true);
+    notificationsApi.getNotifications().then(rows => setUnreadAlertsCount(
+      Array.isArray(rows) ? rows.filter((x:any) => !x.is_read).length : 0
+    )).catch(() => {});
 
     if (role === 'student') {
       try {
         const profile = await studentApi.getProfile();
+        setCanScan(Boolean(profile.capabilities?.attendance_scanner));
         setStudentInfo({
           name: profile.name || name,
           regNo: profile.registration_number || regNo,
           hostel: 'CUSAT Hostel Mess 1',
           category: 'Hosteller',
-          avatar: profile.profile?.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name || name)}&background=2563eb&color=fff`,
+            avatar: profile.profile?.photo_url || '',
         });
       } catch (e) {
         setStudentInfo({
@@ -123,7 +127,7 @@ export function App() {
           regNo: regNo,
           hostel: 'CUSAT Hostel Mess 1',
           category: 'Hosteller',
-          avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=2563eb&color=fff`,
+          avatar: '',
         });
       }
       handleTabChange('home');
@@ -134,22 +138,10 @@ export function App() {
         regNo: regNo,
         hostel: 'CUSAT Mess Administration',
         category: 'Hosteller',
-        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(adminDisplayName)}&background=2563eb&color=fff`,
+        avatar: '',
       });
       handleTabChange('admin-dashboard');
     }
-  };
-
-  const handleAddStudent = (newStudent: StudentRecord) => {
-    setStudents((prev) => [newStudent, ...prev]);
-  };
-
-  const handleAddScanLog = (newLog: ScanLog) => {
-    setScanLogs((prev) => [newLog, ...prev]);
-  };
-
-  const handleMarkAllAlertsRead = () => {
-    setAlerts((prev) => prev.map((a) => ({ ...a, isUnread: false })));
   };
 
   const handleUpdateStudentName = (newName: string) => {
@@ -164,14 +156,13 @@ export function App() {
     try {
       await authApi.logout();
     } catch (e) {}
-    localStorage.clear();
+    ['messconnect_role', 'messconnect_tab', 'access_token'].forEach(key => localStorage.removeItem(key));
     setIsLoggedIn(false);
+    setUnreadAlertsCount(0);
     setUserRole('student');
     setCurrentTab('home');
     setIsLoginOpen(true);
   };
-
-  const unreadAlertsCount = alerts.filter((a) => a.isUnread).length;
 
   // Show loading spinner while checking token
   if (checkingSession) {
@@ -214,10 +205,11 @@ export function App() {
         currentTab={currentTab}
         setCurrentTab={handleTabChange}
         userRole={userRole}
-        userName={studentInfo.name}
+      userName={studentInfo.name}
         regNo={studentInfo.regNo}
         unreadAlertsCount={unreadAlertsCount}
         onLogout={handleLogout}
+        canScan={canScan}
       />
 
       <div className="app-main">
@@ -237,7 +229,7 @@ export function App() {
 
       {/* View Switcher Container */}
       <div className="flex-1 w-full flex flex-col">
-        <ErrorBoundary resetKey={currentTab}>
+        <ErrorBoundary resetKey={currentTab}><Suspense fallback={<p role="status" className="p-6">Loading…</p>}>
         {userRole === 'student' && (
           <>
             {(currentTab === 'home' || currentTab === 'admin-dashboard') && (
@@ -251,8 +243,11 @@ export function App() {
             {currentTab === 'qr' && (
               <StudentQrView studentName={studentInfo.name} regNo={studentInfo.regNo} />
             )}
+            {currentTab === 'admin-scanner' && canScan && (
+              <AdminScannerView />
+            )}
             {currentTab === 'alerts' && (
-              <AlertsView alerts={alerts} onMarkAllRead={handleMarkAllAlertsRead} />
+              <AlertsView onUnreadChange={setUnreadAlertsCount} />
             )}
             {currentTab === 'bill' && <StudentBillView />}
             {currentTab === 'profile' && (
@@ -271,29 +266,19 @@ export function App() {
 
         {userRole === 'admin' && (
           <>
-            {(currentTab === 'admin-dashboard' || currentTab === 'home') && (
-              <AdminDashboardView initialModuleTab="daily-summary" onNavigate={handleTabChange} />
-            )}
-            {currentTab === 'admin-menu' && (
-              <AdminDashboardView initialModuleTab="weekly-menu" onNavigate={handleTabChange} />
-            )}
-            {currentTab === 'admin-ledger' && (
-              <AdminDashboardView initialModuleTab="ledger" onNavigate={handleTabChange} />
-            )}
+            {(currentTab === 'admin-dashboard' || currentTab === 'home') && <AdminOverviewView />}
             {currentTab === 'admin-students' && (
-              <AdminDashboardView initialModuleTab="student-data" onNavigate={handleTabChange} />
+              <StudentDirectoryView />
             )}
             {currentTab === 'admin-scanner' && (
-              <AdminScannerView scanLogs={scanLogs} onAddScanLog={handleAddScanLog} />
+              <AdminScannerView />
             )}
             {currentTab === 'admin-billing' && (
-              <AdminDashboardView initialModuleTab="billing" onNavigate={handleTabChange} />
+              <BillingManagementView />
             )}
-            {currentTab === 'admin-payments' && (
-              <AdminDashboardView initialModuleTab="payments" onNavigate={handleTabChange} />
-            )}
+            {currentTab === 'admin-operations' && <AdminOperationsView />}
             {currentTab === 'alerts' && (
-              <AlertsView alerts={alerts} onMarkAllRead={handleMarkAllAlertsRead} />
+              <AlertsView onUnreadChange={setUnreadAlertsCount} />
             )}
             {currentTab === 'profile' && (
               <ProfileView
@@ -308,7 +293,7 @@ export function App() {
             )}
           </>
         )}
-        </ErrorBoundary>
+        </Suspense></ErrorBoundary>
       </div>
 
         {/* Bottom Navigation for Mobile */}
@@ -317,6 +302,7 @@ export function App() {
           setCurrentTab={handleTabChange}
           userRole={userRole}
           unreadAlertsCount={unreadAlertsCount}
+          canScan={canScan}
         />
       </div>
     </div>

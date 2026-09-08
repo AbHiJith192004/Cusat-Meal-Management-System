@@ -1,0 +1,110 @@
+# DigitalOcean App Platform production template.
+# Before applying it, create a PostgreSQL 16 managed database in BLR1 and
+# replace REPLACE_WITH_DATABASE_CLUSTER_NAME below with its exact cluster name.
+# App creation must also supply the two secret values declared without values.
+name: messconnect
+region: blr
+
+alerts:
+  - rule: DEPLOYMENT_FAILED
+  - rule: DOMAIN_FAILED
+
+envs:
+  - key: APP_ENV
+    scope: RUN_TIME
+    value: production
+  - key: ALLOW_TEST_MODE
+    scope: RUN_TIME
+    value: "false"
+  - key: DATABASE_URL
+    scope: RUN_TIME
+    value: ${messconnect-db.DATABASE_PRIVATE_URL}
+  - key: JWT_SECRET_KEY
+    scope: RUN_TIME
+    type: SECRET
+  - key: QR_SECRET_KEY
+    scope: RUN_TIME
+    type: SECRET
+
+services:
+  - name: web
+    github:
+      repo: AbHiJith192004/Cusat-Meal-Management-System
+      branch: main
+      deploy_on_push: false
+    dockerfile_path: Dockerfile
+    source_dir: /
+    http_port: 8080
+    instance_count: 1
+    instance_size_slug: apps-s-1vcpu-1gb-fixed
+    envs:
+      - key: PORT
+        scope: RUN_TIME
+        value: "8080"
+      - key: WEB_CONCURRENCY
+        scope: RUN_TIME
+        value: "1"
+      - key: DB_POOL_SIZE
+        scope: RUN_TIME
+        value: "5"
+      - key: DB_MAX_OVERFLOW
+        scope: RUN_TIME
+        value: "5"
+      - key: CORS_ORIGINS
+        scope: RUN_TIME
+        value: ${APP_URL}
+      - key: TRUST_PROXY_HEADERS
+        scope: RUN_TIME
+        value: "true"
+    health_check:
+      initial_delay_seconds: 20
+      period_seconds: 10
+      timeout_seconds: 5
+      success_threshold: 1
+      failure_threshold: 5
+      http_path: /health
+      port: 8080
+    liveness_health_check:
+      initial_delay_seconds: 30
+      period_seconds: 30
+      timeout_seconds: 5
+      success_threshold: 1
+      failure_threshold: 5
+      http_path: /health
+      port: 8080
+    termination:
+      drain_seconds: 20
+      grace_period_seconds: 45
+
+jobs:
+  - name: migrate
+    kind: PRE_DEPLOY
+    github:
+      repo: AbHiJith192004/Cusat-Meal-Management-System
+      branch: main
+      deploy_on_push: false
+    dockerfile_path: backend/Dockerfile
+    source_dir: backend
+    instance_size_slug: apps-s-1vcpu-0.5gb
+    run_command: alembic upgrade head
+
+  - name: daily-reconciliation
+    kind: SCHEDULED
+    schedule:
+      cron: "0 1 * * *"
+      time_zone: Asia/Kolkata
+    github:
+      repo: AbHiJith192004/Cusat-Meal-Management-System
+      branch: main
+      deploy_on_push: false
+    dockerfile_path: backend/Dockerfile
+    source_dir: backend
+    instance_size_slug: apps-s-1vcpu-0.5gb
+    run_command: python -m scripts.run_fine_reconciliation
+
+databases:
+  - name: messconnect-db
+    engine: PG
+    version: "16"
+    production: true
+    cluster_name: REPLACE_WITH_DATABASE_CLUSTER_NAME

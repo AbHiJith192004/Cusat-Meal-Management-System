@@ -20,8 +20,8 @@
   --color-surface:       #FFFFFF;
   --color-line:          #EFDCB4;
 
-  --color-brand:         #F47A35;
-  --color-brand-dark:    #D45E1A;
+  --color-brand:         #B7470D;
+  --color-brand-dark:    #923606;
   --color-brand-tint:    #FFF1E6;
 
   --color-ink:           #2D1A0E;
@@ -46,15 +46,15 @@
   --card-shadow:     0 1px 2px rgba(120, 80, 30, 0.04), 0 6px 20px rgba(120, 80, 30, 0.06);
   --card-shadow-lg:  0 2px 4px rgba(120, 80, 30, 0.05), 0 12px 32px rgba(120, 80, 30, 0.09);
 
-  --orange:          #F47A35;
-  --orange-dark:     #D45E1A;
+  --orange:          #B7470D;
+  --orange-dark:     #923606;
   --orange-light:    #FFD9BE;
   --orange-soft:     #FFF1E6;
 
   --text-dark:       #2D1A0E;
   --text-body:       #5C3D1E;
-  --text-muted:      #9B7B52;
-  --text-light:      #C4A882;
+  --text-muted:      #76502C;
+  --text-light:      #76502C;
 
   --line:            #EFDCB4;
   --line-soft:       #F6EAD2;
@@ -65,7 +65,7 @@
   --meal-dinner:     #E4DCF4;
   --meal-snacks:     #D9EFDF;
 
-  --alert-food:      #F47A35;
+  --alert-food:      #B7470D;
   --alert-menu:      #3F9E52;
   --alert-bill:      #DC4A3D;
   --alert-info:      #3B82C4;

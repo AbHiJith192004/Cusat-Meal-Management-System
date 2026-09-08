@@ -1,23 +1,21 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { StudentRecord } from '../types';
-import { adminApi, authApi } from '../services/api';
+import { adminApi } from '../services/api';
 
-interface StudentDirectoryViewProps {
-  students: StudentRecord[];
-  onAddStudent: (student: StudentRecord) => void;
-}
-
-export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({
-  students: initialStudents,
-  onAddStudent,
-}) => {
+export const StudentDirectoryView: React.FC = () => {
+  const requestSequence = useRef(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [selectedStudent, setSelectedStudent] = useState<StudentRecord | null>(null);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [apiStudents, setApiStudents] = useState<StudentRecord[]>(initialStudents);
+  const [apiStudents, setApiStudents] = useState<StudentRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
   const [addError, setAddError] = useState<string | null>(null);
+  const [setupResult, setSetupResult] = useState<{id: string; code: string; expiry: string} | null>(null);
+  const [setupBusy, setSetupBusy] = useState(false);
+  const [setupError, setSetupError] = useState<string | null>(null);
+  const [setupReason, setSetupReason] = useState('');
   const [addLoading, setAddLoading] = useState(false);
 
   const [newStudent, setNewStudent] = useState({
@@ -34,22 +32,26 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({
   });
 
   const fetchStudents = async () => {
+    const sequence = ++requestSequence.current;
     setLoading(true);
+    setLoadError('');
     try {
-      const data = await adminApi.getStudents(searchQuery);
+      const data = await adminApi.getAllStudents(searchQuery);
+      if (sequence !== requestSequence.current) return;
       if (Array.isArray(data)) {
         const formatted: StudentRecord[] = data.map((s: any) => ({
           id: s.id,
-          messId: s.profile?.mess_id || `M-${s.registration_number}`,
+          messId: s.mess_id || `M-${s.registration_number}`,
           regNo: s.registration_number,
           name: s.name,
           room: 'Hostel Block',
-          avatar: s.profile?.photo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(s.name)}&background=2563eb&color=fff`,
+          avatar: s.photo_url || '',
           lunchStatus: 'Confirmed',
-          attendanceStatus: s.account_status === 'ACTIVE' ? 'Present' : 'Pending',
+          attendanceStatus: 'Pending',
+          accountStatus: s.account_status,
           attendancePct: 0,
           fines: 0,
-          category: (s.profile?.student_type as any) || 'Hosteller',
+          category: (s.student_type as any) || 'Hosteller',
           campusLocation: s.campus_location || 'MAIN_CAMPUS',
           phone: '',
           mealsDone: s.meals_done || 0,
@@ -58,13 +60,17 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({
         setApiStudents(formatted);
       }
     } catch (e) {
+      if (sequence !== requestSequence.current) return;
+      setApiStudents([]);
+      setLoadError(e instanceof Error ? e.message : 'Could not load student records.');
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchStudents();
+    const timer = window.setTimeout(fetchStudents, 250);
+    return () => window.clearTimeout(timer);
   }, [searchQuery]);
 
   const displayList = apiStudents;
@@ -77,10 +83,8 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({
 
     const matchesStatus =
       statusFilter === 'All' ||
-      (statusFilter === 'Confirmed' && student.lunchStatus === 'Confirmed') ||
-      (statusFilter === 'Skipped' && student.lunchStatus === 'Skipped') ||
-      (statusFilter === 'Present' && student.attendanceStatus === 'Present') ||
-      (statusFilter === 'Absent' && student.attendanceStatus === 'Absent');
+      (statusFilter === 'Active' && student.accountStatus === 'ACTIVE') ||
+      (statusFilter === 'Pending' && student.accountStatus === 'PENDING');
 
     return matchesSearch && matchesStatus;
   });
@@ -109,16 +113,16 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({
         regNo: newStudent.regNo,
         name: newStudent.name,
         room: newStudent.room || 'Hostel Block',
-        avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(newStudent.name)}&background=2563eb&color=fff`,
+        avatar: '',
         lunchStatus: 'Confirmed',
         attendanceStatus: 'Pending',
+        accountStatus: 'PENDING',
         attendancePct: 0,
         fines: 0,
         category: newStudent.department as any,
         phone: newStudent.phone,
       };
 
-      onAddStudent(created);
       setApiStudents((prev) => [created, ...prev]);
       setShowAddModal(false);
       setNewStudent({
@@ -145,7 +149,7 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({
         <div className="max-w-[1200px] mx-auto flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-[24px] md:text-[28px] font-bold text-[#151c27]">Student Directory</h1>
-            <p className="text-xs text-[#434655]">Manage hosteller accounts, meal statuses & profiles</p>
+            <p className="text-xs text-[#434655]">Manage student accounts and secure account setup</p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
@@ -159,7 +163,7 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search name, reg no..."
-                className="w-full pl-9 pr-3 py-2 bg-[#f0f3ff] border border-[#c3c6d7] rounded-lg text-xs font-medium focus:border-[#F47A35] outline-none"
+                className="w-full pl-9 pr-3 py-2 bg-[#f0f3ff] border border-[#c3c6d7] rounded-lg text-xs font-medium focus:border-[#B7470D] outline-none"
               />
             </div>
 
@@ -170,16 +174,14 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({
               className="bg-[#f0f3ff] border border-[#c3c6d7] text-xs font-semibold text-[#151c27] rounded-lg px-3 py-2 outline-none cursor-pointer"
             >
               <option value="All">All Statuses</option>
-              <option value="Confirmed">Meal Confirmed</option>
-              <option value="Skipped">Meal Skipped</option>
-              <option value="Present">Present</option>
-              <option value="Absent">Absent</option>
+              <option value="Active">Account active</option>
+              <option value="Pending">Activation pending</option>
             </select>
 
             {/* Add Student Button */}
             <button
               onClick={() => setShowAddModal(true)}
-              className="flex items-center gap-1.5 px-4 py-2 bg-[#F47A35] text-white font-semibold text-xs rounded-lg hover:bg-[#D45E1A] transition-colors cursor-pointer shadow-2xs"
+              className="flex items-center gap-1.5 px-4 py-2 bg-[#B7470D] text-white font-semibold text-xs rounded-lg hover:bg-[#923606] transition-colors cursor-pointer shadow-2xs"
             >
               <span className="material-symbols-outlined text-[18px]">person_add</span>
               Add Student
@@ -190,9 +192,13 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({
 
       {/* Results Cards Grid */}
       <div className="flex-1 overflow-y-auto p-4 md:p-6 pb-24 md:pb-8">
-        {filteredStudents.length === 0 ? (
+        {loadError ? (
+          <div role="alert" className="max-w-xl mx-auto my-8 rounded-xl border border-[#ffb4ab] bg-[#ffdad6] p-5 text-sm font-semibold text-[#93000a]">
+            {loadError} No cached or sample students are being displayed.
+          </div>
+        ) : filteredStudents.length === 0 ? (
           <div className="flex flex-col items-center justify-center p-12 text-center text-[#737686] bg-white rounded-xl border border-[#c3c6d7] max-w-md mx-auto my-8">
-            <span className="material-symbols-outlined text-[48px] mb-2 text-[#D45E1A]">group_off</span>
+            <span className="material-symbols-outlined text-[48px] mb-2 text-[#923606]">group_off</span>
             <p className="font-semibold text-base text-[#151c27]">No Student Records Found</p>
             <p className="text-xs text-[#434655] mt-1">
               Use "Add Student" button above to add student records, or import from Excel.
@@ -201,21 +207,19 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({
         ) : (
           <div className="max-w-[1200px] mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filteredStudents.map((student) => {
-              const isConfirmed = student.lunchStatus === 'Confirmed';
-              const isPresent = student.attendanceStatus === 'Present';
-              const isAbsent = student.attendanceStatus === 'Absent';
-
               return (
                 <div
                   key={student.id}
                   className="bg-[#ffffff] rounded-xl border border-[#c3c6d7] shadow-2xs p-4 flex flex-col gap-3 hover:shadow-md transition-shadow duration-300"
                 >
                   <div className="flex items-start gap-3">
-                    <img
-                      src={student.avatar}
-                      alt={student.name}
-                      className="w-14 h-14 rounded-full object-cover border border-[#c3c6d7]"
-                    />
+                    {student.avatar ? (
+                      <img src={student.avatar} alt="" className="w-14 h-14 rounded-full object-cover border border-[#c3c6d7]" />
+                    ) : (
+                      <span className="w-14 h-14 rounded-full bg-[#fff0e5] text-[#9a4313] flex items-center justify-center font-bold" aria-hidden="true">
+                        {student.name.split(/\s+/).slice(0, 2).map(part => part[0]).join('').toUpperCase()}
+                      </span>
+                    )}
                     <div className="flex-1 min-w-0">
                       <h3 className="font-semibold text-[16px] text-[#151c27] truncate">
                         {student.name}
@@ -229,33 +233,9 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({
 
                   <div className="flex flex-col gap-1.5 text-xs">
                     <div className="flex justify-between items-center">
-                      <span className="text-[#434655]">Lunch:</span>
-                      <span
-                        className={`px-2 py-0.5 rounded-full font-semibold flex items-center gap-1 text-[11px] ${
-                          isConfirmed
-                            ? 'bg-[#6cf8bb]/30 text-[#00714d]'
-                            : 'bg-[#ffdad6]/30 text-[#93000a]'
-                        }`}
-                      >
-                        <span className="material-symbols-outlined text-[13px]">
-                          {isConfirmed ? 'check_circle' : 'cancel'}
-                        </span>
-                        {student.lunchStatus}
-                      </span>
-                    </div>
-
-                    <div className="flex justify-between items-center">
-                      <span className="text-[#434655]">Attendance:</span>
-                      <span
-                        className={`px-2 py-0.5 rounded-full font-semibold flex items-center gap-1 text-[11px] ${
-                          isPresent
-                            ? 'bg-[#6cf8bb]/30 text-[#00714d]'
-                            : isAbsent
-                            ? 'bg-[#ffdad6]/30 text-[#93000a]'
-                            : 'bg-[#dce2f3] text-[#434655]'
-                        }`}
-                      >
-                        {student.attendanceStatus}
+                      <span className="text-[#434655]">Account:</span>
+                      <span className="px-2 py-0.5 rounded-full font-semibold text-[11px] bg-[#dce2f3] text-[#434655]">
+                        {student.accountStatus || 'PENDING'}
                       </span>
                     </div>
 
@@ -290,11 +270,13 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({
             </button>
 
             <div className="flex flex-col items-center text-center gap-2">
-              <img
-                src={selectedStudent.avatar}
-                alt={selectedStudent.name}
-                className="w-20 h-20 rounded-full object-cover border-2 border-[#F47A35]"
-              />
+              {selectedStudent.avatar ? (
+                <img src={selectedStudent.avatar} alt="" className="w-20 h-20 rounded-full object-cover border-2 border-[#B7470D]" />
+              ) : (
+                <span className="w-20 h-20 rounded-full bg-[#fff0e5] text-[#9a4313] flex items-center justify-center text-xl font-bold" aria-hidden="true">
+                  {selectedStudent.name.split(/\s+/).slice(0, 2).map(part => part[0]).join('').toUpperCase()}
+                </span>
+              )}
               <h3 className="text-xl font-bold text-[#151c27]">{selectedStudent.name}</h3>
               <p className="text-xs text-[#434655]">Reg: {selectedStudent.regNo} | {selectedStudent.messId}</p>
               <span className="px-3 py-1 bg-[#6cf8bb]/40 text-[#00714d] rounded-full text-xs font-semibold">
@@ -302,15 +284,33 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({
               </span>
             </div>
 
+            <section className="my-3 space-y-2" aria-label="Account setup">
+              <label className="block text-sm">Identity verification note
+                <input className="stitch-input" value={setupReason} onChange={e => setSetupReason(e.target.value)} placeholder="How was this student's identity checked?" />
+              </label>
+              <button className="btn-secondary" disabled={setupBusy || setupReason.trim().length < 10} onClick={async () => {
+                setSetupBusy(true); setSetupError(null); setSetupResult(null);
+                try {
+                  const result = await adminApi.issueSetupCode(selectedStudent.id, setupReason);
+                  setSetupResult({id: selectedStudent.id, code: result.setup_code, expiry: result.expires_at});
+                } catch (error: any) { setSetupError(error.message); }
+                finally { setSetupBusy(false); }
+              }}>Issue one-use password setup code</button>
+              {setupError && <p role="alert">{setupError}</p>}
+              {setupResult?.id === selectedStudent.id && <div>
+                <p>Give this code privately to this student. Expires {new Date(setupResult.expiry).toLocaleTimeString()}.</p>
+                <code className="block break-all select-all">{setupResult.code}</code>
+              </div>}
+            </section>
             <div className="border-t border-[#c3c6d7] pt-3 space-y-2 text-xs text-[#434655]">
               <div className="flex justify-between">
                 <span>Account Status:</span>
-                <span className="font-semibold text-[#006c49]">{selectedStudent.attendanceStatus}</span>
+                <span className="font-semibold text-[#006c49]">{selectedStudent.accountStatus || 'PENDING'}</span>
               </div>
               
               {/* Student Meal Overview */}
-              <div className="bg-[#f0f4ff] p-3 rounded-xl border border-[#F47A35]/20 my-2 space-y-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-[#F47A35] block">Student Meal Overview</span>
+              <div className="bg-[#f0f4ff] p-3 rounded-xl border border-[#B7470D]/20 my-2 space-y-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-[#B7470D] block">Student Meal Overview</span>
                 <div className="grid grid-cols-2 gap-2">
                   <div className="bg-white p-2.5 rounded-lg border border-[#006c49]/30 flex flex-col">
                     <span className="text-[10px] font-semibold text-[#006c49] flex items-center gap-1">
@@ -339,7 +339,9 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({
             <button
               onClick={async () => {
                 try {
-                  await adminApi.resetAttendance(selectedStudent.regNo);
+                  const reason = window.prompt('Reason for resetting today\'s attendance:')?.trim();
+                  if (!reason || reason.length < 3) return;
+                  await adminApi.resetAttendance(selectedStudent.regNo, reason);
                   alert(`Successfully reset attendance for ${selectedStudent.name} (${selectedStudent.regNo})!`);
                   setSelectedStudent(null);
                   fetchStudents();
@@ -355,7 +357,7 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({
 
             <button
               onClick={() => setSelectedStudent(null)}
-              className="w-full py-2 bg-[#F47A35] text-white font-semibold text-xs rounded-lg hover:bg-[#D45E1A]"
+              className="w-full py-2 bg-[#B7470D] text-white font-semibold text-xs rounded-lg hover:bg-[#923606]"
             >
               Close
             </button>
@@ -372,7 +374,7 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({
             autoComplete="off"
           >
             <h3 className="text-xl font-bold text-[#151c27]">Add New Student</h3>
-            <p className="text-xs text-[#434655] -mt-2">Student will activate their account using Reg No + Date of Birth</p>
+            <p className="text-xs text-[#434655] -mt-2">Create the record, then issue a one-use setup code after verifying the student's identity.</p>
 
             {addError && (
               <div className="p-3 bg-[#ffdad6] text-[#93000a] rounded-xl text-xs font-semibold flex items-center gap-2">
@@ -444,7 +446,7 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({
                   <select
                     value={newStudent.campusLocation}
                     onChange={(e) => setNewStudent({ ...newStudent, campusLocation: e.target.value })}
-                    className="w-full p-2 border border-[#c3c6d7] rounded-lg text-sm bg-white font-semibold text-[#F47A35]"
+                    className="w-full p-2 border border-[#c3c6d7] rounded-lg text-sm bg-white font-semibold text-[#B7470D]"
                   >
                     <option value="MAIN_CAMPUS">Main Campus (Std Bill)</option>
                     <option value="LAKESIDE_CAMPUS">Lakeside (25% Off Bill)</option>
@@ -469,7 +471,7 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({
               <button
                 type="submit"
                 disabled={addLoading}
-                className="flex-1 py-2.5 bg-[#F47A35] text-white font-semibold rounded-lg hover:bg-[#D45E1A] disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1 py-2.5 bg-[#B7470D] text-white font-semibold rounded-lg hover:bg-[#923606] disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 {addLoading ? (
                   <><span className="material-symbols-outlined animate-spin text-[18px]">refresh</span> Creating...</>

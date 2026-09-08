@@ -52,7 +52,7 @@ def test_expired_qr_token():
 
 def test_tampered_qr_token():
     payload = {"sub": str(uuid.uuid4()), "meal": "BREAKFAST", "type": "qr"}
-    token = jwt.encode(payload, "wrong_secret_key", algorithm="HS256")
+    token = jwt.encode(payload, "wrong-but-long-enough-signing-key-123456789", algorithm="HS256")
 
     with pytest.raises(jwt.InvalidSignatureError):
         jwt.decode(token, settings.QR_SECRET_KEY, algorithms=["HS256"])

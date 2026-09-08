@@ -23,7 +23,7 @@ router = APIRouter(prefix="/api/v1", tags=["Student"])
 @router.get("/me")
 async def get_current_user_profile(
     current_user: CurrentUser,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """Get the current user's profile information."""
     user_repo = UserRepository(db)
@@ -40,6 +40,18 @@ async def get_current_user_profile(
             "photo_url": user.profile.photo_url,
         }
     
+    from sqlalchemy import select
+    from app.models.operations import CommitteeAssignment
+    from app.utils.timezone import now_ist
+    scanner_access = current_user.role in {"ADMIN", "SUPER_ADMIN"} or bool(await db.scalar(
+        select(CommitteeAssignment.id).where(
+            CommitteeAssignment.student_id == current_user.id,
+            CommitteeAssignment.scope == "ATTENDANCE_SCANNER",
+            CommitteeAssignment.revoked_at.is_(None),
+            CommitteeAssignment.starts_at <= now_ist(),
+            CommitteeAssignment.ends_at > now_ist(),
+        )
+    ))
     return success_response(
         data={
             "id": str(current_user.id),
@@ -49,6 +61,7 @@ async def get_current_user_profile(
             "account_status": current_user.account_status,
             "activated_at": current_user.activated_at.isoformat() if current_user.activated_at else None,
             "profile": profile_data,
+            "capabilities": {"attendance_scanner": scanner_access},
         }
     )
 
@@ -56,7 +69,7 @@ async def get_current_user_profile(
 @router.get("/me/dashboard")
 async def get_student_dashboard(
     current_user: CurrentUser,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """Get the student dashboard summary for today."""
     from app.services.meal_service import MealService
@@ -108,7 +121,7 @@ async def get_my_bill(
     current_user: CurrentUser,
     month: Annotated[int, Query(ge=1, le=12)],
     year: Annotated[int, Query(ge=2000, le=2100)],
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """The signed-in student's own bill for a month.
 

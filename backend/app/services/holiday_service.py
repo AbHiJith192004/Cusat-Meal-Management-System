@@ -9,7 +9,8 @@ from app.models.meal import MealSelection
 from app.repositories.holiday_repo import HolidayRepository
 from app.repositories.audit_repo import AuditRepository
 from app.utils.enums import MealStatus
-from app.utils.exceptions import HolidayConflictException, NotFoundException
+from app.utils.exceptions import HolidayConflictException, NotFoundException, ConflictException
+from app.services.billing_lock import lock_open_period
 from app.utils.timezone import now_ist
 
 
@@ -23,6 +24,7 @@ class HolidayService:
         self, holiday_date: date, meal_type: str | None, reason: str, admin_id: uuid.UUID
     ) -> Holiday:
         """Declare a holiday and cascade NO_SERVICE to meal selections."""
+        await lock_open_period(self.session, holiday_date, exclusive=True)
         existing = await self.holiday_repo.get_for_date(holiday_date, meal_type)
         if existing:
             raise HolidayConflictException(message=f"A holiday is already declared for {holiday_date.isoformat()}.")
@@ -41,7 +43,8 @@ class HolidayService:
         stmt = update(MealSelection).where(MealSelection.meal_date == holiday_date)
         if meal_type:
             stmt = stmt.where(MealSelection.meal_type == meal_type)
-        stmt = stmt.values(status=MealStatus.NO_SERVICE.value, updated_at=now_ist(), updated_by=admin_id)
+        stmt = stmt.where(MealSelection.status != MealStatus.NO_SERVICE.value)
+        stmt = stmt.values(status_before_holiday=MealSelection.status, status=MealStatus.NO_SERVICE.value, updated_at=now_ist(), updated_by=admin_id)
 
         await self.session.execute(stmt)
         await self.session.flush()
@@ -68,6 +71,7 @@ class HolidayService:
         h_date = holiday.holiday_date
         m_type = holiday.meal_type
 
+        await lock_open_period(self.session, h_date, exclusive=True)
         await self.session.delete(holiday)
 
         # Cascade: revert NO_SERVICE selections back to CONFIRMED
@@ -80,7 +84,9 @@ class HolidayService:
         )
         if m_type:
             stmt = stmt.where(MealSelection.meal_type == m_type)
-        stmt = stmt.values(status=MealStatus.CONFIRMED.value, updated_at=now_ist(), updated_by=admin_id)
+        # Preserve old data we cannot reconstruct rather than inventing an opt-in.
+        stmt = stmt.where(MealSelection.status_before_holiday.is_not(None))
+        stmt = stmt.values(status=MealSelection.status_before_holiday, status_before_holiday=None, updated_at=now_ist(), updated_by=admin_id)
 
         await self.session.execute(stmt)
         await self.session.flush()

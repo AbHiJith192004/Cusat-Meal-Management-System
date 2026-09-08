@@ -1,11 +1,15 @@
 import uuid
-from datetime import date
+from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import select, and_, not_
+from sqlalchemy import select, and_, not_, or_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.fine import Fine
+from app.models.user import User
+from app.repositories.holiday_repo import HolidayRepository
+from app.services.meal_timing_service import MealTimingService
+from app.services.billing_lock import lock_open_period
 from app.models.meal import MealSelection
 from app.models.attendance import Attendance
 from app.repositories.fine_repo import FineRepository
@@ -18,7 +22,7 @@ from app.utils.exceptions import (
     FineNotWaivableException,
     ValidationException,
 )
-from app.utils.timezone import now_ist
+from app.utils.timezone import now_ist, IST
 
 
 class FineService:
@@ -37,7 +41,17 @@ class FineService:
         self, target_date: date, meal_type: str, actor_id: uuid.UUID | None = None
     ) -> int:
         """Find CONFIRMED selections for target_date & meal_type without attendance, generate PENDING fines."""
+        if meal_type not in {"BREAKFAST", "LUNCH", "DINNER"}:
+            raise ValidationException(message="Invalid meal type.")
+        _, end_time = await MealTimingService(self.session).get_meal_window(meal_type)
+        if now_ist() <= datetime.combine(target_date, end_time, tzinfo=IST):
+            raise ValidationException(message="Fines can only be reconciled after the meal service window closes.")
+        await lock_open_period(self.session, target_date, exclusive=True)
+        if await HolidayRepository(self.session).get_for_date(target_date, meal_type):
+            return 0
         fine_amount = await self.get_fine_amount()
+        if not fine_amount.is_finite() or fine_amount < 0:
+            raise ValidationException(message="Configured fine amount is invalid.")
 
         # Find confirmed selections that don't have attendance or existing fine
         sub_att = select(Attendance.student_id).where(
@@ -47,24 +61,22 @@ class FineService:
             and_(Fine.meal_date == target_date, Fine.meal_type == meal_type)
         )
 
-        stmt = select(MealSelection).where(
-            and_(
-                MealSelection.meal_date == target_date,
-                MealSelection.meal_type == meal_type,
-                MealSelection.status == MealStatus.CONFIRMED.value,
-                not_(MealSelection.student_id.in_(sub_att)),
-                not_(MealSelection.student_id.in_(sub_fine)),
-            )
-        )
-
-        result = await self.session.execute(stmt)
-        unattended_selections = result.scalars().all()
+        # Missing selection rows mean CONFIRMED. Calendar reads must not be
+        # required to create a student's eligibility for reconciliation.
+        excluded = select(MealSelection.student_id).where(
+            MealSelection.meal_date == target_date, MealSelection.meal_type == meal_type,
+            MealSelection.status != "CONFIRMED")
+        stmt = select(User.id).where(
+            User.role == "STUDENT", User.account_status != "PENDING",
+            func.coalesce(User.activated_at, User.created_at) <= datetime.combine(target_date, end_time, tzinfo=IST),
+            User.id.not_in(sub_att), User.id.not_in(sub_fine), User.id.not_in(excluded))
+        student_ids = (await self.session.execute(stmt)).scalars().all()
 
         fines_created = 0
-        for sel in unattended_selections:
+        for student_id in student_ids:
             fine = Fine(
                 id=uuid.uuid4(),
-                student_id=sel.student_id,
+                student_id=student_id,
                 meal_date=target_date,
                 meal_type=meal_type,
                 amount=fine_amount,
@@ -101,6 +113,8 @@ class FineService:
         if not fine:
             raise NotFoundException(message="Fine record not found.")
 
+        await lock_open_period(self.session, fine.meal_date)
+        await self.session.refresh(fine, with_for_update=True)
         if fine.status != FineStatus.PENDING.value:
             raise FineNotWaivableException(message=f"Only PENDING fines can be waived (current: {fine.status}).")
 

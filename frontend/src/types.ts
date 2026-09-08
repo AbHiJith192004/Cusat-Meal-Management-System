@@ -10,14 +10,10 @@ export type ActiveTab =
   | 'bill'
   // Admin tabs
   | 'admin-dashboard'
-  | 'admin-menu'
-  | 'admin-ledger'
-  | 'admin-logs'
   | 'admin-students'
   | 'admin-scanner'
-  | 'admin-billing'
-  | 'admin-payments'
-  | 'admin-settings';
+  | 'admin-operations'
+  | 'admin-billing';
 
 export interface MealOption {
   id: 'breakfast' | 'lunch' | 'dinner';
@@ -61,6 +57,7 @@ export interface StudentRecord {
   avatar: string;
   lunchStatus: 'Confirmed' | 'Skipped';
   attendanceStatus: 'Present' | 'Absent' | 'Pending';
+  accountStatus?: 'ACTIVE' | 'PENDING' | 'SUSPENDED' | 'INACTIVE';
   attendancePct: number;
   fines: number;
   phone?: string;

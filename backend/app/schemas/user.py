@@ -1,7 +1,7 @@
 from pydantic import BaseModel, ConfigDict, Field
 from datetime import datetime
 from uuid import UUID
-from typing import Optional
+from typing import Optional, Literal
 
 
 class UserBriefResponse(BaseModel):
@@ -22,5 +22,5 @@ class CreateStudentRequest(BaseModel):
     date_of_birth: str = Field(..., description="Date of birth in YYYY-MM-DD format")
     department: Optional[str] = Field(default="Computer Science", max_length=100)
     mess_id: Optional[str] = Field(default=None, max_length=50)
-    student_type: str = Field(default="HOSTELLER", description="Always HOSTELLER for CUSAT Boys Hostel")
+    student_type: Literal["HOSTELLER", "DAY_SCHOLAR"] = "HOSTELLER"
     campus_location: Optional[str] = Field(default="MAIN_CAMPUS", description="MAIN_CAMPUS or LAKESIDE_CAMPUS")

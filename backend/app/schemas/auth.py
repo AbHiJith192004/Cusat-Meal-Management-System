@@ -4,23 +4,15 @@ from uuid import UUID
 
 
 class ActivateRequest(BaseModel):
-    """Request body for account activation."""
-    registration_number: str = Field(..., min_length=1, max_length=50, description="Student registration number")
-    date_of_birth: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$", description="Date of birth in YYYY-MM-DD format")
-    password: str = Field(..., min_length=8, max_length=128, description="Password (min 8 chars)")
+    registration_number: str = Field(min_length=1, max_length=50)
+    setup_code: str = Field(min_length=20, max_length=128)
+    password: str = Field(min_length=12, max_length=128)
 
 
 class LoginRequest(BaseModel):
     """Request body for login."""
     registration_number: str = Field(..., min_length=1, max_length=50)
     password: str = Field(..., min_length=1, max_length=128)
-
-
-class ResetPasswordDobRequest(BaseModel):
-    """Request body for resetting password via Date of Birth verification."""
-    registration_number: str = Field(..., min_length=1, max_length=50, description="Student registration number")
-    date_of_birth: str = Field(..., pattern=r"^\d{4}-\d{2}-\d{2}$", description="Date of birth in YYYY-MM-DD format")
-    new_password: str = Field(..., min_length=6, max_length=128, description="New password (min 6 chars)")
 
 
 class TokenResponse(BaseModel):

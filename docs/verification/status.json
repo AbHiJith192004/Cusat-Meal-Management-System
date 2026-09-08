@@ -1,0 +1,18 @@
+{
+  "status": "ready_for_digitalocean_staging_not_live",
+  "live_deployment": false,
+  "integration_tests": 17,
+  "unit_tests": 17,
+  "frontend_typecheck": "passed",
+  "frontend_build": "passed",
+  "frontend_audit_vulnerabilities": 0,
+  "alembic_schema_check": "passed",
+  "docker_build": "not_run_docker_unavailable",
+  "digitalocean_console": "sign_in_required",
+  "billing_policy": "OPTED_IN_DAYS_PLUS_FINES_V1 implemented and verified",
+  "digitalocean_region": "blr",
+  "digitalocean_web_plan": "apps-s-1vcpu-1gb-fixed",
+  "digitalocean_database": "managed PostgreSQL 16, cluster creation pending",
+  "digitalocean_scheduled_job": "daily fine reconciliation at 01:00 Asia/Kolkata",
+  "local_one_worker_300_write_burst": "300/300 HTTP 200 and 300/300 rows persisted"
+}

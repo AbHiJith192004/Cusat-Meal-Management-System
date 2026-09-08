@@ -7,7 +7,6 @@ from app.database import get_db
 from app.schemas.auth import (
     ActivateRequest,
     LoginRequest,
-    ResetPasswordDobRequest,
     TokenResponse,
     MessageResponse,
 )
@@ -15,7 +14,8 @@ from app.schemas.common import success_response
 from app.config import get_settings
 from app.services.auth_service import AuthService
 from app.security.rate_limiter import (
-    rate_limiter,
+    check_shared_rate_limit,
+    RateLimitConfig,
     get_client_ip,
     LOGIN_RATE_LIMIT,
     ACTIVATION_RATE_LIMIT,
@@ -51,40 +51,14 @@ def _set_refresh_cookie(response: Response, token: str) -> None:
 async def activate_account(
     request: Request,
     body: ActivateRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
-    """Activate a pre-imported student account.
-
-    Requires: registration_number, date_of_birth, password.
-    Only PENDING accounts can be activated. DOB is verified against stored records.
-    """
+    """Set a password using an expiring code issued after staff identity verification."""
     client_ip = get_client_ip(request)
-    rate_limiter.check_rate_limit(f"activate:{client_ip}", ACTIVATION_RATE_LIMIT)
-
-    service = AuthService(db)
-    result = await service.activate_account(
-        registration_number=body.registration_number,
-        date_of_birth=body.date_of_birth,
-        password=body.password,
-    )
-    return success_response(data=result)
-
-
-@router.post("/reset-password-dob", response_model=None)
-async def reset_password_dob(
-    request: Request,
-    body: ResetPasswordDobRequest,
-    db: AsyncSession = Depends(get_db),
-):
-    """Reset password by verifying Date of Birth against stored student records."""
-    client_ip = get_client_ip(request)
-    rate_limiter.check_rate_limit(f"reset_dob:{client_ip}", ACTIVATION_RATE_LIMIT)
-
-    service = AuthService(db)
-    result = await service.reset_password_by_dob(
-        registration_number=body.registration_number,
-        date_of_birth=body.date_of_birth,
-        new_password=body.new_password,
+    await check_shared_rate_limit(f"activate:{client_ip}", ACTIVATION_RATE_LIMIT)
+    await check_shared_rate_limit(f"setup-account:{body.registration_number.strip().upper()}", RateLimitConfig(5, 900))
+    result = await AuthService(db).set_password_with_code(
+        body.registration_number, body.setup_code, body.password,
     )
     return success_response(data=result)
 
@@ -94,7 +68,7 @@ async def login(
     request: Request,
     response: Response,
     body: LoginRequest,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """Authenticate and receive tokens.
 
@@ -102,8 +76,9 @@ async def login(
     Sets refresh_token as HttpOnly cookie.
     """
     client_ip = get_client_ip(request)
-    rate_limiter.check_rate_limit(f"login:{client_ip}", LOGIN_RATE_LIMIT)
+    await check_shared_rate_limit(f"login:{client_ip}", RateLimitConfig(300, 60))
 
+    await check_shared_rate_limit(f"login-account:{body.registration_number.strip().upper()}", RateLimitConfig(10, 900))
     service = AuthService(db)
     access_token, refresh_token, expires_in = await service.login(
         registration_number=body.registration_number,
@@ -125,14 +100,14 @@ async def login(
 async def refresh_tokens(
     request: Request,
     response: Response,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """Refresh access token using the refresh token cookie.
 
     Implements token rotation: old refresh token is revoked, new one issued.
     """
     client_ip = get_client_ip(request)
-    rate_limiter.check_rate_limit(f"refresh:{client_ip}", REFRESH_RATE_LIMIT)
+    await check_shared_rate_limit(f"refresh:{client_ip}", RateLimitConfig(600, 60))
 
     refresh_token = request.cookies.get("refresh_token")
     if not refresh_token:
@@ -157,7 +132,7 @@ async def refresh_tokens(
 async def logout(
     request: Request,
     response: Response,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """Logout: revoke refresh token and clear cookie."""
     refresh_token = request.cookies.get("refresh_token")

@@ -32,20 +32,15 @@ function getCurrentMealType(): MealKey {
   return 'dinner';
 }
 
-const MEAL_TIMES: Record<MealKey, string> = {
-  breakfast: '7:30 AM – 9:30 AM',
-  lunch: '12:30 PM – 2:00 PM',
-  dinner: '7:30 PM – 9:00 PM',
-};
 const MEAL_LABELS: Record<MealKey, string> = {
   breakfast: 'Breakfast',
   lunch: 'Lunch',
   dinner: 'Dinner',
 };
 const MEAL_FALLBACK: Record<MealKey, string> = {
-  breakfast: 'Chapati / Malabar Porotta & Egg Roast / Kadala Curry + Tea',
-  lunch: 'Kerala Rice Meals with Fish Curry / Chicken Curry, Thoran & Moru',
-  dinner: 'Chapati / Malabar Porotta & Chicken Curry / Paneer Masala + Milk',
+  breakfast: 'Menu details have not been published.',
+  lunch: 'Menu details have not been published.',
+  dinner: 'Menu details have not been published.',
 };
 const MEAL_ILLUSTRATION = {
   breakfast: BreakfastCartoon,
@@ -62,6 +57,7 @@ const MEAL_FILL: Record<MealKey, string> = {
 export const StudentHomeView: React.FC<StudentHomeViewProps> = ({ studentName, onNavigate }) => {
   const [meals, setMeals] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
   const currentMeal = getCurrentMealType();
   const firstName = studentName?.trim().split(' ')[0] || 'Student';
@@ -70,7 +66,7 @@ export const StudentHomeView: React.FC<StudentHomeViewProps> = ({ studentName, o
     mealApi
       .getMeals()
       .then(d => { if (d?.length) setMeals(d); })
-      .catch(() => {})
+      .catch(() => setLoadError(true))
       .finally(() => setLoading(false));
   }, []);
 
@@ -83,6 +79,17 @@ export const StudentHomeView: React.FC<StudentHomeViewProps> = ({ studentName, o
 
   const otherMeals = (['breakfast', 'lunch', 'dinner'] as MealKey[]).filter(m => m !== currentMeal);
   const HeroIllustration = currentMeal === 'breakfast' ? DosaCartoon : MEAL_ILLUSTRATION[currentMeal];
+
+  if (!loading && loadError) {
+    return (
+      <main className="page-container">
+        <div role="alert" className="rounded-xl border border-[#F6C8C3] bg-[#FDECEA] p-5 text-sm font-bold" style={{ color: 'var(--red)' }}>
+          Live meal information is unavailable. Open Meal Schedule to retry before relying on a meal status.
+        </div>
+        <button className="btn-secondary mt-4" type="button" onClick={() => onNavigate('calendar')}>Open Meal Schedule</button>
+      </main>
+    );
+  }
 
   return (
     <main className="page-container">
@@ -124,7 +131,7 @@ export const StudentHomeView: React.FC<StudentHomeViewProps> = ({ studentName, o
                 className="text-sm font-black whitespace-nowrap"
                 style={{ color: 'var(--text-dark)', fontVariantNumeric: 'tabular-nums' }}
               >
-                {MEAL_TIMES[currentMeal]}
+                {todayPlan?.[currentMeal]?.time_window || 'Serving window unavailable'}
               </p>
               <p className="text-xs font-semibold mt-0.5" style={{ color: 'var(--text-muted)' }}>
                 Today&rsquo;s special
@@ -241,7 +248,7 @@ export const StudentHomeView: React.FC<StudentHomeViewProps> = ({ studentName, o
                           className="text-xs font-bold mt-0.5"
                           style={{ color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}
                         >
-                          {MEAL_TIMES[meal]}
+                          {todayPlan?.[meal]?.time_window || 'Serving window unavailable'}
                         </p>
                         <p className="text-[13px] font-semibold mt-1" style={{ color: 'var(--text-body)' }}>
                           {itemsFor(meal)}

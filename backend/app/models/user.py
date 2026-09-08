@@ -1,3 +1,8 @@
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from app.models.student import StudentProfile
+    from app.models.notification import Notification
+
 import uuid
 from datetime import datetime
 from typing import List
@@ -18,6 +23,9 @@ class User(Base, TimestampMixin):
     password_hash: Mapped[str | None] = mapped_column(sa.String(255), nullable=True)
     role: Mapped[str] = mapped_column(sa.String(20), nullable=False, default=Role.STUDENT.value)
     account_status: Mapped[str] = mapped_column(sa.String(20), nullable=False, default=AccountStatus.PENDING.value)
+    session_version: Mapped[int] = mapped_column(sa.Integer, nullable=False, server_default="0")
+    setup_code_hash: Mapped[str | None] = mapped_column(sa.String(64), nullable=True)
+    setup_code_expires_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True), nullable=True)
     activated_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True), nullable=True)
 
     profile: Mapped["StudentProfile"] = relationship(
@@ -48,3 +56,10 @@ class RefreshToken(Base):
     )
 
     user: Mapped["User"] = relationship("User", back_populates="refresh_tokens")
+
+
+class AuthRateLimit(Base):
+    __tablename__ = "auth_rate_limits"
+    key: Mapped[str] = mapped_column(sa.String(64), primary_key=True)
+    attempts: Mapped[int] = mapped_column(sa.Integer, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(sa.DateTime(timezone=True), nullable=False, index=True)

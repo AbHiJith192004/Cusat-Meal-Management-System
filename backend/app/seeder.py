@@ -17,6 +17,9 @@ logger = logging.getLogger(__name__)
 
 
 async def seed_data():
+    from app.config import get_settings
+    if not get_settings().is_development:
+        raise RuntimeError("Demo seeding is forbidden outside development")
     async with async_session_factory() as session:
         # 1. Seed System Settings
         settings_to_seed = [

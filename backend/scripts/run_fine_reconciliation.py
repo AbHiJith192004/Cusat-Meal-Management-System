@@ -3,7 +3,8 @@ import asyncio
 import sys
 from datetime import date, timedelta
 
-from app.database import async_session_factory
+from app.database import async_session_factory, close_db
+from app.repositories.user_repo import RefreshTokenRepository
 from app.services.fine_service import FineService
 from app.utils.timezone import today_ist
 
@@ -15,16 +16,21 @@ async def main():
 
     print(f"[RECONCILIATION] Starting fine reconciliation for {target_date.isoformat()}...")
 
-    async with async_session_factory() as session:
-        service = FineService(session)
-        total = 0
-        for mt in ["BREAKFAST", "LUNCH", "DINNER"]:
-            created = await service.reconcile_missed_meals(target_date, mt)
-            print(f"  {mt}: {created} fines generated")
-            total += created
+    try:
+        async with async_session_factory() as session:
+            service = FineService(session)
+            total = 0
+            for mt in ["BREAKFAST", "LUNCH", "DINNER"]:
+                created = await service.reconcile_missed_meals(target_date, mt)
+                print(f"  {mt}: {created} fines generated")
+                total += created
 
-        await session.commit()
-        print(f"[RECONCILIATION] Completed. Total fines generated: {total}")
+            await session.commit()
+            purged = await RefreshTokenRepository(session).purge_expired()
+            print(f"[RECONCILIATION] Completed. Total fines generated: {total}")
+            print(f"[CLEANUP] Removed {purged} expired or old revoked refresh tokens")
+    finally:
+        await close_db()
 
 
 if __name__ == "__main__":

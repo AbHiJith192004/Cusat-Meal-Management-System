@@ -2,10 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { AlertItem } from '../types';
 import { notificationsApi } from '../services/api';
 
-interface AlertsViewProps {
-  alerts: AlertItem[];
-  onMarkAllRead: () => void;
-}
+interface AlertsViewProps { onUnreadChange?: (count:number) => void; }
 
 type VisualType = 'food' | 'menu' | 'bill' | 'info' | 'warning' | 'success';
 
@@ -13,9 +10,9 @@ const TYPE_CONFIG: Record<
   VisualType,
   { strip: string; icon: string; action?: string; tint: string }
 > = {
-  food:    { strip: 'var(--alert-food)', icon: 'restaurant',    action: 'View details', tint: 'var(--orange-soft)' },
-  menu:    { strip: 'var(--alert-menu)', icon: 'event_note',    action: 'See menu',     tint: 'var(--green-light)' },
-  bill:    { strip: 'var(--alert-bill)', icon: 'payments',      action: 'Pay now',      tint: '#FDECEA' },
+  food:    { strip: 'var(--alert-food)', icon: 'restaurant',     tint: 'var(--orange-soft)' },
+  menu:    { strip: 'var(--alert-menu)', icon: 'event_note',         tint: 'var(--green-light)' },
+  bill:    { strip: 'var(--alert-bill)', icon: 'payments',            tint: '#FDECEA' },
   info:    { strip: 'var(--alert-info)', icon: 'campaign',      tint: '#EAF2FB' },
   warning: { strip: 'var(--warn, #E8A33D)', icon: 'warning',    tint: '#FDF3E2' },
   success: { strip: 'var(--alert-menu)', icon: 'check_circle',  tint: 'var(--green-light)' },
@@ -28,58 +25,18 @@ function resolveType(alert: AlertItem): VisualType {
   return 'food';
 }
 
-const SYSTEM_ALERTS: AlertItem[] = [
-  {
-    id: 'SA-01',
-    title: 'Special Biryani Dinner',
-    message: "Don't miss out on our special Hyderabadi Biryani this evening at the mess hall!",
-    time: 'Today, 6:30 PM',
-    type: 'info',
-    isUnread: true,
-  },
-  {
-    id: 'SA-02',
-    title: 'Menu Change for Tomorrow',
-    message: 'Breakfast will now include Masala Dosa instead of Idli.',
-    time: 'Yesterday, 8:45 PM',
-    type: 'info',
-    isUnread: false,
-  },
-  {
-    id: 'SA-03',
-    title: 'Monthly Mess Bill Due',
-    message: 'Your monthly mess bill is due. Please pay by the 5th to avoid late fees.',
-    time: '2 days ago',
-    type: 'warning',
-    isUnread: false,
-  },
-  {
-    id: 'SA-04',
-    title: 'Hostel Meeting Reminder',
-    message: 'A general body meeting for all residents is scheduled for this Friday in the common room.',
-    time: '3 days ago',
-    type: 'info',
-    isUnread: false,
-  },
-];
-
-const SYSTEM_TYPE_MAP: Record<string, VisualType> = {
-  'SA-01': 'food',
-  'SA-02': 'menu',
-  'SA-03': 'bill',
-  'SA-04': 'info',
-};
-
-export const AlertsView: React.FC<AlertsViewProps> = ({ alerts: initialAlerts, onMarkAllRead }) => {
-  const [alertsList, setAlertsList] = useState<AlertItem[]>(initialAlerts);
+export const AlertsView: React.FC<AlertsViewProps> = ({ onUnreadChange }) => {
+  const [alertsList, setAlertsList] = useState<AlertItem[]>([]);
   const [visualTypes, setVisualTypes] = useState<Record<string, VisualType>>({});
 
+  const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   useEffect(() => {
     notificationsApi
       .getNotifications()
       .then(res => {
-        if (res?.items?.length > 0) {
-          const formatted: AlertItem[] = res.items.map((n: any, idx: number) => ({
+        if (Array.isArray(res)) {
+          const formatted: AlertItem[] = res.map((n: any, idx: number) => ({
             id: n.id || `N-${idx}`,
             title: n.title,
             message: n.message,
@@ -87,31 +44,44 @@ export const AlertsView: React.FC<AlertsViewProps> = ({ alerts: initialAlerts, o
               hour: '2-digit',
               minute: '2-digit',
             }),
-            type: n.notification_type === 'FINE' ? 'warning' : 'info',
+            type: n.type === 'FINE' ? 'warning' : 'info',
             isUnread: !n.is_read,
           }));
           setAlertsList(formatted);
+          onUnreadChange?.(formatted.filter(a => a.isUnread).length);
           const types: Record<string, VisualType> = {};
           formatted.forEach(a => { types[a.id] = resolveType(a); });
           setVisualTypes(types);
         }
       })
-      .catch(() => {});
+      .catch(() => setError('Could not load announcements. Please try again.'))
+      .finally(() => setLoading(false));
   }, []);
 
-  const displayList = alertsList.length > 0 ? alertsList : SYSTEM_ALERTS;
+  const displayList = alertsList;
   const unread = displayList.filter(a => a.isUnread).length;
 
   const getVisualType = (alert: AlertItem): VisualType =>
-    SYSTEM_TYPE_MAP[alert.id] || visualTypes[alert.id] || resolveType(alert);
+    visualTypes[alert.id] || resolveType(alert);
 
-  const handleMarkRead = () => {
-    onMarkAllRead();
-    setAlertsList(prev => prev.map(a => ({ ...a, isUnread: false })));
+  const markRead = async (id: string) => {
+    try {
+      await notificationsApi.markRead(id);
+      setAlertsList(prev => {
+        const next = prev.map(a => a.id === id ? { ...a, isUnread: false } : a);
+        onUnreadChange?.(next.filter(a => a.isUnread).length);
+        return next;
+      });
+    } catch { setError('Could not save read status. Please try again.'); }
+  };
+  const handleMarkRead = async () => {
+    await Promise.all(displayList.filter(a => a.isUnread).map(a => markRead(a.id)));
   };
 
   return (
     <main className="page-container">
+      {error && <p role="alert">{error}</p>}
+      {loading && <p role="status">Loading announcements…</p>}
       {/* ── Header row ─────────────────────────────────────────────── */}
       <div className="flex items-center justify-between gap-3 mb-3 lg:mb-4">
         <p className="section-label">
@@ -191,11 +161,7 @@ export const AlertsView: React.FC<AlertsViewProps> = ({ alerts: initialAlerts, o
 
                         {alert.isUnread && (
                           <button
-                            onClick={() =>
-                              setAlertsList(prev =>
-                                prev.map(a => (a.id === alert.id ? { ...a, isUnread: false } : a))
-                              )
-                            }
+                            onClick={() => markRead(alert.id)}
                             className="text-[11px] font-bold cursor-pointer shrink-0"
                             style={{ background: 'none', border: 'none', color: 'var(--text-muted)' }}
                           >
@@ -212,7 +178,7 @@ export const AlertsView: React.FC<AlertsViewProps> = ({ alerts: initialAlerts, o
         })}
       </div>
 
-      {displayList.length === 0 && (
+      {!loading && !error && displayList.length === 0 && (
         <div
           className="rounded-2xl px-6 py-12 text-center"
           style={{ background: 'var(--card)', border: '1px solid var(--line)' }}

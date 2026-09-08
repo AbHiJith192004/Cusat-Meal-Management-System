@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import { attendanceApi } from '../services/api';
 import { ChefMascot } from '../components/FoodIllustrations';
-import { AdminScannerView } from './AdminScannerView';
-import { ScanLog } from '../types';
 
 interface StudentQrViewProps {
   studentName: string;
@@ -35,42 +34,18 @@ export const StudentQrView: React.FC<StudentQrViewProps> = ({ studentName, regNo
   const [isAlreadyRecorded, setIsAlreadyRecorded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Mess Committee Active Check
-  const [committeeInfo, setCommitteeInfo] = useState<{ isMember: boolean; duration?: string }>(() => {
-    try {
-      const saved = localStorage.getItem('cusat_committee_members');
-      if (!saved) return { isMember: false };
-      const map = JSON.parse(saved);
-      const keys = Object.keys(map);
-      if (keys.length > 0) {
-        return { isMember: true, duration: map[keys[0]].duration };
-      }
-      return { isMember: false };
-    } catch {
-      return { isMember: false };
-    }
-  });
-
-  const [activeSubView, setActiveSubView] = useState<'scanner' | 'pass'>(
-    committeeInfo.isMember ? 'scanner' : 'pass'
-  );
-  const [scanLogs, setScanLogs] = useState<ScanLog[]>([]);
-
-  const handleAddScanLog = (log: ScanLog) => {
-    setScanLogs(prev => [log, ...prev]);
-  };
-
   const fetchQrToken = async (type: MealType) => {
     setIsRefreshing(true);
     setIsAlreadyRecorded(false);
     setError(null);
+    setQrToken(null);
     try {
       const res = await attendanceApi.getQrToken(type);
       setQrToken(res.qr_token);
       setSecondsLeft(res.validity_seconds || 60);
     } catch (err: any) {
       const msg = err.message || '';
-      if (msg.includes('already') || msg.includes('recorded') || committeeInfo.isMember) {
+      if (msg.includes('already') || msg.includes('recorded')) {
         setIsAlreadyRecorded(true);
       } else {
         setQrToken(null);
@@ -99,12 +74,6 @@ export const StudentQrView: React.FC<StudentQrViewProps> = ({ studentName, regNo
     return () => clearInterval(t);
   }, [mealType]);
 
-  const qrCodeUrl = qrToken
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=260x260&data=${encodeURIComponent(
-        qrToken
-      )}&bgcolor=ffffff&color=2D1A0E`
-    : null;
-
   const today = new Date().toLocaleDateString('en-IN', {
     day: 'numeric',
     month: 'short',
@@ -113,48 +82,6 @@ export const StudentQrView: React.FC<StudentQrViewProps> = ({ studentName, regNo
 
   return (
     <main className="page-container space-y-4">
-      {/* Mess Committee Member Banner & View Switcher */}
-      {committeeInfo.isMember && (
-        <div className="p-4 bg-[#16a34a]/10 border border-[#16a34a]/30 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs shadow-xs">
-          <div className="flex items-center gap-2.5">
-            <span className="material-symbols-outlined text-[26px] text-[#16a34a]">stars</span>
-            <div>
-              <h4 className="font-extrabold text-[#2D1A0E] text-sm flex items-center gap-1.5">
-                🌟 Mess Committee Officer Mode ({committeeInfo.duration || 'Active'})
-              </h4>
-              <p className="text-[#15803d] font-semibold mt-0.5">
-                Your attendance is auto-recorded as <span className="font-extrabold underline">Present</span>. Scanner enabled to take attendance for fellow students.
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={() => setActiveSubView('scanner')}
-              className={`px-3.5 py-1.5 rounded-xl font-black text-xs cursor-pointer transition-all flex items-center gap-1 ${
-                activeSubView === 'scanner' ? 'bg-[#16a34a] text-white shadow-xs' : 'bg-white text-[#2D1A0E] border border-[#E3CB9B]'
-              }`}
-            >
-              <span className="material-symbols-outlined text-[16px]">qr_code_scanner</span>
-              <span>Scanner</span>
-            </button>
-            <button
-              onClick={() => setActiveSubView('pass')}
-              className={`px-3.5 py-1.5 rounded-xl font-black text-xs cursor-pointer transition-all flex items-center gap-1 ${
-                activeSubView === 'pass' ? 'bg-[#F47A35] text-white shadow-xs' : 'bg-white text-[#2D1A0E] border border-[#E3CB9B]'
-              }`}
-            >
-              <span className="material-symbols-outlined text-[16px]">qr_code_2</span>
-              <span>My Pass</span>
-            </button>
-          </div>
-        </div>
-      )}
-
-      {committeeInfo.isMember && activeSubView === 'scanner' ? (
-        <div className="bg-white rounded-2xl border border-[#EFDCB4] shadow-xs p-4">
-          <AdminScannerView scanLogs={scanLogs} onAddScanLog={handleAddScanLog} />
-        </div>
-      ) : (
       <div className="mx-auto w-full max-w-[440px] lg:max-w-none lg:grid lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)] lg:gap-8 lg:items-start">
         {/* ── The pass ───────────────────────────────────────────── */}
         <div>
@@ -262,10 +189,12 @@ export const StudentQrView: React.FC<StudentQrViewProps> = ({ studentName, regNo
                     Try again
                   </button>
                 </div>
-              ) : qrCodeUrl ? (
-                <img
-                  src={qrCodeUrl}
-                  alt={`Mess pass QR code for ${mealType}`}
+              ) : qrToken ? (
+                <QRCodeSVG
+                  value={qrToken}
+                  size={260}
+                  marginSize={4}
+                  title={`Mess pass QR code for ${mealType}`}
                   className="w-full max-w-[220px] h-auto"
                   style={{ opacity: isRefreshing ? 0.35 : 1, transition: 'opacity 0.3s' }}
                 />
@@ -366,7 +295,6 @@ export const StudentQrView: React.FC<StudentQrViewProps> = ({ studentName, regNo
           </div>
         </div>
       </div>
-      )}
     </main>
   );
 };

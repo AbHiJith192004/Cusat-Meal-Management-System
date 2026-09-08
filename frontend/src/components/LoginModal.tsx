@@ -9,25 +9,6 @@ interface LoginModalProps {
   onLoginSuccess: (role: 'student' | 'admin', name: string, regNo: string) => void;
 }
 
-/**
- * Quick-fill buttons for the seeded demo accounts.
- *
- * These only populate the form - the person still has to submit, and the
- * server still authenticates normally. They are gated to development builds
- * so seeded credentials are not shipped in a production bundle; Vite replaces
- * `import.meta.env.DEV` with a literal at build time, so the whole block is
- * removed by tree-shaking in a production build.
- */
-const SHOW_DEMO_ACCOUNTS = import.meta.env.DEV;
-
-const DEMO_ACCOUNTS = [
-  { label: 'Student', reg: 'TEST001', icon: 'school' },
-  { label: 'Admin', reg: 'ADMIN001', icon: 'restaurant' },
-  { label: 'Warden', reg: 'SADMIN001', icon: 'shield_person' },
-];
-
-const DEMO_PASSWORD = 'password123';
-
 export const LoginModal: React.FC<LoginModalProps> = ({
   isOpen,
   isFullScreen = false,
@@ -45,12 +26,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
   if (!isOpen) return null;
 
-  const fill = (r: string, p: string) => {
-    setRegNo(r);
-    setPassword(p);
-    setErrorMsg(null);
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -64,7 +39,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
           setLoading(false);
           return;
         }
-        const res = await authApi.resetPasswordByDob(trimmed, dob, password);
+        const res = await authApi.resetPasswordWithCode(trimmed, dob, password);
         setSuccessMsg(res.message || 'Password reset. Please sign in.');
         setMode('login');
         setPassword('');
@@ -86,10 +61,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
           reg = p.registration_number || trimmed;
         }
       } catch {
-        role =
-          trimmed.toUpperCase().includes('ADMIN') || trimmed.toUpperCase().includes('SADMIN')
-            ? 'admin'
-            : 'student';
+        throw new Error('Could not verify your account profile. Please sign in again.');
       }
       onLoginSuccess(role, name, reg);
       onClose();
@@ -107,7 +79,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
     mode === 'reset' ? 'Reset your password' : mode === 'activate' ? 'Activate your account' : 'Sign in';
   const blurb =
     mode === 'reset'
-      ? 'Confirm your date of birth to set a new password.'
+      ? 'Enter the one-use setup code provided by mess staff.'
       : mode === 'activate'
       ? 'First-time setup for your mess account.'
       : 'Meal planning and your dining pass, in one place.';
@@ -150,37 +122,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({
           {blurb}
         </p>
 
-        {/* Demo accounts - development builds only */}
-        {SHOW_DEMO_ACCOUNTS && mode === 'login' && (
-          <div className="mb-5">
-            <p className="section-label mb-2">Quick demo</p>
-            <div className="grid grid-cols-3 gap-2">
-              {DEMO_ACCOUNTS.map(item => {
-                const active = regNo === item.reg;
-                return (
-                  <button
-                    key={item.reg}
-                    type="button"
-                    onClick={() => fill(item.reg, DEMO_PASSWORD)}
-                    className="flex flex-col items-center gap-1 py-2.5 rounded-xl text-[12px] font-bold cursor-pointer transition-colors lg:rounded-lg"
-                    style={{
-                      background: active ? 'var(--orange-soft)' : 'var(--bg-alt)',
-                      color: active ? 'var(--orange-dark)' : 'var(--text-body)',
-                      border: `1px solid ${active ? 'var(--orange-light)' : 'var(--line)'}`,
-                      fontFamily: 'Nunito, sans-serif',
-                    }}
-                  >
-                    <span className="material-symbols-outlined" style={{ fontSize: 18 }}>
-                      {item.icon}
-                    </span>
-                    {item.label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
         {successMsg && (
           <div
             className="mb-4 px-3.5 py-3 rounded-xl text-xs font-bold flex items-start gap-2"
@@ -218,7 +159,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
               autoComplete="username"
               value={regNo}
               onChange={e => setRegNo(e.target.value)}
-              placeholder="e.g. TEST001"
+              placeholder="Enter your registration number"
               className="stitch-input"
             />
           </div>
@@ -230,11 +171,11 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 className="block text-[12px] font-black mb-1.5"
                 style={{ color: 'var(--text-body)' }}
               >
-                Date of birth
+                Setup code from mess staff
               </label>
               <input
                 id="login-dob"
-                type="date"
+                type="text"
                 required
                 value={dob}
                 onChange={e => setDob(e.target.value)}

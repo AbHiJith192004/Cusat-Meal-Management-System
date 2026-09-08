@@ -10,7 +10,9 @@ from app.models.notification import Notification
 from app.models.audit import AuditLog
 from app.models.settings import SystemSetting
 from app.models.meal_rate import DailyMealRate
-from app.models.billing import BillingPeriod, StockCount
+from app.models.billing import BillingPeriod, StockCount, StudentBillSnapshot
+from app.models.operations import (MenuPublication, LedgerEntry, InventoryItem,
+    InventoryMovement, CommitteeAssignment, PaymentSubmission)
 
 __all__ = [
     "Base",
@@ -27,4 +29,6 @@ __all__ = [
     "DailyMealRate",
     "BillingPeriod",
     "StockCount",
+    "StudentBillSnapshot", "MenuPublication", "LedgerEntry", "InventoryItem",
+    "InventoryMovement", "CommitteeAssignment", "PaymentSubmission",
 ]

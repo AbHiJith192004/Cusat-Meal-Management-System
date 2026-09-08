@@ -7,7 +7,7 @@ def setup_cors(app: FastAPI) -> None:
     r"""Configure CORS from settings.
 
     Exact origins only. There used to be an
-    `allow_origin_regex=r"https://.*\.onrender\.com"` here alongside
+    a broad hosting-provider wildcard here alongside
     `allow_credentials=True`. Render is multi-tenant, so any app deployed on
     that shared domain could call /auth/refresh with the browser attaching the
     victim's refresh cookie, then read the fresh access token straight out of

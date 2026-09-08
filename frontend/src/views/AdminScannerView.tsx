@@ -4,18 +4,23 @@ import { attendanceApi } from '../services/api';
 import { Html5Qrcode } from 'html5-qrcode';
 import { EmptyPlateCartoon } from '../components/FoodIllustrations';
 
-interface AdminScannerViewProps {
-  scanLogs: ScanLog[];
-  onAddScanLog: (log: ScanLog) => void;
-}
-
-export const AdminScannerView: React.FC<AdminScannerViewProps> = ({ scanLogs, onAddScanLog }) => {
+export const AdminScannerView: React.FC = () => {
+  const [scanLogs, setScanLogs] = useState<ScanLog[]>([]);
   const [cameraActive, setCameraActive] = useState(false);
   const [feedback, setFeedback] = useState<{ ok: boolean; msg: string } | null>(null);
   const [manualToken, setManualToken] = useState('');
   const html5QrcodeRef = useRef<Html5Qrcode | null>(null);
   const isScanningRef = useRef(false);
   const lastScanned = useRef<{ token: string; time: number }>({ token: '', time: 0 });
+
+  useEffect(() => {
+    attendanceApi.getRecent().then(rows => setScanLogs(rows.map((x:any) => ({
+      id:x.id, studentName:x.student_name, regNo:x.registration_number,
+      meal:(String(x.meal_type).toUpperCase()==='BREAKFAST'?'Breakfast':String(x.meal_type).toUpperCase()==='DINNER'?'Dinner':'Lunch') as ScanLog['meal'],
+      status:'Success', timestamp:new Date(x.recorded_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}),
+      timeAgo:''
+    })))).catch(() => setFeedback({ok:false,msg:'Could not load recent check-ins.'}));
+  }, []);
 
   const handleToken = async (token: string) => {
     const now = Date.now();
@@ -26,7 +31,7 @@ export const AdminScannerView: React.FC<AdminScannerViewProps> = ({ scanLogs, on
       await attendanceApi.confirmQr(v.verification_id);
       const mealRaw = String(v.meal_type || 'Lunch').toLowerCase();
       const meal = mealRaw.includes('break') ? 'Breakfast' : mealRaw.includes('din') ? 'Dinner' : 'Lunch';
-      onAddScanLog({
+      setScanLogs(prev => [{
         id: `SCAN-${Date.now()}`,
         studentName: v.student_name || 'Student',
         regNo: v.registration_number || 'TEST001',
@@ -34,7 +39,7 @@ export const AdminScannerView: React.FC<AdminScannerViewProps> = ({ scanLogs, on
         status: 'Success',
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         timeAgo: 'Just now',
-      });
+      }, ...prev]);
       setFeedback({ ok: true, msg: `${v.student_name} verified` });
     } catch (err: any) {
       const msg = err.message || '';
@@ -174,10 +179,11 @@ export const AdminScannerView: React.FC<AdminScannerViewProps> = ({ scanLogs, on
             placeholder="Paste a token manually"
             className="stitch-input flex-1"
             style={{ fontSize: '0.8rem' }}
-            onKeyDown={e => { if (e.key === 'Enter') handleToken(manualToken || 'TEST-TOKEN-001'); }}
+            onKeyDown={e => { if (e.key === 'Enter' && manualToken.trim()) void handleToken(manualToken.trim()); }}
           />
           <button
-            onClick={() => handleToken(manualToken || 'TEST-TOKEN-001')}
+            onClick={() => void handleToken(manualToken.trim())}
+            disabled={!manualToken.trim()}
             className="btn-primary shrink-0"
             style={{ padding: '10px 18px' }}
           >

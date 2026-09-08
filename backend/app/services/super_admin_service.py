@@ -30,13 +30,21 @@ class SuperAdminService:
         self, file_contents: bytes, actor_id: uuid.UUID
     ) -> dict[str, Any]:
         """Parse Excel file and bulk import student records (PENDING activation)."""
+        import zipfile
+        from itertools import islice
         try:
-            wb = openpyxl.load_workbook(filename=io.BytesIO(file_contents), data_only=True)
+            with zipfile.ZipFile(io.BytesIO(file_contents)) as archive:
+                if sum(item.file_size for item in archive.infolist()) > 25 * 1024 * 1024:
+                    raise ValidationException(message="Excel workbook expands beyond the 25 MB limit.")
+            wb = openpyxl.load_workbook(filename=io.BytesIO(file_contents), data_only=True, read_only=True)
         except Exception as e:
             raise ValidationException(message=f"Invalid Excel file format: {str(e)}")
 
         ws = wb.active
-        rows = list(ws.iter_rows(values_only=True))
+        rows = list(islice(ws.iter_rows(values_only=True), 5002))
+        wb.close()
+        if len(rows) > 5001:
+            raise ValidationException(message="Import at most 5,000 students per workbook.")
         if not rows or len(rows) < 2:
             raise ValidationException(message="Excel file is empty or missing data rows.")
 
@@ -52,7 +60,7 @@ class SuperAdminService:
             if not row or not any(row):
                 continue
 
-            reg_no = str(row[0]).strip() if row[0] is not None else ""
+            reg_no = str(row[0]).strip().upper() if row[0] is not None else ""
             name = str(row[1]).strip() if len(row) > 1 and row[1] is not None else ""
             dob_val = row[2] if len(row) > 2 else None
             student_type = str(row[3]).strip().upper() if len(row) > 3 and row[3] is not None else "HOSTELLER"
@@ -130,6 +138,9 @@ class SuperAdminService:
         self, reg_no: str, name: str, password: str, role: str, actor_id: uuid.UUID
     ) -> User:
         """Create a new admin or super-admin account."""
+        reg_no = reg_no.strip().upper()
+        if role not in {"ADMIN", "SUPER_ADMIN"}:
+            raise ValidationException(message="Invalid administrator role.")
         existing = await self.user_repo.get_by_registration_number(reg_no)
         if existing:
             raise ConflictException(message="User with this registration number already exists.")

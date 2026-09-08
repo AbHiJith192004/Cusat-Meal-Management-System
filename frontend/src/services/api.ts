@@ -44,80 +44,62 @@ export const getAuthToken = () => authToken;
  * Call once on app start, in place of reading a persisted token.
  * Returns false when there is no valid session.
  */
-export const restoreSession = async (): Promise<boolean> => {
-  try {
-    const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
-      method: 'POST',
-      credentials: 'include',
-    });
-    if (!res.ok) return false;
-    const json = await res.json();
-    const token = json?.data?.access_token ?? json?.access_token;
-    if (!token) return false;
-    setAuthToken(token);
-    return true;
-  } catch {
-    return false;
-  }
+let refreshInFlight: Promise<boolean> | null = null;
+export const restoreSession = (): Promise<boolean> => {
+  if (refreshInFlight) return refreshInFlight;
+  refreshInFlight = (async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
+        method: 'POST', credentials: 'include', signal: AbortSignal.timeout(15000),
+      });
+      if (!res.ok) { setAuthToken(null); return false; }
+      const json = await res.json();
+      const token = json?.data?.access_token;
+      setAuthToken(token || null);
+      return Boolean(token);
+    } catch { return false; }
+    finally { refreshInFlight = null; }
+  })();
+  return refreshInFlight;
 };
 
-async function request<T>(endpoint: string, options: RequestInit = {}, retries = 2): Promise<T> {
-  const headers: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...(options.headers as Record<string, string>),
-  };
-
-  if (authToken) {
-    headers['Authorization'] = `Bearer ${authToken}`;
-  }
-
-  let response: Response | undefined;
-  let lastErr: any;
-
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      response = await fetch(`${API_BASE_URL}${endpoint}`, {
-        ...options,
-        headers,
-        credentials: 'include', // Send cookies for refresh token
-      });
-      break; // Success or HTTP response received
-    } catch (netErr: any) {
-      lastErr = netErr;
-      if (attempt < retries) {
-        // Wait 2.5s before retrying to allow Render free tier backend container to finish spinning up
-        await new Promise((resolve) => setTimeout(resolve, 2500));
-      }
+async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+  const send = () => fetch(`${API_BASE_URL}${endpoint}`, {
+    ...options,
+    headers: { 'Content-Type': 'application/json', ...(options.headers as Record<string, string>),
+      ...(authToken ? { Authorization: `Bearer ${authToken}` } : {}) },
+    credentials: 'include', signal: options.signal || AbortSignal.timeout(15000),
+  });
+  let response: Response;
+  try {
+    const sentToken = authToken;
+    response = await send();
+    // A 401 occurs before the authenticated handler executes. Never retry an
+    // ambiguous network failure: the server may already have saved the write.
+    if (response.status === 401 && !endpoint.startsWith('/auth/')) {
+      if ((authToken && authToken !== sentToken) || await restoreSession()) response = await send();
     }
+  } catch {
+    throw new Error('Could not reach the server. Refresh to check whether your change was saved before trying again.');
   }
-
-  if (!response) {
-    throw new Error(`The backend server at ${API_BASE_URL} is waking up (Render cold start) or unreachable. Please wait 10-15 seconds and try clicking Sign In again.`);
+  const json = await response.json().catch(() => null);
+  if (!response.ok || !json?.success) {
+    throw new Error(`[${json?.error?.code || 'REQUEST_FAILED'}] ${json?.error?.message || `Request failed (HTTP ${response.status}).`}`);
   }
-
-  const json = await response.json();
-
-  if (!response.ok || !json.success) {
-    const errorMsg = json.error?.message || `HTTP Error ${response.status}`;
-    const errorCode = json.error?.code || 'UNKNOWN_ERROR';
-    throw new Error(`[${errorCode}] ${errorMsg}`);
-  }
-
   return json.data as T;
 }
 
 // Authentication API
 export const authApi = {
-  activate: (registration_number: string, date_of_birth: string, password: string) =>
+  activate: (registration_number: string, setup_code: string, password: string) =>
     request<{ message: string }>('/auth/activate', {
       method: 'POST',
-      body: JSON.stringify({ registration_number, date_of_birth, password }),
+      body: JSON.stringify({ registration_number, setup_code, password }),
     }),
 
-  resetPasswordByDob: (registration_number: string, date_of_birth: string, new_password: string) =>
-    request<{ message: string }>('/auth/reset-password-dob', {
-      method: 'POST',
-      body: JSON.stringify({ registration_number, date_of_birth, new_password }),
+  resetPasswordWithCode: (registration_number: string, setup_code: string, password: string) =>
+    request<{ message: string }>('/auth/activate', {
+      method: 'POST', body: JSON.stringify({ registration_number, setup_code, password }),
     }),
 
   login: async (registration_number: string, password: string) => {
@@ -165,6 +147,9 @@ export const mealApi = {
     return request<any[]>(`/meals${q ? `?${q}` : ''}`);
   },
 
+  updateFullDay: (mealDate: string, status: 'CONFIRMED' | 'SKIPPED') =>
+    request<any>(`/meals/${mealDate}`, { method: 'PUT', body: JSON.stringify({ status }) }),
+
   updateMealSelection: (mealDate: string, mealType: string, status: 'CONFIRMED' | 'SKIPPED') =>
     request<any>(`/meals/${mealDate}/${mealType}`, {
       method: 'PUT',
@@ -172,8 +157,18 @@ export const mealApi = {
     }),
 };
 
+export const menuApi = {
+  list: (startDate?: string, endDate?: string) => {
+    const p = new URLSearchParams();
+    if (startDate) p.set('start_date', startDate);
+    if (endDate) p.set('end_date', endDate);
+    return request<any[]>(`/menus${p.toString() ? `?${p}` : ''}`);
+  },
+};
+
 // Attendance API
 export const attendanceApi = {
+  getRecent: () => request<any[]>('/attendance/recent'),
   getQrToken: (mealType: string) =>
     request<{ qr_token: string; expires_at: string; validity_seconds: number }>(
       `/attendance/qr?meal_type=${mealType.toUpperCase()}`
@@ -203,10 +198,22 @@ export const adminApi = {
   },
 
   getStudents: (query?: string, page: number = 1) => {
-    const params = new URLSearchParams({ page: String(page) });
+    const params = new URLSearchParams({ page: String(page), per_page: '100' });
     if (query) params.append('query', query);
     return request<any[]>(`/admin/students?${params.toString()}`);
   },
+  getAllStudents: async (query?: string) => {
+    const all: any[] = [];
+    for (let page = 1; page <= 10; page++) {
+      const params = new URLSearchParams({page:String(page), per_page:'100'});
+      if (query) params.set('query', query);
+      const rows = await request<any[]>(`/admin/students?${params}`);
+      all.push(...rows);
+      if (rows.length < 100) break;
+    }
+    return all;
+  },
+  getStudentOptions: () => request<any[]>('/admin/student-options'),
 
   createStudent: (data: {
     name: string;
@@ -222,10 +229,15 @@ export const adminApi = {
       body: JSON.stringify(data),
     }),
 
+  issueSetupCode: (studentId: string, reason: string) =>
+    request<{setup_code: string; expires_at: string}>(`/admin/students/${studentId}/setup-code`, {
+      method: 'POST', body: JSON.stringify({reason}),
+    }),
+
   getStudentDetail: (id: string) => request<any>(`/admin/students/${id}`),
 
-  resetAttendance: (registration_number: string, meal_type?: string) => {
-    const params = new URLSearchParams({ registration_number });
+  resetAttendance: (registration_number: string, reason: string, meal_type?: string) => {
+    const params = new URLSearchParams({ registration_number, reason });
     if (meal_type) params.append('meal_type', meal_type);
     return request<any>(`/admin/attendance/reset?${params.toString()}`, {
       method: 'DELETE',
@@ -242,23 +254,6 @@ export const adminApi = {
     request<any>('/admin/attendance/manual', {
       method: 'POST',
       body: JSON.stringify({ student_id, meal_date, meal_type, attendance_type, reason }),
-    }),
-
-  promoteToCommittee: (student_id: string, duration: 'MEAL' | 'DAY' | 'WEEK') =>
-    request<any>('/admin/committee/promote', {
-      method: 'POST',
-      body: JSON.stringify({ student_id, duration }),
-    }),
-
-  revokeCommittee: (student_id: string) =>
-    request<any>(`/admin/committee/revoke/${student_id}`, {
-      method: 'POST',
-    }),
-
-  bulkMarkAttendance: (meal_type: string) =>
-    request<any>('/admin/attendance/bulk-mark', {
-      method: 'POST',
-      body: JSON.stringify({ meal_type }),
     }),
 
   listFines: (status?: string) => {
@@ -297,10 +292,8 @@ export const adminApi = {
    *    credential into browser history and proxy access logs. The server no
    *    longer accepts that fallback either; the Authorization header is the
    *    only accepted form.
-   *  - on 401/403 (and when no token was present) this used to silently call
-   *    `login('ADMIN001', 'password123')` with a credential hardcoded into the
-   *    shipped bundle. An auth failure now surfaces to the caller so the user
-   *    can sign in again themselves.
+   *  - an old fallback silently signed in with a credential embedded in the
+   *    shipped bundle. An auth failure now surfaces so the user signs in.
    */
   // --- Billing periods and physical stock -----------------------------------
   // These replace a localStorage map that decided, per browser, whether a month
@@ -310,6 +303,9 @@ export const adminApi = {
   getBillStatus: (month: number, year: number) =>
     request<any>(`/admin/bills/status?month=${month}&year=${year}`),
 
+  previewBill: (payload: Record<string, number | string>) => request<any>('/admin/bills/preview', {method: 'POST', body: JSON.stringify(payload)}),
+  getPublishedBills: (month: number, year: number) => request<any[]>(`/admin/bills/students?month=${month}&year=${year}`),
+
   publishBill: (payload: {
     month: number;
     year: number;
@@ -318,7 +314,7 @@ export const adminApi = {
     closing_stock_value: number;
     operational_expenses: number;
     administrative_expenses: number;
-    chargeable_days: number;
+    preview_token?: string;
   }) =>
     request<any>('/admin/bills/publish', {
       method: 'POST',
@@ -399,13 +395,36 @@ export const adminApi = {
   },
 
   getAuditLogs: (page: number = 1) => request<any[]>(`/admin/audit?page=${page}`),
+
+  publishMenu: (date: string, mealType: string, items: string[], notes?: string) =>
+    request<any>(`/admin/menus/${date}/${mealType}`, {method: 'PUT', body: JSON.stringify({items, notes})}),
+  getLedger: (kind?: string) => request<any>(`/admin/ledger${kind ? `?kind=${kind}` : ''}`),
+  getLedgerPeriodSummary: (month: number, year: number) => request<any>(`/admin/ledger/period-summary?month=${month}&year=${year}`),
+  createLedger: (data: any) => request<any>('/admin/ledger', {method: 'POST', body: JSON.stringify(data)}),
+  voidLedger: (id: string, reason: string) => request<any>(`/admin/ledger/${id}/void`, {method: 'POST', body: JSON.stringify({reason})}),
+  getInventory: () => request<any[]>('/admin/inventory'),
+  createInventory: (data: any) => request<any>('/admin/inventory', {method: 'POST', body: JSON.stringify(data)}),
+  adjustInventory: (id: string, data: any) => request<any>(`/admin/inventory/${id}/adjust`, {method: 'POST', body: JSON.stringify(data)}),
+  getCommittee: () => request<any[]>('/admin/committee'),
+  assignCommittee: (data: any) => request<any>('/admin/committee/promote', {method: 'POST', body: JSON.stringify(data)}),
+  revokeCommittee: (studentId: string, reason: string) => request<any>(`/admin/committee/revoke/${studentId}`, {method: 'POST', body: JSON.stringify({reason})}),
+  bulkAttendance: (data: any) => request<any>('/admin/attendance/bulk-mark', {method: 'POST', body: JSON.stringify(data)}),
+  getPayments: (status?: string) => request<any[]>(`/admin/payments${status ? `?status=${status}` : ''}`),
+  reviewPayment: (id: string, decision: 'VERIFIED' | 'REJECTED', note: string) =>
+    request<any>(`/admin/payments/${id}/review`, {method: 'POST', body: JSON.stringify({decision, note})}),
+};
+
+export const paymentApi = {
+  listMine: () => request<any[]>('/me/payments'),
+  submit: (month: number, year: number, utr: string, amount: number) =>
+    request<any>('/me/payments', {method: 'POST', body: JSON.stringify({month, year, utr, amount})}),
 };
 
 // Notifications API
 export const notificationsApi = {
   getNotifications: (page: number = 1) => request<any>(`/notifications?page=${page}`),
   markRead: (notification_id: string) =>
-    request<any>(`/notifications/${notification_id}/read`, { method: 'PUT' }),
+    request<any>(`/notifications/${notification_id}/read`, { method: 'POST' }),
 };
 
 // Super Admin API
@@ -422,36 +441,5 @@ export const superAdminApi = {
     request<any>('/super-admin/settings', {
       method: 'PUT',
       body: JSON.stringify({ settings }),
-    }),
-};
-
-// Meal Rates Pricing API
-export const mealRateApi = {
-  getMealRates: (year: number, month: number) =>
-    request<any[]>(`/admin/meal-rates?year=${year}&month=${month}`),
-
-  setMealRate: (data: {
-    rate_date: string;
-    breakfast_rate: number;
-    lunch_rate: number;
-    dinner_rate: number;
-    notes?: string;
-  }) =>
-    request<any>('/admin/meal-rates', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    }),
-
-  bulkSetMealRates: (data: {
-    year: number;
-    month: number;
-    breakfast_rate: number;
-    lunch_rate: number;
-    dinner_rate: number;
-    notes?: string;
-  }) =>
-    request<any>('/admin/meal-rates/bulk', {
-      method: 'POST',
-      body: JSON.stringify(data),
     }),
 };

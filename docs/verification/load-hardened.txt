@@ -1,0 +1,29 @@
+Local two-worker PostgreSQL workload, synthetic identities only.
+
+300-user durable write burst:
+- 300 authenticated requests
+- 300 HTTP 200 responses
+- 300 independently verified persisted rows
+- 2.466 seconds wall time
+- p95 2186.580 ms; p99 2364.044 ms
+- business correctness: PASS
+
+Mixed workload:
+- 50-user ramp: 1,402 requests, 126.1 req/s, p95 34.9 ms, 0 errors
+- 100-user ramp: 1,662 requests, 155.3 req/s, p95 1569.0 ms, 0 errors
+- 200-user ramp: 1,726 requests, 153.4 req/s, p95 3696.9 ms, 1 transport ReadError
+- 300-user ramp: 908 requests, 75.2 req/s, p95 6319.1 ms, 0 errors
+- 100-user sustained (45 s): 11,584 requests, 254.2 req/s, p95 14.1 ms, 0 errors
+- 300-user spike: 1,003 requests, 84.4 req/s, p95 5576.0 ms, 1 transport ReadError
+
+The timed mixed stages do not guarantee that every virtual user reaches the write step before the stage ends. The separate write burst is the durable-write assertion.
+
+DigitalOcean low-cost configuration check (one Uvicorn worker):
+- 300 authenticated write requests
+- 300 HTTP 200 responses
+- 300 independently verified persisted rows
+- 2.569 seconds wall time
+- p95 2302.930 ms; p99 2452.344 ms
+- business correctness: PASS
+
+These local runs do not certify DigitalOcean capacity or the 1 GiB container's memory ceiling. Repeat the same test in paid Bangalore staging while watching App Platform CPU, memory, restarts, database connections and latency.

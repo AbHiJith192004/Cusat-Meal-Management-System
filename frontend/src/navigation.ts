@@ -4,8 +4,7 @@ import { ActiveTab, UserRole } from './types';
  * Single source of truth for navigation.
  *
  * The sidebar and the bottom bar used to keep their own hardcoded lists, which
- * drifted: the admin bottom bar was missing Ledger, Billing, Payments, Stocks
- * and Alerts entirely, so five screens were unreachable on a phone. Both now
+ * drifted between screen sizes. Both now
  * read from here, and a destination added below shows up in both places.
  */
 
@@ -46,16 +45,14 @@ export const ADMIN_GROUPS: NavGroup[] = [
     items: [
       { id: 'admin-dashboard', label: 'Overview',    short: 'Overview', icon: 'space_dashboard' },
       { id: 'admin-scanner',   label: 'QR Scanner',  short: 'Scan',     icon: 'qr_code_scanner' },
-      { id: 'admin-menu',      label: 'Weekly Menu', short: 'Menu',     icon: 'restaurant_menu' },
       { id: 'admin-students',  label: 'Students',    short: 'Students', icon: 'group' },
+      { id: 'admin-operations', label: 'Operations', short: 'More', icon: 'inventory_2' },
     ],
   },
   {
     heading: 'Finance',
     items: [
-      { id: 'admin-ledger',   label: 'Ledger',   short: 'Ledger',   icon: 'account_balance_wallet' },
       { id: 'admin-billing',  label: 'Billing',  short: 'Billing',  icon: 'receipt_long' },
-      { id: 'admin-payments', label: 'Payments', short: 'Payments', icon: 'payments' },
     ],
   },
   {
@@ -67,8 +64,12 @@ export const ADMIN_GROUPS: NavGroup[] = [
   },
 ];
 
-export const groupsFor = (role: UserRole): NavGroup[] =>
-  role === 'student' ? STUDENT_GROUPS : ADMIN_GROUPS;
+export const groupsFor = (role: UserRole, canScan = false): NavGroup[] => {
+  if (role !== 'student') return ADMIN_GROUPS;
+  if (!canScan) return STUDENT_GROUPS;
+  return [{items:[...STUDENT_GROUPS[0].items,
+    {id:'admin-scanner',label:'Committee Scanner',short:'Scan',icon:'qr_code_scanner'}]}, ...STUDENT_GROUPS.slice(1)];
+};
 
 /**
  * Alerts and Profile already live in the top header for both roles, so they
@@ -79,8 +80,7 @@ export const groupsFor = (role: UserRole): NavGroup[] =>
 const BAR_IDS: Record<UserRole, ActiveTab[]> = {
   student: ['home', 'calendar', 'qr', 'bill'],
   admin: [
-    'admin-dashboard', 'admin-scanner', 'admin-menu', 'admin-students',
-    'admin-ledger', 'admin-billing', 'admin-payments',
+    'admin-dashboard', 'admin-scanner', 'admin-students', 'admin-billing',
   ],
 };
 
@@ -100,22 +100,26 @@ const BOTTOM_NAV_EXCLUDE: Record<UserRole, ActiveTab[]> = {
 };
 
 /** Entries shown directly in the bottom bar, in bar order. */
-export const barEntries = (role: UserRole): NavEntry[] => {
-  const all = allEntries(role);
+export const barEntries = (role: UserRole, canScan = false): NavEntry[] => {
+  const all = groupsFor(role, canScan).flatMap(g => g.items);
+  if (role === 'student' && canScan) return ['home','qr','admin-scanner','bill']
+    .map(id => all.find(e => e.id === id)).filter((e): e is NavEntry => Boolean(e));
   return BAR_IDS[role]
     .map(id => all.find(e => e.id === id))
     .filter((e): e is NavEntry => Boolean(e));
 };
 
 /** Everything that did not fit the bar, still grouped for the "More" sheet. */
-export const overflowGroups = (role: UserRole): NavGroup[] => {
+export const overflowGroups = (role: UserRole, canScan = false): NavGroup[] => {
   const inBar = new Set(BAR_IDS[role]);
   const excluded = new Set(BOTTOM_NAV_EXCLUDE[role]);
-  return groupsFor(role)
-    .map(g => ({ heading: g.heading, items: g.items.filter(i => !inBar.has(i.id) && !excluded.has(i.id)) }))
+  const scanBar = role === 'student' && canScan
+    ? new Set<ActiveTab>(['home','qr','admin-scanner','bill']) : inBar;
+  return groupsFor(role, canScan)
+    .map(g => ({ heading: g.heading, items: g.items.filter(i => !scanBar.has(i.id) && !excluded.has(i.id)) }))
     .filter(g => g.items.length > 0);
 };
 
 /** True when the active tab lives behind "More", so that tab can be highlighted. */
-export const isOverflowTab = (role: UserRole, tab: ActiveTab): boolean =>
-  overflowGroups(role).some(g => g.items.some(i => i.id === tab));
+export const isOverflowTab = (role: UserRole, tab: ActiveTab, canScan = false): boolean =>
+  overflowGroups(role, canScan).some(g => g.items.some(i => i.id === tab));

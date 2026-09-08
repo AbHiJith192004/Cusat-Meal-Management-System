@@ -152,10 +152,41 @@ GENERAL_RATE_LIMIT = _LIMITS["general"]
 
 
 def get_client_ip(request: Request) -> str:
-    """Extract client IP from request, considering proxies."""
-    forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    if request.client:
-        return request.client.host
-    return "unknown"
+    """Use the ingress-provided client address only with explicit opt-in.
+
+    Direct deployments must leave TRUST_PROXY_HEADERS disabled because a
+    caller can otherwise forge X-Forwarded-For and bypass per-IP limits.
+    """
+    import ipaddress
+    from app.config import get_settings
+    if get_settings().TRUST_PROXY_HEADERS:
+        forwarded = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
+        try:
+            return str(ipaddress.ip_address(forwarded))
+        except ValueError:
+            pass
+    return request.client.host if request.client else "unknown"
+
+
+async def check_shared_rate_limit(key: str, config: RateLimitConfig) -> None:
+    """Atomic fixed-window limits shared by all workers; persisted even on auth failure.
+
+    Expired buckets are deleted through an indexed expiry lookup. A fresh
+    window starts at the first request, rather than at a global clock boundary.
+    """
+    import hashlib
+    from sqlalchemy import text
+    from app.database import async_session_factory
+    digest = hashlib.sha256(key.encode()).hexdigest()
+    async with async_session_factory() as session:
+        async with session.begin():
+            await session.execute(text("DELETE FROM auth_rate_limits WHERE expires_at < now()"))
+            result = await session.execute(text("""
+                INSERT INTO auth_rate_limits (key, attempts, expires_at)
+                VALUES (:key, 1, now() + make_interval(secs => :window))
+                ON CONFLICT (key) DO UPDATE SET attempts = auth_rate_limits.attempts + 1
+                RETURNING attempts
+            """), {"key": digest, "window": config.window_seconds})
+            attempts = result.scalar_one()
+    if attempts > config.max_requests:
+        raise RateLimitExceededException(message="Too many attempts. Please try again later.")

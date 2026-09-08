@@ -4,7 +4,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Path, Response
 from fastapi.responses import StreamingResponse
-from sqlalchemy import select, func
+from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -40,7 +40,7 @@ router = APIRouter(prefix="/api/v1/admin", tags=["Admin Operations"])
 @router.get("/dashboard")
 async def get_admin_dashboard(
     admin_user: AdminUser,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """Get aggregated dashboard metrics for admins with live served, skipped, pending, and fined counts."""
     from app.models.attendance import Attendance
@@ -49,21 +49,23 @@ async def get_admin_dashboard(
 
     today = today_ist()
 
-    # Total students count
-    count_stmt = select(func.count()).where(User.role == Role.STUDENT.value)
-    total_students = (await db.execute(count_stmt)).scalar_one()
+    from app.services.meal_timing_service import DEFAULT_SETTINGS, MealTimingService
 
-    menus = {
-        "breakfast": "Appam & Egg Curry / Veg Stew + Tea",
-        "lunch": "Kerala Meals, Fish Curry / Pulissery & Payasam",
-        "dinner": "Chapati & Chicken Curry / Paneer Masala + Milk",
+    total_students = (await db.execute(
+        select(func.count()).where(User.role == Role.STUDENT.value)
+    )).scalar_one()
+    active_students = (await db.execute(
+        select(func.count()).where(
+            User.role == Role.STUDENT.value,
+            User.account_status == "ACTIVE",
+        )
+    )).scalar_one()
+    timing_service = MealTimingService(db)
+    stored_settings = {
+        setting.key: setting.value
+        for setting in await timing_service.settings_repo.get_all_settings()
     }
-
-    timings = {
-        "breakfast": "8:00 AM – 9:30 AM",
-        "lunch": "12:00 PM – 2:30 PM",
-        "dinner": "7:00 PM – 9:30 PM",
-    }
+    setting_value = lambda key: stored_settings.get(key, DEFAULT_SETTINGS[key])
 
     today_stats = {}
     for mt in ["breakfast", "lunch", "dinner"]:
@@ -72,40 +74,48 @@ async def get_admin_dashboard(
         served_res = await db.execute(
             select(func.count()).where(Attendance.meal_date == today, Attendance.meal_type == mt_upper)
         )
-        served_count = served_res.scalar_one() or 0
+        served_count = served_res.scalar_one()
 
         # Skipped count
         skipped_res = await db.execute(
             select(func.count()).where(MealSelection.meal_date == today, MealSelection.meal_type == mt_upper, MealSelection.status == "SKIPPED")
         )
-        skipped_count = skipped_res.scalar_one() or 0
+        skipped_count = skipped_res.scalar_one()
+        no_service_count = (await db.execute(
+            select(func.count()).where(
+                MealSelection.meal_date == today,
+                MealSelection.meal_type == mt_upper,
+                MealSelection.status == "NO_SERVICE",
+            )
+        )).scalar_one()
 
-        # Confirmed count
-        confirmed_res = await db.execute(
-            select(func.count()).where(MealSelection.meal_date == today, MealSelection.meal_type == mt_upper, MealSelection.status == "CONFIRMED")
-        )
-        confirmed_count = confirmed_res.scalar_one() or total_students
-
-        # Pending count (Confirmed minus Served)
-        pending_count = max(0, confirmed_count - served_count)
+        # Active students are implicitly opted in unless an explicit selection
+        # says skipped or no service.
+        eligible_count = max(0, active_students - skipped_count - no_service_count)
+        pending_count = max(0, eligible_count - served_count)
 
         # Fined count
         fined_res = await db.execute(
-            select(func.count()).where(Fine.meal_date == today, Fine.meal_type == mt_upper)
+            select(func.count()).where(
+                Fine.meal_date == today,
+                Fine.meal_type == mt_upper,
+                Fine.status != "WAIVED",
+            )
         )
-        fined_count = fined_res.scalar_one() or 0
+        fined_count = fined_res.scalar_one()
+        start = setting_value(f"meal_window_{mt}_start")
+        end = setting_value(f"meal_window_{mt}_end")
 
         today_stats[mt] = {
-            "total": total_students,
-            "confirmed": confirmed_count,
+            "total": eligible_count,
+            "confirmed": eligible_count,
             "served": served_count,
             "attendance": served_count,
             "skipped": skipped_count,
             "pending": pending_count,
             "fined": fined_count,
-            "not_eligible": 0,
-            "menu": menus[mt],
-            "time_window": timings[mt],
+            "not_eligible": (total_students - active_students) + no_service_count,
+            "time_window": f"{start}–{end} IST",
         }
 
     # Pending fines overall count
@@ -129,7 +139,7 @@ async def get_students_by_status(
     meal_type: Annotated[str, Query(description="BREAKFAST, LUNCH, or DINNER")],
     category: Annotated[str, Query(description="SERVED, SKIPPED, PENDING, FINED, TOTAL, NOT_ELIGIBLE")],
     meal_date: Annotated[str | None, Query(description="YYYY-MM-DD")] = None,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """Get list of students for a specific metric drill-down category."""
     from datetime import date as date_type
@@ -139,6 +149,8 @@ async def get_students_by_status(
     from app.models.student import StudentProfile
 
     target_date = date_type.fromisoformat(meal_date) if meal_date else today_ist()
+    from app.services.billing_lock import lock_open_period
+    await lock_open_period(db, target_date)
     mt = meal_type.upper()
     cat = category.upper()
 
@@ -203,7 +215,7 @@ async def list_students(
     student_type: Annotated[str | None, Query()] = None,
     page: Annotated[int, Query(ge=1)] = 1,
     per_page: Annotated[int, Query(ge=1, le=100)] = 20,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """Search and filter student accounts with pagination."""
     service = StudentService(db)
@@ -217,7 +229,7 @@ async def list_students(
 async def create_student(
     body: CreateStudentRequest,
     admin_user: AdminUser,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """Create a new student account with PENDING status.
     
@@ -232,11 +244,11 @@ async def create_student(
 
     
     name = body.name
-    registration_number = body.registration_number
+    registration_number = body.registration_number.strip().upper()
     date_of_birth_str = body.date_of_birth
     department = body.department or "Computer Science"
     mess_id = body.mess_id
-    student_type = "HOSTELLER"
+    student_type = body.student_type
     
     # Check if registration_number already exists
     existing = await db.execute(select(User).where(User.registration_number == registration_number))
@@ -300,7 +312,7 @@ async def create_student(
 async def get_student_detail(
     student_id: Annotated[UUID, Path()],
     admin_user: AdminUser,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """Get detailed student profile."""
     service = StudentService(db)
@@ -333,7 +345,7 @@ async def get_student_detail(
 async def record_manual_attendance(
     body: ManualAttendanceRequest,
     admin_user: AdminUser,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     service = AttendanceService(db)
     attendance = await service.record_manual_attendance(
@@ -364,7 +376,7 @@ async def reset_attendance(
     reason: Annotated[str, Query(min_length=3, description="Why this attendance is being reset (audited)")],
     meal_type: Annotated[str | None, Query(description="BREAKFAST, LUNCH, DINNER or empty for all")] = None,
     meal_date: Annotated[str | None, Query(description="YYYY-MM-DD or empty for today")] = None,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """Remove attendance records, e.g. when the wrong QR code was scanned.
 
@@ -453,7 +465,7 @@ async def list_fines(
     student_id: Annotated[UUID | None, Query()] = None,
     page: Annotated[int, Query(ge=1)] = 1,
     per_page: Annotated[int, Query(ge=1, le=100)] = 20,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     service = FineService(db)
     skip = (page - 1) * per_page
@@ -482,7 +494,7 @@ async def waive_fine(
     fine_id: Annotated[UUID, Path()],
     body: WaiveFineRequest,
     admin_user: AdminUser,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     service = FineService(db)
     fine = await service.waive_fine(fine_id=fine_id, reason=body.reason, admin_id=admin_user.id)
@@ -501,7 +513,7 @@ async def waive_fine(
 async def trigger_reconciliation(
     body: ReconcileFinesRequest,
     admin_user: AdminUser,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     service = FineService(db)
     meals = [body.meal_type] if body.meal_type else ["BREAKFAST", "LUNCH", "DINNER"]
@@ -518,7 +530,7 @@ async def trigger_reconciliation(
 async def declare_holiday(
     body: HolidayCreateRequest,
     admin_user: AdminUser,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """Declare a holiday and cascade status changes."""
     service = HolidayService(db)
@@ -540,7 +552,7 @@ async def declare_holiday(
 async def delete_holiday(
     holiday_id: Annotated[UUID, Path()],
     admin_user: AdminUser,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """Delete a holiday and revert NO_SERVICE meals back to CONFIRMED."""
     service = HolidayService(db)
@@ -553,7 +565,7 @@ async def get_monthly_meal_rates(
     admin_user: AdminUser,
     year: Annotated[int, Query(ge=2024, le=2100)] = 2026,
     month: Annotated[int, Query(ge=1, le=12)] = 8,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """Get daily meal rates for all days in a specific month."""
     import calendar
@@ -601,7 +613,7 @@ async def get_monthly_meal_rates(
 async def set_single_meal_rate(
     body: SetMealRateRequest,
     admin_user: AdminUser,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """Set or update custom meal pricing for a single date."""
     stmt = select(DailyMealRate).where(DailyMealRate.rate_date == body.rate_date)
@@ -642,7 +654,7 @@ async def set_single_meal_rate(
 async def set_bulk_meal_rates(
     body: BulkSetMealRateRequest,
     admin_user: AdminUser,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """Bulk apply a daily meal pricing rate across an entire month."""
     import calendar
@@ -691,7 +703,7 @@ async def download_monthly_report(
     year: Annotated[int, Query(ge=2024, le=2100)] = 2026,
     month: Annotated[int, Query(ge=1, le=12)] = 8,
     format: Annotated[str, Query(description="excel or pdf")] = "excel",
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """Download monthly Excel or PDF report."""
     service = ReportService(db)
@@ -716,7 +728,7 @@ async def get_audit_logs(
     action: Annotated[str | None, Query()] = None,
     page: Annotated[int, Query(ge=1)] = 1,
     per_page: Annotated[int, Query(ge=1, le=100)] = 20,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """View system audit logs (append-only)."""
     stmt = select(AuditLog)
@@ -762,7 +774,7 @@ async def get_bill_publication_status(
     admin_user: AdminUser,
     month: Annotated[int, Query(ge=1, le=12)],
     year: Annotated[int, Query(ge=2024, le=2100)],
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """Whether a month is published and its stock frozen."""
     service = BillingService(db)
@@ -773,7 +785,7 @@ async def get_bill_publication_status(
 async def publish_monthly_bill(
     body: PublishBillRequest,
     admin_user: AdminUser,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """Publish a month: compute and freeze its figures in one transaction."""
     service = BillingService(db)
@@ -786,7 +798,7 @@ async def publish_monthly_bill(
             "closing_stock_value": body.closing_stock_value,
             "operational_expenses": body.operational_expenses,
             "administrative_expenses": body.administrative_expenses,
-            "chargeable_days": body.chargeable_days,
+            "preview_token": body.preview_token,
         },
         actor_id=admin_user.id,
     )
@@ -797,7 +809,7 @@ async def publish_monthly_bill(
 async def unpublish_monthly_bill(
     body: UnpublishBillRequest,
     admin_user: AdminUser,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """Reopen a published month for correction. Always audited with a reason."""
     service = BillingService(db)
@@ -812,7 +824,7 @@ async def list_stock_counts(
     admin_user: AdminUser,
     month: Annotated[int, Query(ge=1, le=12)],
     year: Annotated[int, Query(ge=2024, le=2100)],
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """Physical closing-stock counts recorded for a month."""
     service = BillingService(db)
@@ -823,7 +835,7 @@ async def list_stock_counts(
 async def update_physical_stock(
     body: UpdateStockRequest,
     admin_user: AdminUser,
-    db: AsyncSession = Depends(get_db),
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
     """Record a physical closing count. Rejected once the month is published."""
     service = BillingService(db)
@@ -840,49 +852,29 @@ async def update_physical_stock(
     return success_response(data=result)
 
 
-@router.post("/committee/promote")
-async def promote_to_committee(
-    body: dict,
-    admin_user: AdminUser,
-    db: AsyncSession = Depends(get_db),
+from pydantic import BaseModel, Field
+
+class SetupCodeRequest(BaseModel):
+    reason: str = Field(min_length=10, max_length=500)
+
+@router.post("/students/{student_id}/setup-code")
+async def issue_student_setup_code(
+    student_id: UUID, body: SetupCodeRequest, admin: AdminUser,
+    db: AsyncSession = Depends(get_db, scope="function"),
 ):
-    """Promote student to Mess Committee with duration (MEAL, DAY, WEEK)."""
-    student_id = body.get("student_id")
-    duration = body.get("duration", "DAY")
-    return success_response(data={
-        "status": "promoted",
-        "student_id": student_id,
-        "duration": duration,
-        "message": f"Promoted to Mess Committee ({duration}). Own attendance auto-recorded as Present.",
-    })
+    """Issue a one-use credential only after staff has checked the student's identity."""
+    from app.services.auth_service import AuthService
+    return success_response(data=await AuthService(db).issue_setup_code(student_id, admin.id, body.reason))
 
 
-@router.post("/committee/revoke/{student_id}")
-async def revoke_committee(
-    student_id: str,
-    admin_user: AdminUser,
-    db: AsyncSession = Depends(get_db),
-):
-    """Revoke Mess Committee privileges for a student."""
-    return success_response(data={
-        "status": "revoked",
-        "student_id": student_id,
-        "message": "Mess Committee privileges revoked.",
-    })
+@router.post("/bills/preview")
+async def preview_monthly_bill(body: PublishBillRequest, admin: AdminUser,
+                               db: AsyncSession = Depends(get_db, scope="function")):
+    return success_response(data=await BillingService(db).preview(body.month, body.year, body.model_dump()))
 
-
-@router.post("/attendance/bulk-mark")
-async def bulk_mark_attendance(
-    body: dict,
-    admin_user: AdminUser,
-    db: AsyncSession = Depends(get_db),
-):
-    """Auto-mark attendance Present for all opted-in students, excluding skips."""
-    meal_type = body.get("meal_type", "Lunch")
-    return success_response(data={
-        "status": "success",
-        "meal_type": meal_type,
-        "message": f"All opted-in students marked Present for {meal_type}. Students on mess cut excluded.",
-    })
-
-
+@router.get("/bills/students")
+async def list_published_student_bills(admin: AdminUser, month: Annotated[int, Query(ge=1, le=12)],
+                                      year: Annotated[int, Query(ge=2024, le=2100)],
+                                      db: AsyncSession = Depends(get_db, scope="function")):
+    from app.services.student_billing_service import StudentBillingService
+    return success_response(data=await StudentBillingService(db).list_published(month, year))

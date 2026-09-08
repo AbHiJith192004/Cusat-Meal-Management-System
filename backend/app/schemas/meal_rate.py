@@ -50,7 +50,9 @@ class PublishBillRequest(BaseModel):
     operational_expenses: Decimal = Field(default=Decimal("0.00"), ge=0)
     administrative_expenses: Decimal = Field(default=Decimal("0.00"), ge=0)
     # Divisor for the daily rate, so it must be positive.
-    chargeable_days: int = Field(..., gt=0)
+    preview_token: str | None = Field(default=None, min_length=64, max_length=64)
+
+    model_config = ConfigDict(extra="forbid")
 
 
 class UnpublishBillRequest(BaseModel):

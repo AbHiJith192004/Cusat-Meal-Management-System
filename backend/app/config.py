@@ -1,4 +1,5 @@
 from functools import lru_cache
+from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -7,6 +8,16 @@ class Settings(BaseSettings):
     
     # Database
     DATABASE_URL: str
+    DB_POOL_SIZE: int = Field(default=5, ge=1, le=20)
+    DB_MAX_OVERFLOW: int = Field(default=5, ge=0, le=20)
+    DB_POOL_TIMEOUT: int = Field(default=10, ge=1, le=60)
+    DB_COMMAND_TIMEOUT: int = Field(default=30, ge=1, le=120)
+    # Enable only when the container has no direct public route and every
+    # request reaches it through a trusted platform ingress. This is true for
+    # DigitalOcean App Platform, while local and self-hosted deployments keep
+    # the secure default below.
+    TRUST_PROXY_HEADERS: bool = False
+    STATIC_DIR: str = ""
     TEST_DATABASE_URL: str = ""
     
     # JWT
@@ -44,6 +55,31 @@ class Settings(BaseSettings):
         case_sensitive=True,
     )
     
+    @field_validator("DATABASE_URL")
+    @classmethod
+    def normalize_database_url(cls, value: str) -> str:
+        for prefix in ("postgres://", "postgresql://"):
+            if value.startswith(prefix):
+                value = "postgresql+asyncpg://" + value[len(prefix):]
+                break
+        # Managed PostgreSQL providers publish libpq-style `sslmode` URLs.
+        # SQLAlchemy's asyncpg dialect expects the equivalent `ssl` key.
+        value = value.replace("?sslmode=", "?ssl=").replace("&sslmode=", "&ssl=")
+        return value
+
+    @model_validator(mode="after")
+    def validate_production(self):
+        if not self.is_development:
+            if self.ALLOW_TEST_MODE:
+                raise ValueError("ALLOW_TEST_MODE must be false outside development")
+            if min(len(self.JWT_SECRET_KEY), len(self.QR_SECRET_KEY)) < 32:
+                raise ValueError("Production signing keys must each contain at least 32 characters")
+            if self.JWT_SECRET_KEY == self.QR_SECRET_KEY:
+                raise ValueError("JWT and QR signing keys must be different")
+            if "*" in self.cors_origins_list:
+                raise ValueError("Production CORS origins must be explicit")
+        return self
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",")]

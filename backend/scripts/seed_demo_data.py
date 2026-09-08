@@ -16,6 +16,9 @@ from app.utils.timezone import now_ist, today_ist
 
 
 async def seed_data():
+    from app.config import get_settings
+    if not get_settings().is_development:
+        raise RuntimeError("Demo seeding is forbidden outside development")
     print("[SEED] Ensuring tables exist...")
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

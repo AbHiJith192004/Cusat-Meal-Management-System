@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { studentApi } from '../services/api';
+import { paymentApi, studentApi } from '../services/api';
 import { ChefMascot } from '../components/FoodIllustrations';
 
 interface FineLine {
@@ -15,7 +15,9 @@ interface BillData {
   student: { name: string; registration_number: string };
   mess_daily_rate: string;
   effective_days: number;
-  days_attended: string[];
+  opted_in_days: string[];
+  revision: number;
+  base_charge: string;
   food_charge: string;
   fines: FineLine[];
   total_fines: string;
@@ -49,10 +51,18 @@ export const StudentBillView: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [notPublished, setNotPublished] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [payments, setPayments] = useState<any[]>([]);
+  const [utr, setUtr] = useState('');
+  const [paymentMessage, setPaymentMessage] = useState<string | null>(null);
+  const [submittingPayment, setSubmittingPayment] = useState(false);
+
+  const loadPayments = () => paymentApi.listMine().then(setPayments).catch(() => setPayments([]));
+  useEffect(() => { loadPayments(); }, []);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    setBill(null);
     setNotPublished(false);
     setError(null);
 
@@ -77,7 +87,7 @@ export const StudentBillView: React.FC = () => {
   const yearOptions = Array.from({ length: 4 }, (_, i) => now.getFullYear() - i);
 
   const billNo = bill
-    ? `MC-${bill.year}${String(bill.month).padStart(2, '0')}-${bill.student.registration_number}`
+    ? `MC-${bill.year}${String(bill.month).padStart(2, '0')}-${bill.student.registration_number}-R${bill.revision}`
     : '';
 
   return (
@@ -117,7 +127,7 @@ export const StudentBillView: React.FC = () => {
             ))}
           </select>
 
-          {bill && (
+          {bill && !loading && !error && !notPublished && (
             <button onClick={() => window.print()} className="btn-primary" style={{ padding: '10px 18px' }}>
               <span className="material-symbols-outlined" style={{ fontSize: 17 }}>download</span>
               Download
@@ -165,7 +175,8 @@ export const StudentBillView: React.FC = () => {
         </div>
       )}
 
-      {!loading && bill && (
+      {!loading && !error && !notPublished && bill && (
+        <>
         <div className="bill-sheet">
           {/* Letterhead */}
           <div className="bill-header">
@@ -205,12 +216,12 @@ export const StudentBillView: React.FC = () => {
             <tbody>
               <tr>
                 <td>
-                  Mess food charge
-                  <span className="bill-line-note">Days attended this month, at the published daily rate</span>
+                  Base mess charge
+                  <span className="bill-line-note">Food, operating and administrative costs allocated by opted-in days; rounded to the nearest paisa</span>
                 </td>
                 <td className="num">{bill.effective_days}</td>
                 <td className="num">₹{inr(bill.mess_daily_rate)}</td>
-                <td className="num">₹{inr(bill.food_charge)}</td>
+                <td className="num">₹{inr(bill.base_charge)}</td>
               </tr>
 
               {bill.fines.map((f, i) => (
@@ -239,15 +250,15 @@ export const StudentBillView: React.FC = () => {
           {/* Totals */}
           <div className="bill-totals">
             <div className="bill-totals-row">
-              <span>Food charge</span>
-              <span>₹{inr(bill.food_charge)}</span>
+              <span>Base mess charge</span>
+              <span>₹{inr(bill.base_charge)}</span>
             </div>
             <div className="bill-totals-row">
               <span>Fines</span>
               <span>₹{inr(bill.total_fines)}</span>
             </div>
             <div className="bill-totals-row bill-grand-total">
-              <span>Total due</span>
+              <span>Total charges</span>
               <span>₹{inr(bill.grand_total)}</span>
             </div>
           </div>
@@ -256,6 +267,20 @@ export const StudentBillView: React.FC = () => {
             <p>This is a system-generated bill from CUSAT MessConnect. For queries, contact the mess office.</p>
           </div>
         </div>
+        <section className="no-print rounded-2xl p-5 mt-5" style={{background:'var(--card)',border:'1px solid var(--line)'}}>
+          <h3 className="font-display text-base font-bold" style={{color:'var(--text-dark)'}}>Payment confirmation</h3>
+          {(() => {
+            const existing = payments.find(p => p.month === month && p.year === year && p.bill_revision === bill.revision);
+            if (existing && existing.status !== 'REJECTED') return <div className="mt-3 rounded-xl p-3 text-sm" style={{background:existing.status==='VERIFIED'?'#EAF8F0':'#FFF7E7'}}><strong>{existing.status === 'VERIFIED'?'Payment verified':'Verification pending'}</strong><br/><span className="text-xs">UTR {existing.utr} · ₹{inr(existing.amount)}</span></div>;
+            return <form className="mt-3 flex flex-col sm:flex-row gap-2" onSubmit={async e=>{e.preventDefault();setSubmittingPayment(true);setPaymentMessage(null);try{await paymentApi.submit(month,year,utr,Number(bill.grand_total));setUtr('');setPaymentMessage('UTR submitted for staff verification.');await loadPayments();}catch(err:any){setPaymentMessage(err.message);}finally{setSubmittingPayment(false);}}}>
+              <input className="stitch-input flex-1" required minLength={6} maxLength={64} pattern="[A-Za-z0-9-]+" placeholder="Bank UTR / transaction reference" value={utr} onChange={e=>setUtr(e.target.value)}/>
+              <button className="btn-primary justify-center" disabled={submittingPayment}>{submittingPayment?'Submitting…':existing?'Resubmit payment':'Submit payment'}</button>
+            </form>;
+          })()}
+          {paymentMessage && <p role="alert" className="text-xs font-bold mt-2" style={{color:paymentMessage.startsWith('UTR')?'#087443':'var(--red)'}}>{paymentMessage}</p>}
+          <p className="text-[11px] mt-3" style={{color:'var(--text-muted)'}}>Submit only after paying the exact published total of ₹{inr(bill.grand_total)}. Staff verifies the UTR against the bank credit.</p>
+        </section>
+        </>
       )}
     </main>
   );

@@ -23,9 +23,13 @@ from app.utils.enums import Role, AccountStatus, StudentType
 
 settings = get_settings()
 
+# Fail closed: tests must never fall back to the application database.
+if not settings.TEST_DATABASE_URL or settings.TEST_DATABASE_URL == settings.DATABASE_URL:
+    raise RuntimeError("Set TEST_DATABASE_URL to a separate test database")
+
 # Use test database
 test_engine = create_async_engine(
-    settings.TEST_DATABASE_URL or settings.DATABASE_URL,
+    settings.TEST_DATABASE_URL,
     echo=False,
     pool_pre_ping=True,
 )

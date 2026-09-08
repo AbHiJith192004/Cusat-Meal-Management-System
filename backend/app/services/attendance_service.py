@@ -1,11 +1,14 @@
 import uuid
 from datetime import date
 
+from sqlalchemy import select
+from app.models.user import User
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.attendance import Attendance
 from app.repositories.attendance_repo import AttendanceRepository
 from app.repositories.audit_repo import AuditRepository
+from app.services.billing_lock import lock_open_period
 from app.utils.enums import AttendanceType
 from app.utils.exceptions import AttendanceAlreadyRecordedException, ValidationException
 from app.utils.timezone import now_ist
@@ -34,6 +37,12 @@ class AttendanceService:
         if att_type not in [AttendanceType.MANUAL.value, AttendanceType.ADMIN_OVERRIDE.value]:
             raise ValidationException(message="Attendance type must be MANUAL or ADMIN_OVERRIDE.")
 
+        if meal_type not in {"BREAKFAST", "LUNCH", "DINNER"}:
+            raise ValidationException(message="Invalid meal type.")
+        await lock_open_period(self.session, meal_date)
+        student = (await self.session.execute(select(User).where(User.id == student_id).with_for_update())).scalar_one_or_none()
+        if not student or student.role != "STUDENT" or student.account_status != "ACTIVE":
+            raise ValidationException(message="An active student account is required.")
         existing = await self.attendance_repo.get_for_update(student_id, meal_date, meal_type)
         if existing:
             raise AttendanceAlreadyRecordedException()
