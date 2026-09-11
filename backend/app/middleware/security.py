@@ -1,9 +1,33 @@
 """Bound incoming bodies and keep authenticated responses out of shared caches."""
 from starlette.responses import JSONResponse
 
+from app.config import get_settings
+
+
 class SecurityMiddleware:
     def __init__(self, app):
         self.app = app
+        # Read once at app construction: settings are immutable per process.
+        self._trust_proxy = get_settings().TRUST_PROXY_HEADERS
+
+    def _is_secure(self, scope) -> bool:
+        """Whether the *client* connection is HTTPS.
+
+        Behind a TLS-terminating ingress the container is reached over plain
+        HTTP, so `scope['scheme']` alone is always 'http' there and HSTS would
+        never be emitted. uvicorn runs with --no-proxy-headers, so the
+        forwarded scheme is read here instead - and only when the deployment
+        has explicitly declared the ingress trustworthy, since otherwise any
+        caller could forge it.
+        """
+        if scope.get('scheme') == 'https':
+            return True
+        if not self._trust_proxy:
+            return False
+        for name, value in scope.get('headers', []):
+            if name == b'x-forwarded-proto':
+                return value.decode('latin-1').split(',')[0].strip().lower() == 'https'
+        return False
 
     async def __call__(self, scope, receive, send):
         if scope['type'] != 'http':
@@ -24,7 +48,7 @@ class SecurityMiddleware:
                                  b"font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; "
                                  b"connect-src 'self'; media-src 'self' blob:; manifest-src 'self'"),
                                 (b'cross-origin-opener-policy', b'same-origin')])
-                if scope.get('scheme') == 'https':
+                if self._is_secure(scope):
                     headers.append((b'strict-transport-security', b'max-age=31536000; includeSubDomains'))
                 message = {**message, 'headers': headers}
             await send(message)

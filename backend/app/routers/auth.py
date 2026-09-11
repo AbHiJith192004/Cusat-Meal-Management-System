@@ -15,11 +15,11 @@ from app.config import get_settings
 from app.services.auth_service import AuthService
 from app.security.rate_limiter import (
     check_shared_rate_limit,
-    RateLimitConfig,
     get_client_ip,
     LOGIN_RATE_LIMIT,
     ACTIVATION_RATE_LIMIT,
     REFRESH_RATE_LIMIT,
+    SETUP_ACCOUNT_RATE_LIMIT,
 )
 
 logger = logging.getLogger(__name__)
@@ -56,7 +56,7 @@ async def activate_account(
     """Set a password using an expiring code issued after staff identity verification."""
     client_ip = get_client_ip(request)
     await check_shared_rate_limit(f"activate:{client_ip}", ACTIVATION_RATE_LIMIT)
-    await check_shared_rate_limit(f"setup-account:{body.registration_number.strip().upper()}", RateLimitConfig(5, 900))
+    await check_shared_rate_limit(f"setup-account:{body.registration_number.strip().upper()}", SETUP_ACCOUNT_RATE_LIMIT)
     result = await AuthService(db).set_password_with_code(
         body.registration_number, body.setup_code, body.password,
     )
@@ -76,9 +76,8 @@ async def login(
     Sets refresh_token as HttpOnly cookie.
     """
     client_ip = get_client_ip(request)
-    await check_shared_rate_limit(f"login:{client_ip}", RateLimitConfig(300, 60))
+    await check_shared_rate_limit(f"login:{client_ip}", LOGIN_RATE_LIMIT)
 
-    await check_shared_rate_limit(f"login-account:{body.registration_number.strip().upper()}", RateLimitConfig(10, 900))
     service = AuthService(db)
     access_token, refresh_token, expires_in = await service.login(
         registration_number=body.registration_number,
@@ -107,7 +106,7 @@ async def refresh_tokens(
     Implements token rotation: old refresh token is revoked, new one issued.
     """
     client_ip = get_client_ip(request)
-    await check_shared_rate_limit(f"refresh:{client_ip}", RateLimitConfig(600, 60))
+    await check_shared_rate_limit(f"refresh:{client_ip}", REFRESH_RATE_LIMIT)
 
     refresh_token = request.cookies.get("refresh_token")
     if not refresh_token:

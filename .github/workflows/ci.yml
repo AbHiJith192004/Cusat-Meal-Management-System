@@ -17,8 +17,11 @@ jobs:
           --health-cmd "pg_isready -U test -d messconnect_test"
           --health-interval 5s --health-timeout 5s --health-retries 10
     env:
+      # These must name different databases: tests/conftest.py refuses to run
+      # against the application database, so pointing both at one name made
+      # the unit suite unrunnable rather than merely unrun.
       DATABASE_URL: postgresql+asyncpg://test:test@localhost:5432/messconnect_test
-      TEST_DATABASE_URL: postgresql+asyncpg://test:test@localhost:5432/messconnect_test
+      TEST_DATABASE_URL: postgresql+asyncpg://test:test@localhost:5432/messconnect_unit
       JWT_SECRET_KEY: ci-only-signing-key-never-use-in-production-123
       QR_SECRET_KEY: ci-only-separate-qr-key-never-use-in-production-456
       APP_ENV: production
@@ -36,7 +39,8 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
       - run: pip install -r requirements.lock pytest pytest-asyncio httpx
         working-directory: backend
-      - run: alembic upgrade head && alembic check && pytest prod_tests -q
+      - run: PGPASSWORD=test psql -h localhost -U test -d messconnect_test -c 'CREATE DATABASE messconnect_unit'
+      - run: alembic upgrade head && alembic check && pytest tests prod_tests -q
         working-directory: backend
       - run: npm ci && npm run lint && npm run build && npm audit --audit-level=moderate
         working-directory: frontend

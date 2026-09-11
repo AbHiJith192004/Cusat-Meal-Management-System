@@ -13,7 +13,11 @@ from app.models.user import User, RefreshToken
 from app.repositories.user_repo import UserRepository, RefreshTokenRepository
 from app.repositories.audit_repo import AuditRepository
 from app.security.password import hash_password, verify_password
-from app.security.rate_limiter import account_lockout
+from app.security.rate_limiter import (
+    check_account_lockout,
+    clear_auth_failures,
+    record_auth_failure,
+)
 from app.security.jwt_handler import (
     create_access_token,
     generate_refresh_token,
@@ -83,9 +87,16 @@ class AuthService:
         Returns:
             Tuple of (access_token, refresh_token, expires_in_seconds)
         """
+        # Failure-only lockout, checked before any password work so a locked
+        # account costs an attacker nothing to discover and no Argon2 time.
+        prior_failures = await check_account_lockout(registration_number)
+
         user = (await self.db.execute(select(User).where(User.registration_number == registration_number.strip().upper()).with_for_update())).scalar_one_or_none()
 
         if user is None or not user.password_hash or not await run_in_threadpool(verify_password, password, user.password_hash):
+            # Recorded on its own connection: this must survive the rollback
+            # that the raised exception triggers on the request transaction.
+            await record_auth_failure(registration_number)
             raise InvalidCredentialsException()
 
         # Credentials check out, so the account's own state can be reported
@@ -95,6 +106,10 @@ class AuthService:
 
         if user.account_status == AccountStatus.SUSPENDED.value:
             raise AccountSuspendedException()
+
+
+        if prior_failures:
+            await clear_auth_failures(registration_number)
 
 
         # Generate tokens

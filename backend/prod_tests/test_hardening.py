@@ -203,3 +203,62 @@ async def test_body_size_limit_and_sensitive_cache_headers(client):
     assert response.headers['x-frame-options'] == 'DENY'
     assert "frame-ancestors 'none'" in response.headers['content-security-policy']
     assert (await client.get('/openapi.json')).status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_failed_login_lockout_engages_and_clears_on_success(client):
+    """The per-account lockout was previously imported but never called, so a
+    single account could be guessed against indefinitely. It must engage after
+    AUTH_MAX_FAILED_ATTEMPTS failures and survive the rolled-back request
+    transaction that each failure triggers."""
+    from app.security.password import hash_password
+    from app.security.rate_limiter import clear_auth_failures
+
+    cfg = get_settings()
+    student = await user()
+    async with async_session_factory() as db:
+        obj = await db.get(User, student.id)
+        obj.password_hash = hash_password('correct-horse-battery-staple')
+        obj.activated_at = now_ist()
+        await db.commit()
+    await clear_auth_failures(student.registration_number)
+
+    body = {'registration_number': student.registration_number, 'password': 'wrong'}
+    for _ in range(cfg.AUTH_MAX_FAILED_ATTEMPTS):
+        assert (await client.post('/api/v1/auth/login', json=body)).status_code == 401
+
+    # Further attempts are refused before any password is checked, and the
+    # correct password is refused too - the lockout follows the account.
+    assert (await client.post('/api/v1/auth/login', json=body)).status_code == 429
+    good = {'registration_number': student.registration_number,
+            'password': 'correct-horse-battery-staple'}
+    assert (await client.post('/api/v1/auth/login', json=good)).status_code == 429
+
+    await clear_auth_failures(student.registration_number)
+    assert (await client.post('/api/v1/auth/login', json=good)).status_code == 200
+
+    # A success wipes the counter, so a legitimate user is never throttled by
+    # their own earlier typos.
+    assert (await client.post('/api/v1/auth/login', json=body)).status_code == 401
+    for _ in range(cfg.AUTH_MAX_FAILED_ATTEMPTS - 1):
+        await client.post('/api/v1/auth/login', json=body)
+    assert (await client.post('/api/v1/auth/login', json=good)).status_code == 429
+
+
+@pytest.mark.asyncio
+async def test_case_variants_share_one_lockout_bucket(client):
+    """Varying the spelling of a registration number must not mint a fresh
+    allowance of guesses."""
+    from app.security.rate_limiter import clear_auth_failures
+
+    cfg = get_settings()
+    student = await user()
+    await clear_auth_failures(student.registration_number)
+    for i in range(cfg.AUTH_MAX_FAILED_ATTEMPTS):
+        spelling = student.registration_number.lower() if i % 2 else student.registration_number
+        assert (await client.post('/api/v1/auth/login',
+                                  json={'registration_number': spelling, 'password': 'wrong'})).status_code == 401
+    assert (await client.post('/api/v1/auth/login',
+                              json={'registration_number': student.registration_number.lower(),
+                                    'password': 'wrong'})).status_code == 429
+    await clear_auth_failures(student.registration_number)

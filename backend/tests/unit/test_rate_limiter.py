@@ -1,43 +1,43 @@
-import pytest
-import time
+"""Throttling surfaces that need no database.
+
+The old version of this file exercised an in-memory SlidingWindowRateLimiter
+that production never used, so it passed while the real DB-backed limiter went
+untested. The bucket-counting logic now lives in Postgres and is covered by
+prod_tests; what is unit-testable here is the keying and the configuration.
+"""
 from app.security.rate_limiter import (
-    SlidingWindowRateLimiter,
+    ACTIVATION_RATE_LIMIT,
+    LOGIN_RATE_LIMIT,
+    REFRESH_RATE_LIMIT,
     RateLimitConfig,
-    RateLimitExceededException,
+    _lockout_key,
 )
 
 
-def test_rate_limiter_allows_under_limit():
-    limiter = SlidingWindowRateLimiter()
-    config = RateLimitConfig(max_requests=3, window_seconds=60)
-    
-    # 3 requests should succeed
-    limiter.check_rate_limit("test_key", config)
-    limiter.check_rate_limit("test_key", config)
-    limiter.check_rate_limit("test_key", config)
+def test_lockout_key_normalizes_registration_number():
+    """Case and surrounding whitespace must not create separate buckets,
+    or an attacker sidesteps the lockout by varying the spelling."""
+    canonical = _lockout_key("TEST001")
+    assert _lockout_key(" test001 ") == canonical
+    assert _lockout_key("Test001") == canonical
 
 
-def test_rate_limiter_blocks_over_limit():
-    limiter = SlidingWindowRateLimiter()
-    config = RateLimitConfig(max_requests=2, window_seconds=60)
-    
-    limiter.check_rate_limit("test_key", config)
-    limiter.check_rate_limit("test_key", config)
-    
-    with pytest.raises(RateLimitExceededException) as exc_info:
-        limiter.check_rate_limit("test_key", config)
-        
-    assert exc_info.value.code == "RATE_LIMIT_EXCEEDED"
-    assert exc_info.value.status_code == 429
+def test_lockout_key_is_hashed_and_distinct_per_account():
+    key = _lockout_key("TEST001")
+    assert "TEST001" not in key           # raw identifiers never hit the table
+    assert len(key) == 64                 # sha256 hex
+    assert _lockout_key("TEST002") != key
 
 
-def test_rate_limiter_keys_isolated():
-    limiter = SlidingWindowRateLimiter()
-    config = RateLimitConfig(max_requests=1, window_seconds=60)
-    
-    limiter.check_rate_limit("user_1", config)
-    # Different user key should succeed
-    limiter.check_rate_limit("user_2", config)
-    
-    with pytest.raises(RateLimitExceededException):
-        limiter.check_rate_limit("user_1", config)
+def test_configured_limits_are_populated():
+    for limit in (LOGIN_RATE_LIMIT, ACTIVATION_RATE_LIMIT, REFRESH_RATE_LIMIT):
+        assert isinstance(limit, RateLimitConfig)
+        assert limit.max_requests > 0
+        assert limit.window_seconds > 0
+
+
+def test_per_ip_login_limit_tolerates_shared_campus_nat():
+    """A whole hostel shares one public address, so a tight per-IP login
+    ceiling locks out legitimate students. Guessing is bounded by the
+    per-account failure lockout instead."""
+    assert LOGIN_RATE_LIMIT.max_requests >= 100

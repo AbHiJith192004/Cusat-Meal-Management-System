@@ -1,145 +1,61 @@
-import time
+"""Auth throttling, all of it backed by the `auth_rate_limits` table.
+
+Two complementary controls, deliberately keyed differently:
+
+* a per-IP request limit, which stops one host hammering the service; and
+* a per-account *failure* lockout, which stops a distributed guess against a
+  single account. Under campus NAT the per-IP limit is necessarily coarse -
+  a whole hostel shares one public address - so the per-account lockout is
+  what actually protects an individual credential.
+
+Both live in Postgres rather than process memory. An in-memory version used
+to sit here; it could not survive a restart and silently weakened as soon as
+more than one worker ran, which is exactly when throttling matters most.
+"""
+import hashlib
 import logging
-from collections import defaultdict
-from dataclasses import dataclass, field
-from threading import Lock
-from typing import Optional
 
 from fastapi import Request
+from sqlalchemy import text
 
 from app.utils.exceptions import RateLimitExceededException
 
 logger = logging.getLogger(__name__)
 
 
-@dataclass
 class RateLimitConfig:
     """Configuration for a rate limit rule."""
-    max_requests: int
-    window_seconds: int
 
+    __slots__ = ("max_requests", "window_seconds")
 
-class SlidingWindowRateLimiter:
-    """In-memory sliding window rate limiter.
-    
-    Tracks request timestamps per key within a sliding time window.
-    Thread-safe via locking. Suitable for single-process deployment.
-    
-    For multi-process deployment, replace with Redis-backed implementation.
-    """
-
-    def __init__(self) -> None:
-        self._requests: dict[str, list[float]] = defaultdict(list)
-        self._lock = Lock()
-
-    def check_rate_limit(
-        self,
-        key: str,
-        config: RateLimitConfig,
-    ) -> None:
-        """Check if a request is within the rate limit.
-        
-        Args:
-            key: Identifier for the rate limit bucket (e.g., IP, user_id).
-            config: Rate limit configuration.
-            
-        Raises:
-            RateLimitExceededException: If the rate limit is exceeded.
-        """
-        now = time.monotonic()
-        window_start = now - config.window_seconds
-
-        with self._lock:
-            # Remove expired timestamps
-            self._requests[key] = [
-                ts for ts in self._requests[key] if ts > window_start
-            ]
-
-            if len(self._requests[key]) >= config.max_requests:
-                logger.warning("Rate limit exceeded for key: %s", key)
-                raise RateLimitExceededException(
-                    message=f"Too many requests. Limit: {config.max_requests} per {config.window_seconds}s."
-                )
-
-            self._requests[key].append(now)
-
-    def cleanup(self) -> None:
-        """Remove all expired entries. Call periodically to prevent memory growth."""
-        now = time.monotonic()
-        with self._lock:
-            keys_to_delete = []
-            for key, timestamps in self._requests.items():
-                self._requests[key] = [ts for ts in timestamps if ts > now - 3600]
-                if not self._requests[key]:
-                    keys_to_delete.append(key)
-            for key in keys_to_delete:
-                del self._requests[key]
-
-
-class AccountLockout:
-    """Per-account failed-attempt lockout.
-
-    The per-IP rate limit above only slows a single host down. Date of birth is
-    a low-entropy factor, so a distributed guess against one account needs a
-    limit that follows the *account*, not the caller. Counts only failures;
-    a success clears the record.
-
-    In-memory, like the rate limiter — single-process only. Move both to Redis
-    together when this runs on more than one worker.
-    """
-
-    def __init__(self) -> None:
-        self._failures: dict[str, list[float]] = defaultdict(list)
-        self._lock = Lock()
-
-    def is_locked(self, key: str, max_attempts: int, window_seconds: int) -> bool:
-        now = time.monotonic()
-        window_start = now - window_seconds
-        with self._lock:
-            recent = [ts for ts in self._failures[key] if ts > window_start]
-            self._failures[key] = recent
-            return len(recent) >= max_attempts
-
-    def record_failure(self, key: str) -> None:
-        with self._lock:
-            self._failures[key].append(time.monotonic())
-
-    def clear(self, key: str) -> None:
-        with self._lock:
-            self._failures.pop(key, None)
-
-    def cleanup(self, window_seconds: int = 3600) -> None:
-        now = time.monotonic()
-        with self._lock:
-            for key in list(self._failures):
-                self._failures[key] = [ts for ts in self._failures[key] if ts > now - window_seconds]
-                if not self._failures[key]:
-                    del self._failures[key]
-
-
-# Global instances
-rate_limiter = SlidingWindowRateLimiter()
-account_lockout = AccountLockout()
+    def __init__(self, max_requests: int, window_seconds: int) -> None:
+        self.max_requests = max_requests
+        self.window_seconds = window_seconds
 
 
 def _limits_for_env() -> dict[str, RateLimitConfig]:
-    """Production gets real limits; development keeps loose ones so local
-    testing is not fighting the limiter. Previously the loose "(dev)" values
-    were the only values and shipped to production unchanged."""
+    """Development keeps loose limits so local testing is not fighting the
+    limiter. These are the values the endpoints actually use - the handlers
+    used to inline their own numbers, so the production figures named here
+    were never the ones enforced.
+
+    The per-IP login and refresh ceilings are intentionally high: students
+    share a campus NAT address, so a tight per-IP limit locks out the whole
+    hostel rather than an attacker. Credential guessing is bounded by the
+    per-account lockout below instead.
+    """
     from app.config import get_settings
 
     if get_settings().is_development:
         return {
-            "login": RateLimitConfig(max_requests=100, window_seconds=60),
+            "login": RateLimitConfig(max_requests=600, window_seconds=60),
             "activation": RateLimitConfig(max_requests=50, window_seconds=60),
-            "refresh": RateLimitConfig(max_requests=100, window_seconds=60),
-            "general": RateLimitConfig(max_requests=300, window_seconds=60),
+            "refresh": RateLimitConfig(max_requests=600, window_seconds=60),
         }
     return {
-        "login": RateLimitConfig(max_requests=10, window_seconds=60),
+        "login": RateLimitConfig(max_requests=300, window_seconds=60),
         "activation": RateLimitConfig(max_requests=5, window_seconds=60),
-        "refresh": RateLimitConfig(max_requests=30, window_seconds=60),
-        "general": RateLimitConfig(max_requests=120, window_seconds=60),
+        "refresh": RateLimitConfig(max_requests=600, window_seconds=60),
     }
 
 
@@ -148,7 +64,10 @@ _LIMITS = _limits_for_env()
 LOGIN_RATE_LIMIT = _LIMITS["login"]
 ACTIVATION_RATE_LIMIT = _LIMITS["activation"]
 REFRESH_RATE_LIMIT = _LIMITS["refresh"]
-GENERAL_RATE_LIMIT = _LIMITS["general"]
+
+# Per-account setup-code attempts. Separate from login because activation is
+# a different credential with a different blast radius.
+SETUP_ACCOUNT_RATE_LIMIT = RateLimitConfig(max_requests=5, window_seconds=900)
 
 
 def get_client_ip(request: Request) -> str:
@@ -159,6 +78,7 @@ def get_client_ip(request: Request) -> str:
     """
     import ipaddress
     from app.config import get_settings
+
     if get_settings().TRUST_PROXY_HEADERS:
         forwarded = request.headers.get("x-forwarded-for", "").split(",")[0].strip()
         try:
@@ -168,16 +88,18 @@ def get_client_ip(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
+def _digest(key: str) -> str:
+    return hashlib.sha256(key.encode()).hexdigest()
+
+
 async def check_shared_rate_limit(key: str, config: RateLimitConfig) -> None:
     """Atomic fixed-window limits shared by all workers; persisted even on auth failure.
 
     Expired buckets are deleted through an indexed expiry lookup. A fresh
     window starts at the first request, rather than at a global clock boundary.
     """
-    import hashlib
-    from sqlalchemy import text
     from app.database import async_session_factory
-    digest = hashlib.sha256(key.encode()).hexdigest()
+
     async with async_session_factory() as session:
         async with session.begin():
             await session.execute(text("DELETE FROM auth_rate_limits WHERE expires_at < now()"))
@@ -186,7 +108,66 @@ async def check_shared_rate_limit(key: str, config: RateLimitConfig) -> None:
                 VALUES (:key, 1, now() + make_interval(secs => :window))
                 ON CONFLICT (key) DO UPDATE SET attempts = auth_rate_limits.attempts + 1
                 RETURNING attempts
-            """), {"key": digest, "window": config.window_seconds})
+            """), {"key": _digest(key), "window": config.window_seconds})
             attempts = result.scalar_one()
     if attempts > config.max_requests:
         raise RateLimitExceededException(message="Too many attempts. Please try again later.")
+
+
+# --- Per-account failure lockout -------------------------------------------
+# Counts failures only, so a legitimate user signing in repeatedly is never
+# throttled by their own successes. A success clears the record.
+
+def _lockout_key(registration_number: str) -> str:
+    return _digest(f"login-failures:{registration_number.strip().upper()}")
+
+
+async def check_account_lockout(registration_number: str) -> int:
+    """Reject before verifying a password if the account is locked out.
+
+    Returns the current failure count so the caller can skip the clearing
+    round-trip on the overwhelmingly common case of a clean sign-in.
+    """
+    from app.config import get_settings
+    from app.database import async_session_factory
+
+    settings = get_settings()
+    async with async_session_factory() as session:
+        attempts = await session.scalar(text(
+            "SELECT attempts FROM auth_rate_limits WHERE key = :key AND expires_at > now()"
+        ), {"key": _lockout_key(registration_number)})
+    if attempts is not None and attempts >= settings.AUTH_MAX_FAILED_ATTEMPTS:
+        logger.warning("Account lockout active for registration number ending %s",
+                       registration_number.strip()[-3:])
+        raise RateLimitExceededException(
+            message=f"Too many failed sign-in attempts. Try again in "
+                    f"{settings.AUTH_LOCKOUT_MINUTES} minutes."
+        )
+    return attempts or 0
+
+
+async def record_auth_failure(registration_number: str) -> None:
+    """Count one failed sign-in. The window starts at the first failure."""
+    from app.config import get_settings
+    from app.database import async_session_factory
+
+    window = get_settings().AUTH_LOCKOUT_MINUTES * 60
+    async with async_session_factory() as session:
+        async with session.begin():
+            await session.execute(text("""
+                INSERT INTO auth_rate_limits (key, attempts, expires_at)
+                VALUES (:key, 1, now() + make_interval(secs => :window))
+                ON CONFLICT (key) DO UPDATE SET attempts = auth_rate_limits.attempts + 1
+            """), {"key": _lockout_key(registration_number), "window": window})
+
+
+async def clear_auth_failures(registration_number: str) -> None:
+    """Drop the failure record after a successful sign-in."""
+    from app.database import async_session_factory
+
+    async with async_session_factory() as session:
+        async with session.begin():
+            await session.execute(
+                text("DELETE FROM auth_rate_limits WHERE key = :key"),
+                {"key": _lockout_key(registration_number)},
+            )
