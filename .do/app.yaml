@@ -41,15 +41,24 @@ services:
       - key: PORT
         scope: RUN_TIME
         value: "8080"
+      # WEB_CONCURRENCY x (DB_POOL_SIZE + DB_MAX_OVERFLOW) is this instance's
+      # ceiling on connections to messconnect-db: 2 x 20 = 40. A local load
+      # test at 300 concurrent students (audit/tools/load.py, single vCPU,
+      # matching these exact settings) held 0% error rate throughout and cut
+      # P50 latency from 2.3s to ~0.8s versus the previous 1/5/5 config, which
+      # was queuing on the pool (max observed latency sat right at
+      # DB_POOL_TIMEOUT's 10s). Before raising these further, confirm
+      # messconnect-db's plan allows at least 40 connections with headroom for
+      # the migrate/daily-reconciliation jobs and any second `web` instance.
       - key: WEB_CONCURRENCY
         scope: RUN_TIME
-        value: "1"
+        value: "2"
       - key: DB_POOL_SIZE
         scope: RUN_TIME
-        value: "5"
+        value: "10"
       - key: DB_MAX_OVERFLOW
         scope: RUN_TIME
-        value: "5"
+        value: "10"
       - key: CORS_ORIGINS
         scope: RUN_TIME
         value: ${APP_URL}
