@@ -1,6 +1,7 @@
 import io
+import secrets
 import uuid
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Any
 
 import openpyxl
@@ -13,10 +14,14 @@ from app.models.settings import SystemSetting
 from app.repositories.user_repo import UserRepository
 from app.repositories.settings_repo import SystemSettingRepository
 from app.repositories.audit_repo import AuditRepository
-from app.security.password import hash_password
+from app.security.jwt_handler import hash_refresh_token
 from app.utils.enums import Role, AccountStatus, StudentType
 from app.utils.exceptions import ConflictException, ValidationException, NotFoundException
 from app.utils.timezone import now_ist
+
+# Matches the window auth_service.issue_setup_code uses for students, so a
+# code handed to an administrator does not outlive one handed to a student.
+SETUP_CODE_TTL_MINUTES = 30
 
 
 class SuperAdminService:
@@ -135,9 +140,19 @@ class SuperAdminService:
         }
 
     async def create_admin(
-        self, reg_no: str, name: str, password: str, role: str, actor_id: uuid.UUID
-    ) -> User:
-        """Create a new admin or super-admin account."""
+        self, reg_no: str, name: str, role: str, actor_id: uuid.UUID
+    ) -> tuple[User, str, datetime]:
+        """Create an administrator who then sets their own password.
+
+        The creator no longer supplies a password. The account starts PENDING
+        with no password_hash and a single-use setup code, which the creator
+        hands to the new administrator after checking their identity; they
+        redeem it at /api/v1/auth/activate to choose their own password. Only
+        the code's digest is stored, so the plaintext exists in the response
+        once and nowhere else.
+
+        Returns the user, the plaintext setup code, and its expiry.
+        """
         reg_no = reg_no.strip().upper()
         if role not in {"ADMIN", "SUPER_ADMIN"}:
             raise ValidationException(message="Invalid administrator role.")
@@ -145,14 +160,17 @@ class SuperAdminService:
         if existing:
             raise ConflictException(message="User with this registration number already exists.")
 
+        setup_code = secrets.token_urlsafe(32)
+        expires_at = now_ist() + timedelta(minutes=SETUP_CODE_TTL_MINUTES)
         user = User(
             id=uuid.uuid4(),
             registration_number=reg_no,
             name=name,
-            password_hash=hash_password(password),
+            password_hash=None,
             role=role,
-            account_status=AccountStatus.ACTIVE.value,
-            activated_at=now_ist(),
+            account_status=AccountStatus.PENDING.value,
+            setup_code_hash=hash_refresh_token(setup_code),
+            setup_code_expires_at=expires_at,
         )
         self.session.add(user)
         await self.session.flush()
@@ -164,7 +182,7 @@ class SuperAdminService:
             target_id=user.id,
             metadata={"registration_number": reg_no, "role": role},
         )
-        return user
+        return user, setup_code, expires_at
 
     async def update_settings(
         self, settings_list: list[dict[str, str]], actor_id: uuid.UUID

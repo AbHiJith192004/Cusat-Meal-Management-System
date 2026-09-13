@@ -38,12 +38,16 @@ async def create_admin_user(
     super_admin: SuperAdminUser,
     db: AsyncSession = Depends(get_db, scope="function"),
 ):
-    """Super Admin: Create a new ADMIN or SUPER_ADMIN user account."""
+    """Super Admin: Create a PENDING ADMIN or SUPER_ADMIN who sets their own password.
+
+    The setup code comes back once, in this response, and is never retrievable
+    again - only its digest is stored. Hand it to the new administrator after
+    verifying their identity; they redeem it at /api/v1/auth/activate.
+    """
     service = SuperAdminService(db)
-    user = await service.create_admin(
+    user, setup_code, expires_at = await service.create_admin(
         reg_no=body.registration_number,
         name=body.name,
-        password=body.password,
         role=body.role,
         actor_id=super_admin.id,
     )
@@ -54,6 +58,8 @@ async def create_admin_user(
             "name": user.name,
             "role": user.role,
             "account_status": user.account_status,
+            "setup_code": setup_code,
+            "setup_code_expires_at": expires_at.isoformat(),
         }
     )
 

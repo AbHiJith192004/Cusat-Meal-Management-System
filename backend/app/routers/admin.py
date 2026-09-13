@@ -25,7 +25,7 @@ from app.schemas.meal_rate import (
 )
 from app.services.billing_service import BillingService
 from app.models.meal_rate import DailyMealRate
-from app.security.dependencies import AdminUser
+from app.security.dependencies import AdminUser, SuperAdminUser
 from app.services.attendance_service import AttendanceService
 from app.services.fine_service import FineService
 from app.services.student_service import StudentService
@@ -228,12 +228,21 @@ async def list_students(
 @router.post("/students")
 async def create_student(
     body: CreateStudentRequest,
-    admin_user: AdminUser,
+    super_admin: SuperAdminUser,
     db: AsyncSession = Depends(get_db, scope="function"),
 ):
-    """Create a new student account with PENDING status.
-    
-    The student can then activate their account using registration_number + date_of_birth.
+    """Super Admin: create one student account with PENDING status.
+
+    Restricted to SUPER_ADMIN because student intake is meant to run through
+    the Super Admin's Excel import; this single-record path exists for the
+    mid-term joiner a workbook would be clumsy for, not as a second, wider
+    intake route. It used to accept any ADMIN.
+
+    The account has no password. Activation is NOT registration_number +
+    date_of_birth - those are known to classmates. The student redeems a
+    staff-issued setup code at /api/v1/auth/activate and chooses their own
+    password there.
+
     Required fields: name, registration_number, date_of_birth.
     Optional fields: mess_id, student_type.
     """
@@ -287,7 +296,7 @@ async def create_student(
     
     audit_repo = AuditRepository(db)
     await audit_repo.log(
-        actor_id=admin_user.id,
+        actor_id=super_admin.id,
         action="STUDENT_CREATED",
         target_type="user",
         target_id=user_id,

@@ -262,3 +262,75 @@ async def test_case_variants_share_one_lockout_bucket(client):
                               json={'registration_number': student.registration_number.lower(),
                                     'password': 'wrong'})).status_code == 429
     await clear_auth_failures(student.registration_number)
+
+
+@pytest.mark.asyncio
+async def test_created_admin_sets_own_password_via_setup_code(client):
+    """The creator must not choose another administrator's password.
+
+    create_admin used to accept a password and mark the account ACTIVE, so the
+    Super Admin knew every admin's credentials and nothing forced a change.
+    The account must now arrive PENDING with no password and a single-use code
+    the new administrator redeems to pick their own.
+    """
+    from app.security.jwt_handler import hash_refresh_token
+
+    super_admin = await user('SUPER_ADMIN')
+    reg = 'ADMNEW-' + uuid.uuid4().hex[:10].upper()
+
+    created = await client.post('/api/v1/super-admin/admins',
+                                json={'registration_number': reg, 'name': 'New warden', 'role': 'ADMIN'},
+                                headers=headers(super_admin))
+    # Activation is rate limited per client IP (5/min in production) and every
+    # test otherwise shares one address, so this test spends its own budget
+    # rather than starving the suite's other activation tests.
+    assert created.status_code == 200, created.text
+    body = created.json()['data']
+    assert body['account_status'] == 'PENDING'
+    setup_code = body['setup_code']
+    assert setup_code
+
+    # No password is set, and only the code's digest is stored.
+    async with async_session_factory() as db:
+        row = await db.scalar(select(User).where(User.registration_number == reg))
+        assert row.password_hash is None
+        assert row.setup_code_hash == hash_refresh_token(setup_code)
+        assert row.setup_code_hash != setup_code
+
+    # The new administrator chooses their own password and can then sign in.
+    chosen = 'warden-picks-this-one'
+    transport = ASGITransport(app=create_app(), raise_app_exceptions=False, client=('10.77.0.4', 5555))
+    async with AsyncClient(transport=transport, base_url='https://testserver') as own_ip:
+        activated = await own_ip.post('/api/v1/auth/activate',
+                                      json={'registration_number': reg, 'setup_code': setup_code,
+                                            'password': chosen})
+        assert activated.status_code == 200, activated.text
+
+        signed_in = await own_ip.post('/api/v1/auth/login',
+                                      json={'registration_number': reg, 'password': chosen})
+        assert signed_in.status_code == 200, signed_in.text
+
+        # The code is single use.
+        assert (await own_ip.post('/api/v1/auth/activate',
+                                  json={'registration_number': reg, 'setup_code': setup_code,
+                                        'password': 'a-different-password'})).status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_single_student_creation_requires_super_admin(client):
+    """Student intake runs through the Super Admin's Excel import.
+
+    POST /admin/students was reachable by any ADMIN, which was a second and
+    wider intake route than the owner's provisioning rules allow.
+    """
+    admin, super_admin = await user('ADMIN'), await user('SUPER_ADMIN')
+    payload = lambda: {'name': 'Mid-term joiner',
+                       'registration_number': 'JOIN-' + uuid.uuid4().hex[:10].upper(),
+                       'date_of_birth': '2005-04-02'}
+
+    assert (await client.post('/api/v1/admin/students', json=payload(),
+                              headers=headers(admin))).status_code == 403
+    allowed = await client.post('/api/v1/admin/students', json=payload(),
+                                headers=headers(super_admin))
+    assert allowed.status_code == 200, allowed.text
+    assert allowed.json()['data']['account_status'] == 'PENDING'

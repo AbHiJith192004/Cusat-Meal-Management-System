@@ -429,10 +429,21 @@ export const notificationsApi = {
 
 // Super Admin API
 export const superAdminApi = {
-  createAdmin: (registration_number: string, name: string, password: string, role: string = 'ADMIN') =>
-    request<any>('/super-admin/admins', {
+  // No password argument: the creator does not choose the new administrator's
+  // password. The response carries a one-time setup_code they redeem to set
+  // their own, and it is never retrievable again.
+  createAdmin: (registration_number: string, name: string, role: string = 'ADMIN') =>
+    request<{
+      id: string;
+      registration_number: string;
+      name: string;
+      role: string;
+      account_status: string;
+      setup_code: string;
+      setup_code_expires_at: string;
+    }>('/super-admin/admins', {
       method: 'POST',
-      body: JSON.stringify({ registration_number, name, password, role }),
+      body: JSON.stringify({ registration_number, name, role }),
     }),
 
   getSettings: () => request<any[]>('/super-admin/settings'),

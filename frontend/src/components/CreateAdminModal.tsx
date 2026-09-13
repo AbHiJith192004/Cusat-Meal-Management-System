@@ -9,10 +9,11 @@ interface CreateAdminModalProps {
 export const CreateAdminModal: React.FC<CreateAdminModalProps> = ({ isOpen, onClose }) => {
   const [regNo, setRegNo] = useState('');
   const [name, setName] = useState('');
-  const [password, setPassword] = useState('');
   const [role, setRole] = useState<'ADMIN' | 'SUPER_ADMIN'>('ADMIN');
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [issued, setIssued] = useState<{ name: string; regNo: string; code: string; expiresAt: string } | null>(null);
+  const [copied, setCopied] = useState(false);
 
   if (!isOpen) return null;
 
@@ -23,7 +24,6 @@ export const CreateAdminModal: React.FC<CreateAdminModalProps> = ({ isOpen, onCl
 
     const trimmedRegNo = regNo.trim();
     const trimmedName = name.trim();
-    const trimmedPassword = password.trim();
 
     try {
       // Creating an admin requires a Super Warden session. This used to catch a
@@ -31,16 +31,20 @@ export const CreateAdminModal: React.FC<CreateAdminModalProps> = ({ isOpen, onCl
       // push the action through anyway - a privilege escalation shipped in the
       // bundle. A denial is now reported to the person, who can sign in with an
       // account that actually holds the permission.
-      await superAdminApi.createAdmin(trimmedRegNo, trimmedName, trimmedPassword, role);
+      const created = await superAdminApi.createAdmin(trimmedRegNo, trimmedName, role);
 
-      setMessage({ type: 'success', text: `Admin account created for ${trimmedName} (${trimmedRegNo})!` });
+      // Deliberately no auto-close here. The setup code is returned exactly
+      // once and only its digest is stored, so dismissing this dialog on a
+      // timer would destroy the one copy and leave the new administrator
+      // unable to activate.
+      setIssued({
+        name: trimmedName,
+        regNo: trimmedRegNo,
+        code: created.setup_code,
+        expiresAt: created.setup_code_expires_at,
+      });
       setRegNo('');
       setName('');
-      setPassword('');
-      setTimeout(() => {
-        onClose();
-        setMessage(null);
-      }, 2000);
     } catch (err: any) {
       const raw = err?.message || '';
       const denied =
@@ -79,6 +83,77 @@ export const CreateAdminModal: React.FC<CreateAdminModalProps> = ({ isOpen, onCl
           </p>
         </div>
 
+        {issued && (
+          <div className="space-y-3">
+            <div className="p-3 rounded-xl text-xs font-semibold flex items-center gap-2 bg-[#6cf8bb] text-[#00714d]">
+              <span className="material-symbols-outlined text-[18px]">check_circle</span>
+              <span>
+                Account created for {issued.name} ({issued.regNo}).
+              </span>
+            </div>
+
+            <div className="p-4 rounded-xl border border-[#B7470D]/30 bg-[#B7470D]/5 space-y-2">
+              <p className="text-xs font-bold text-[#923606] flex items-center gap-1.5">
+                <span className="material-symbols-outlined text-[16px]">key</span>
+                One-time setup code
+              </p>
+              <p className="text-[11px] text-[#434655] leading-relaxed">
+                Give this to {issued.name} in person, after checking their identity. They enter it
+                on the activation screen and choose their own password. It is shown{' '}
+                <strong>only now</strong> and cannot be recovered — if it is lost, create a fresh
+                code rather than reusing this one.
+              </p>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 p-2.5 bg-white border border-[#c3c6d7] rounded-lg text-[11px] font-mono break-all text-[#151c27] select-all">
+                  {issued.code}
+                </code>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigator.clipboard?.writeText(issued.code).then(
+                      () => {
+                        setCopied(true);
+                        setTimeout(() => setCopied(false), 2000);
+                      },
+                      () => setCopied(false),
+                    );
+                  }}
+                  className="shrink-0 px-3 py-2.5 bg-[#B7470D] text-white text-xs font-semibold rounded-lg hover:bg-[#923606] transition-colors cursor-pointer"
+                >
+                  {copied ? 'Copied' : 'Copy'}
+                </button>
+              </div>
+              <p className="text-[11px] text-[#737686]">
+                Expires {new Date(issued.expiresAt).toLocaleString()}
+              </p>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIssued(null);
+                  setCopied(false);
+                }}
+                className="flex-1 py-2.5 border border-[#c3c6d7] text-[#434655] font-semibold text-sm rounded-xl hover:bg-[#f0f3ff] transition-colors cursor-pointer"
+              >
+                Create another
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIssued(null);
+                  setCopied(false);
+                  onClose();
+                }}
+                className="flex-1 py-2.5 bg-[#151c27] text-white font-semibold text-sm rounded-xl hover:bg-[#434655] transition-colors cursor-pointer"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        )}
+
         {message && (
           <div
             className={`p-3 rounded-xl text-xs font-semibold flex items-center gap-2 ${
@@ -94,7 +169,12 @@ export const CreateAdminModal: React.FC<CreateAdminModalProps> = ({ isOpen, onCl
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-4"
+          autoComplete="off"
+          hidden={issued !== null}
+        >
           <div>
             <label className="block text-xs font-semibold text-[#434655] mb-1">Full Name *</label>
             <input
@@ -117,19 +197,6 @@ export const CreateAdminModal: React.FC<CreateAdminModalProps> = ({ isOpen, onCl
               onChange={(e) => setRegNo(e.target.value)}
               placeholder="Enter Admin ID"
               autoComplete="off"
-              className="w-full p-2.5 bg-[#f0f3ff] border border-[#c3c6d7] rounded-xl text-sm font-medium outline-none text-[#151c27]"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-semibold text-[#434655] mb-1">Temporary Password *</label>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="Enter Temporary Password"
-              autoComplete="new-password"
               className="w-full p-2.5 bg-[#f0f3ff] border border-[#c3c6d7] rounded-xl text-sm font-medium outline-none text-[#151c27]"
             />
           </div>
