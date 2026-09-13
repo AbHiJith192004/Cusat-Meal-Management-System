@@ -2,7 +2,6 @@ from datetime import date, datetime
 from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.utils.enums import AttendanceType, MealType
 
 
 class QRTokenResponse(BaseModel):

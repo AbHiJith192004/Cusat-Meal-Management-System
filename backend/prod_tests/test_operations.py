@@ -1,5 +1,5 @@
 import uuid
-from datetime import timedelta
+from datetime import date, timedelta
 from decimal import Decimal
 
 import pytest
@@ -9,10 +9,15 @@ from app.database import async_session_factory
 from app.models.attendance import Attendance
 from app.models.audit import AuditLog
 from app.models.billing import BillingPeriod, StudentBillSnapshot
+from app.models.meal import MealSelection
 from app.models.operations import InventoryItem, LedgerEntry, MenuPublication, PaymentSubmission
 from app.models.notification import Notification
+from app.models.user import User
 from app.utils.timezone import now_ist
-from prod_tests.test_hardening import client, headers, user
+# `client` is a pytest fixture, resolved by name from this module's
+# namespace, so importing it is what makes it available - it is not an
+# unused import. ruff's F401 removed it once and broke every test here.
+from prod_tests.test_hardening import client, headers, user  # noqa: F401
 
 
 @pytest.mark.asyncio
@@ -109,3 +114,114 @@ async def test_payment_is_bound_to_published_invoice_and_reviewed_once(client):
         assert row.status == 'VERIFIED' and row.reviewed_by == admin.id
         assert await db.scalar(select(func.count()).select_from(Notification).where(
             Notification.user_id == student.id, Notification.title == 'Payment verified')) == 1
+
+
+@pytest.mark.asyncio
+async def test_two_meal_skip_rejected_but_one_and_three_allowed(client):
+    """The real rule is 0, 1 or 3 meals skipped - never exactly 2.
+
+    A deleted unit test used to assert 'max 1 meal opt-out per day', which
+    contradicts the implementation: skipping all three is a full-day mess cut
+    and is explicitly allowed. It tested a locally defined stub, so it never
+    noticed.
+    """
+    student = await user()
+    day = (now_ist().date() + timedelta(days=6)).isoformat()
+
+    first = await client.put(f'/api/v1/meals/{day}/BREAKFAST', json={'status': 'SKIPPED'},
+                             headers=headers(student))
+    assert first.status_code == 200, first.text
+
+    second = await client.put(f'/api/v1/meals/{day}/LUNCH', json={'status': 'SKIPPED'},
+                              headers=headers(student))
+    assert second.status_code == 422, second.text
+
+    # Three is a mess cut, and the whole-day route reaches it without ever
+    # passing through the invalid two-skip state.
+    whole = await client.put(f'/api/v1/meals/{day}', json={'status': 'SKIPPED'},
+                             headers=headers(student))
+    assert whole.status_code == 200, whole.text
+
+    async with async_session_factory() as db:
+        skipped = await db.scalar(select(func.count()).select_from(MealSelection).where(
+            MealSelection.student_id == student.id,
+            MealSelection.meal_date == date.fromisoformat(day),
+            MealSelection.status == 'SKIPPED'))
+    assert skipped == 3
+
+
+@pytest.mark.asyncio
+async def test_excel_import_creates_pending_students_and_cannot_grant_a_role(client):
+    """Drives the real importer through the real endpoint.
+
+    Replaces a unit test that built a workbook with openpyxl and read it back
+    with openpyxl, touching no application code at all.
+    """
+    import io
+    import openpyxl
+
+    super_admin = await user('SUPER_ADMIN')
+    reg_ok = 'XL-' + uuid.uuid4().hex[:10].upper()
+    reg_dupe = 'XL-' + uuid.uuid4().hex[:10].upper()
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(['registration_number', 'name', 'date_of_birth', 'student_type', 'mess_id'])
+    ws.append([reg_ok, 'Imported One', '2005-05-15', 'HOSTELLER', 'M-1'])
+    ws.append([reg_dupe, 'Imported Two', '2004-11-20', 'DAY_SCHOLAR', 'M-2'])
+    ws.append([reg_dupe, 'Duplicate Of Two', '2004-11-20', 'DAY_SCHOLAR', 'M-3'])
+    ws.append(['', 'Missing Registration', '2004-01-01', 'HOSTELLER', 'M-4'])
+    buf = io.BytesIO()
+    wb.save(buf)
+
+    response = await client.post(
+        '/api/v1/super-admin/students/import',
+        files={'file': ('students.xlsx', buf.getvalue(),
+                        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')},
+        headers=headers(super_admin))
+    assert response.status_code == 200, response.text
+    summary = response.json()['data']
+
+    assert summary['imported_count'] == 2
+    assert summary['skipped_count'] == 2
+    # Every rejection names its row so staff can fix the sheet.
+    assert {err['row'] for err in summary['errors']} == {4, 5}
+
+    async with async_session_factory() as db:
+        imported = await db.scalar(select(User).where(User.registration_number == reg_ok))
+        assert imported.role == 'STUDENT'
+        assert imported.account_status == 'PENDING'
+        assert imported.password_hash is None
+
+
+@pytest.mark.asyncio
+async def test_import_cannot_be_tricked_into_creating_an_admin(client):
+    """A role column in the sheet must not escalate anyone.
+
+    The importer hardcodes role=STUDENT at construction, so this is structural
+    rather than a validation rule. Worth pinning: it is the single guarantee
+    standing between a spreadsheet and a privileged account.
+    """
+    import io
+    import openpyxl
+
+    super_admin = await user('SUPER_ADMIN')
+    reg = 'XLROLE-' + uuid.uuid4().hex[:8].upper()
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(['registration_number', 'name', 'date_of_birth', 'student_type', 'mess_id', 'role'])
+    ws.append([reg, 'Would Be Admin', '2004-02-02', 'HOSTELLER', 'M-9', 'SUPER_ADMIN'])
+    buf = io.BytesIO()
+    wb.save(buf)
+
+    response = await client.post(
+        '/api/v1/super-admin/students/import',
+        files={'file': ('students.xlsx', buf.getvalue(),
+                        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')},
+        headers=headers(super_admin))
+    assert response.status_code == 200, response.text
+
+    async with async_session_factory() as db:
+        created = await db.scalar(select(User).where(User.registration_number == reg))
+    assert created.role == 'STUDENT'

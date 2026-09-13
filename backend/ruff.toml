@@ -1,0 +1,32 @@
+# Lint rules for CI. Deliberately narrow: this gate exists to catch defects,
+# not to enforce style, because a noisy gate gets ignored or disabled.
+#
+# F (pyflakes) is the reason this file exists. An unused import was the only
+# visible trace that the per-account login lockout and the documented rate
+# limits were imported but never called - security controls that read as
+# active in review while doing nothing. F401/F811/F841 catch exactly that.
+target-version = "py311"
+line-length = 120
+
+[lint]
+select = [
+    "F",      # pyflakes: unused imports, unused variables, redefinitions
+    "E9",     # syntax and IO errors
+    "DTZ",    # naive datetimes - this system is timezone-critical (IST)
+    "ISC",    # implicit string concatenation, usually an unintended join
+    "RUF010", # explicit conversion flag in f-strings
+]
+ignore = [
+    # FastAPI's whole dependency-injection idiom is Depends() in a default
+    # argument. Flagging it produces ~70 findings that are all correct code.
+    "B008",
+]
+
+[lint.per-file-ignores]
+# Alembic's generated migrations keep their own conventions.
+"migrations/versions/*" = ["F401", "E501"]
+# pytest resolves fixtures by name from the test module's namespace, so a
+# fixture imported from another test file looks unused to pyflakes and is
+# then shadowed by the parameter of the same name. Both are the idiom, not
+# defects: --fix once deleted such an import and broke the whole file.
+"prod_tests/*" = ["F811"]

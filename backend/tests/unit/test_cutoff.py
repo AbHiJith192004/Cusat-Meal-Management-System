@@ -1,50 +1,100 @@
-from datetime import date, datetime
+"""Selection cutoff and meal windows, exercised through the real service.
+
+The previous version of this file defined its own calculate_cutoff() and
+asserted against that, so MealTimingService itself was never executed and a
+change to the real cutoff maths would not have failed anything here.
+
+MealTimingService only needs its settings repository, so a stub repo is enough
+to drive the real code with no database. get_by_key returning None is the
+genuine "setting not configured" path, which falls back to DEFAULT_SETTINGS.
+"""
+from datetime import date, time
+
 import pytest
 
-from app.utils.timezone import make_ist
+from app.services.meal_timing_service import DEFAULT_SETTINGS, MealTimingService
+from app.utils.timezone import IST, make_ist
 
 
-def calculate_cutoff(target_date: date, cutoff_hour: int = 21, cutoff_minute: int = 0, advance_days: int = 1) -> datetime:
-    from datetime import timedelta
-    from app.utils.timezone import IST
-    cutoff_date = target_date - timedelta(days=advance_days)
-    return datetime(cutoff_date.year, cutoff_date.month, cutoff_date.day, cutoff_hour, cutoff_minute, 0, tzinfo=IST)
+class _StubSettingsRepo:
+    """Stands in for SystemSettingRepository. `values` holds overrides; any key
+    not present returns None, exactly as an unconfigured setting would."""
+
+    def __init__(self, values: dict[str, str] | None = None):
+        self.values = values or {}
+
+    async def get_by_key(self, key: str):
+        if key not in self.values:
+            return None
+        return type("Setting", (), {"value": self.values[key]})()
 
 
-def test_cutoff_calculation():
-    target = date(2026, 8, 9)
-    cutoff = calculate_cutoff(target)
-    
-    # Cutoff for Aug 9 meal is Aug 8 at 21:00 IST
+def _service(overrides: dict[str, str] | None = None) -> MealTimingService:
+    service = MealTimingService.__new__(MealTimingService)
+    service.settings_repo = _StubSettingsRepo(overrides)
+    return service
+
+
+@pytest.mark.asyncio
+async def test_cutoff_defaults_to_2100_ist_the_previous_day():
+    cutoff = await _service().get_cutoff_datetime(date(2026, 8, 9))
     assert cutoff.date() == date(2026, 8, 8)
-    assert cutoff.hour == 21
-    assert cutoff.minute == 0
+    assert (cutoff.hour, cutoff.minute) == (21, 0)
+    assert cutoff.tzinfo == IST
 
 
-def test_selection_lock_decision():
-    target = date(2026, 8, 9)
-    cutoff = calculate_cutoff(target)
-    
-    # Before 21:00 IST on Aug 8 -> NOT locked
-    before_cutoff = make_ist(2026, 8, 8, 20, 59, 0)
-    assert before_cutoff < cutoff
-    
-    # At or after 21:00 IST on Aug 8 -> LOCKED
-    at_cutoff = make_ist(2026, 8, 8, 21, 0, 0)
-    after_cutoff = make_ist(2026, 8, 8, 21, 1, 0)
-    assert at_cutoff >= cutoff
-    assert after_cutoff >= cutoff
+@pytest.mark.asyncio
+async def test_cutoff_follows_configured_time_and_advance_days():
+    cutoff = await _service({
+        'selection_cutoff_time': '18:30',
+        'selection_cutoff_advance_days': '2',
+    }).get_cutoff_datetime(date(2026, 8, 9))
+    assert cutoff.date() == date(2026, 8, 7)
+    assert (cutoff.hour, cutoff.minute) == (18, 30)
 
 
-def test_mess_cut_rules():
-    # Rule 1: Max 1 meal opt-out per day
-    opted_out_meals_same_day = ["BREAKFAST"]
-    new_opt_out = "LUNCH"
-    is_second_opt_out_allowed = len(opted_out_meals_same_day) < 1
-    assert is_second_opt_out_allowed is False
+@pytest.mark.asyncio
+async def test_selection_locks_at_the_cutoff_minute_not_after_it():
+    service, target = _service(), date(2026, 8, 9)
+    assert await service.is_selection_locked(target, make_ist(2026, 8, 8, 20, 59, 0)) is False
+    # The boundary itself is closed: 21:00:00 is already locked.
+    assert await service.is_selection_locked(target, make_ist(2026, 8, 8, 21, 0, 0)) is True
+    assert await service.is_selection_locked(target, make_ist(2026, 8, 8, 21, 1, 0)) is True
 
-    # Rule 2: Max 10 mess cuts per month
-    monthly_mess_cuts = 10
-    is_eleventh_cut_allowed = (monthly_mess_cuts + 1) <= 10
-    assert is_eleventh_cut_allowed is False
 
+@pytest.mark.asyncio
+async def test_cutoff_crosses_a_month_boundary():
+    cutoff = await _service().get_cutoff_datetime(date(2026, 9, 1))
+    assert cutoff.date() == date(2026, 8, 31)
+
+
+@pytest.mark.asyncio
+async def test_meal_window_uses_defaults_when_unconfigured():
+    start, end = await _service().get_meal_window('BREAKFAST')
+    assert (start, end) == (time(7, 0, tzinfo=IST), time(9, 30, tzinfo=IST))
+    assert DEFAULT_SETTINGS['meal_window_breakfast_start'] == '07:00'
+
+
+@pytest.mark.asyncio
+async def test_meal_window_lookup_is_case_insensitive():
+    assert await _service().get_meal_window('lunch') == await _service().get_meal_window('LUNCH')
+
+
+@pytest.mark.asyncio
+async def test_within_window_only_on_the_meal_date_and_inside_the_hours():
+    service = _service()
+    inside = make_ist(2026, 8, 9, 12, 30, 0)
+    assert await service.is_within_meal_window('LUNCH', date(2026, 8, 9), inside) is True
+    # Right time of day, wrong day: a QR from yesterday must not scan today.
+    assert await service.is_within_meal_window('LUNCH', date(2026, 8, 10), inside) is False
+    assert await service.is_within_meal_window('LUNCH', date(2026, 8, 9),
+                                               make_ist(2026, 8, 9, 11, 59, 0)) is False
+    assert await service.is_within_meal_window('LUNCH', date(2026, 8, 9),
+                                               make_ist(2026, 8, 9, 14, 31, 0)) is False
+
+
+@pytest.mark.asyncio
+async def test_window_boundaries_are_inclusive_at_both_ends():
+    service = _service()
+    for moment in (make_ist(2026, 8, 9, 12, 0, 0), make_ist(2026, 8, 9, 14, 30, 0)):
+        assert await service.is_within_meal_window('LUNCH', date(2026, 8, 9), moment) is True

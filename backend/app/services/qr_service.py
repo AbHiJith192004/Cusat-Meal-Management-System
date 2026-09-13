@@ -20,7 +20,6 @@ from app.utils.enums import MealStatus, AttendanceType
 from app.utils.exceptions import (
     QRExpiredException,
     QRInvalidException,
-    QRReplayDetectedException,
     AttendanceAlreadyRecordedException,
     AttendanceUnavailableException,
     MealSkippedException,
@@ -106,7 +105,9 @@ class QRService:
         try:
             student_id = uuid.UUID(payload["sub"])
             meal_type = payload["meal"]
-            meal_date = datetime.strptime(payload["date"], "%Y-%m-%d").date()
+            # A calendar date has no timezone; .date() discards the naive
+            # datetime strptime built to get there.
+            meal_date = datetime.strptime(payload["date"], "%Y-%m-%d").date()  # noqa: DTZ007
         except (ValueError, TypeError, KeyError):
             raise QRInvalidException()
         await self._check_eligibility(student_id, meal_date, meal_type)
@@ -150,7 +151,8 @@ class QRService:
             if claims["type"] != "qr_confirmation" or claims["admin_id"] != str(admin_id):
                 raise QRInvalidException()
             student_id = uuid.UUID(claims["sub"])
-            meal_date = datetime.strptime(claims["date"], "%Y-%m-%d").date()
+            # Same as above: only the calendar date survives.
+            meal_date = datetime.strptime(claims["date"], "%Y-%m-%d").date()  # noqa: DTZ007
             meal_type = claims["meal"]
         except jwt.ExpiredSignatureError:
             raise QRExpiredException()

@@ -1,11 +1,9 @@
 from datetime import date, datetime, time, timedelta
-from zoneinfo import ZoneInfo
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.repositories.settings_repo import SystemSettingRepository
 from app.config import get_settings
-from app.utils.enums import MealType
-from app.utils.timezone import now_ist, IST, make_ist_time
+from app.utils.timezone import now_ist, IST
 
 DEFAULT_SETTINGS = {
     "meal_window_breakfast_start": "07:00",

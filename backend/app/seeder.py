@@ -3,8 +3,7 @@ import uuid
 from datetime import date, timedelta
 
 from sqlalchemy import select
-from app.database import async_session_factory, engine
-from app.models.base import Base
+from app.database import async_session_factory
 from app.models.user import User
 from app.models.student import StudentProfile
 from app.models.meal import MealSelection

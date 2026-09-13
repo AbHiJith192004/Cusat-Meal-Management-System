@@ -1,7 +1,7 @@
 """Read published invoices without recomputing any live financial input."""
 import uuid
 from sqlalchemy import select
-from app.models.billing import BillingPeriod, StudentBillSnapshot
+from app.models.billing import StudentBillSnapshot
 from app.services.billing_service import BillingService
 from app.utils.exceptions import NotFoundException, ConflictException
 

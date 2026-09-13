@@ -1,15 +1,17 @@
-import uuid
 import hashlib
+import logging
 import secrets
+import uuid
 from datetime import datetime, timedelta
 from typing import Any
 
 import jwt
 
 from app.config import get_settings
-from app.utils.timezone import now_ist, IST
-from app.utils.exceptions import UnauthorizedException, QRExpiredException, QRInvalidException
+from app.utils.timezone import now_ist
+from app.utils.exceptions import UnauthorizedException
 
+logger = logging.getLogger(__name__)
 settings = get_settings()
 
 
@@ -50,7 +52,11 @@ def decode_access_token(token: str) -> dict[str, Any]:
     except jwt.ExpiredSignatureError:
         raise UnauthorizedException(message="Token has expired", code="TOKEN_EXPIRED")
     except jwt.InvalidTokenError as e:
-        raise UnauthorizedException(message=f"Invalid token: {str(e)}")
+        # PyJWT's reason is logged, not returned. It distinguishes "signature
+        # verification failed" from "missing claim 'sub'" and similar, which
+        # tells an attacker which part of a forged token to correct next.
+        logger.warning("Rejected access token: %s", e)
+        raise UnauthorizedException(message="Invalid token")
 
 
 def generate_refresh_token() -> str:

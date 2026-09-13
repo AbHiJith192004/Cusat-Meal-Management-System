@@ -1,6 +1,6 @@
 import logging
 import uuid
-from datetime import date, datetime, timedelta
+from datetime import timedelta
 import secrets
 import hmac
 from sqlalchemy import select
@@ -26,12 +26,9 @@ from app.security.jwt_handler import (
 )
 from app.utils.enums import AccountStatus
 from app.utils.exceptions import (
-    AccountNotFoundException,
-    AccountAlreadyActivatedException,
     InvalidCredentialsException,
     AccountSuspendedException,
     UnauthorizedException,
-    RateLimitExceededException,
 )
 from app.utils.timezone import now_ist
 

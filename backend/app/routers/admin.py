@@ -3,13 +3,11 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query, Path, Response
-from fastapi.responses import StreamingResponse
 from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models.audit import AuditLog
-from app.models.holiday import Holiday
 from app.models.user import User
 from app.schemas.attendance import ManualAttendanceRequest
 from app.schemas.fine import WaiveFineRequest, ReconcileFinesRequest
@@ -578,7 +576,6 @@ async def get_monthly_meal_rates(
 ):
     """Get daily meal rates for all days in a specific month."""
     import calendar
-    from decimal import Decimal
 
     num_days = calendar.monthrange(year, month)[1]
     start_date = date(year, month, 1)

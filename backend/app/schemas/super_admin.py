@@ -1,8 +1,6 @@
-from datetime import date, datetime
-from uuid import UUID
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, Field
 
-from app.utils.enums import Role, AccountStatus, StudentType
+from app.utils.enums import Role
 
 
 class ImportRowError(BaseModel):

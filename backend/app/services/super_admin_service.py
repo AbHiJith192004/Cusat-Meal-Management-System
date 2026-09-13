@@ -5,7 +5,6 @@ from datetime import date, datetime, timedelta
 from typing import Any
 
 import openpyxl
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
@@ -16,7 +15,7 @@ from app.repositories.settings_repo import SystemSettingRepository
 from app.repositories.audit_repo import AuditRepository
 from app.security.jwt_handler import hash_refresh_token
 from app.utils.enums import Role, AccountStatus, StudentType
-from app.utils.exceptions import ConflictException, ValidationException, NotFoundException
+from app.utils.exceptions import ConflictException, ValidationException
 from app.utils.timezone import now_ist
 
 # Matches the window auth_service.issue_setup_code uses for students, so a
@@ -43,7 +42,7 @@ class SuperAdminService:
                     raise ValidationException(message="Excel workbook expands beyond the 25 MB limit.")
             wb = openpyxl.load_workbook(filename=io.BytesIO(file_contents), data_only=True, read_only=True)
         except Exception as e:
-            raise ValidationException(message=f"Invalid Excel file format: {str(e)}")
+            raise ValidationException(message=f"Invalid Excel file format: {e!s}")
 
         ws = wb.active
         rows = list(islice(ws.iter_rows(values_only=True), 5002))

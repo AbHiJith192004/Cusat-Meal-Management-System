@@ -1,6 +1,7 @@
 """Opted-in-day billing integration tests in per-test disposable PostgreSQL schemas."""
 import asyncio
 import io
+import os
 import uuid
 from datetime import datetime, date
 from decimal import Decimal
@@ -215,11 +216,15 @@ async def test_exports_match_snapshot_and_escape_spreadsheet_formulas(database):
     assert Decimal(str(ws['G2'].value)) == Decimal(bills[0]['grand_total'])
     assert Decimal(str(ws['G4'].value)) == Decimal('390')
     assert pdf.startswith(b'%PDF')
-    # Synthetic exports are retained for local visual inspection.
-    output = Path(__file__).resolve().parents[2] / 'docs/verification'
-    if output.exists():
-        (output / 'billing-synthetic.pdf').write_bytes(pdf)
-        (output / 'billing-synthetic.xlsx').write_bytes(excel)
+    # Synthetic exports can be refreshed for visual inspection, but only when
+    # asked for. These land in docs/verification/, which is tracked, so writing
+    # them unconditionally left every test run - local or CI - with a dirty
+    # working tree and two binary files changed by timestamp noise alone.
+    if os.environ.get('WRITE_VERIFICATION_ARTIFACTS') == '1':
+        output = Path(__file__).resolve().parents[2] / 'docs/verification'
+        if output.exists():
+            (output / 'billing-synthetic.pdf').write_bytes(pdf)
+            (output / 'billing-synthetic.xlsx').write_bytes(excel)
 
 
 @pytest.mark.asyncio

@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import select, and_, not_, or_, func
+from sqlalchemy import select, and_, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.fine import Fine
@@ -15,10 +15,9 @@ from app.models.attendance import Attendance
 from app.repositories.fine_repo import FineRepository
 from app.repositories.settings_repo import SystemSettingRepository
 from app.repositories.audit_repo import AuditRepository
-from app.utils.enums import FineStatus, MealStatus
+from app.utils.enums import FineStatus
 from app.utils.exceptions import (
     NotFoundException,
-    FineAlreadyExistsException,
     FineNotWaivableException,
     ValidationException,
 )

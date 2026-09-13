@@ -7,8 +7,6 @@ from app.database import get_db
 from app.schemas.auth import (
     ActivateRequest,
     LoginRequest,
-    TokenResponse,
-    MessageResponse,
 )
 from app.schemas.common import success_response
 from app.config import get_settings

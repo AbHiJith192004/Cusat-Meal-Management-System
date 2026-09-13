@@ -5,7 +5,7 @@ They only create randomly named synthetic records and never drop application dat
 """
 import asyncio
 import uuid
-from datetime import date, timedelta
+from datetime import timedelta
 
 import jwt
 import pytest
@@ -19,7 +19,6 @@ from app.models.user import User
 from app.models.meal import MealSelection
 from app.models.attendance import Attendance
 from app.security.jwt_handler import create_access_token
-from app.services.auth_service import AuthService
 from app.services.qr_service import QRService
 from app.services.meal_timing_service import MealTimingService
 from app.security.rate_limiter import check_shared_rate_limit, RateLimitConfig, get_client_ip

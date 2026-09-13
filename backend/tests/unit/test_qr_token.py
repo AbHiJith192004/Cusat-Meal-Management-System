@@ -1,10 +1,9 @@
 import uuid
 import jwt
-from datetime import datetime, timedelta
+from datetime import timedelta
 import pytest
 
 from app.config import get_settings
-from app.utils.exceptions import QRExpiredException, QRInvalidException
 from app.utils.timezone import now_ist
 
 settings = get_settings()

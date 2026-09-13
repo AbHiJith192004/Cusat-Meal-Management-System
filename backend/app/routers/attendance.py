@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query, Path
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
@@ -8,7 +8,6 @@ from app.schemas.attendance import QRVerifyRequest, QRConfirmRequest
 from app.schemas.common import success_response
 from app.security.dependencies import CurrentUser, ScannerUser
 from app.services.qr_service import QRService
-from app.services.attendance_service import AttendanceService
 from app.utils.enums import MealType
 from app.utils.exceptions import ValidationException
 

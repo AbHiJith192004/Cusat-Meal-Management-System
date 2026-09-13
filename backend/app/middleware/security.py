@@ -42,8 +42,9 @@ class SecurityMiddleware:
                                 (b'referrer-policy', b'no-referrer'),
                                 (b'x-frame-options', b'DENY'),
                                 (b'permissions-policy', b'camera=(self), geolocation=(), microphone=()'),
+                                # One CSP value split across lines for readability.
                                 (b'content-security-policy',
-                                 b"default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; "
+                                 b"default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; "  # noqa: ISC004
                                  b"script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
                                  b"font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; "
                                  b"connect-src 'self'; media-src 'self' blob:; manifest-src 'self'"),

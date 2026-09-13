@@ -12,7 +12,6 @@ from app.models.billing import BillingPeriod, StockCount, StudentBillSnapshot
 from app.repositories.audit_repo import AuditRepository
 from app.utils.exceptions import (
     ConflictException,
-    NotFoundException,
     ValidationException,
 )
 from app.utils.timezone import now_ist

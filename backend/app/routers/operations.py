@@ -23,7 +23,7 @@ from app.schemas.operations import (BulkAttendanceCreate, CommitteeCreate,
     PaymentReview, VoidRequest)
 from app.security.dependencies import AdminUser, CurrentUser
 from app.services.billing_lock import lock_open_period
-from app.utils.exceptions import ConflictException, ForbiddenException, NotFoundException, ValidationException
+from app.utils.exceptions import ConflictException, NotFoundException, ValidationException
 from app.utils.timezone import now_ist, today_ist
 
 router = APIRouter(prefix="/api/v1", tags=["Mess Operations"])

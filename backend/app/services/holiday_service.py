@@ -1,7 +1,7 @@
 import uuid
 from datetime import date
 
-from sqlalchemy import select, update
+from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.holiday import Holiday
@@ -9,7 +9,7 @@ from app.models.meal import MealSelection
 from app.repositories.holiday_repo import HolidayRepository
 from app.repositories.audit_repo import AuditRepository
 from app.utils.enums import MealStatus
-from app.utils.exceptions import HolidayConflictException, NotFoundException, ConflictException
+from app.utils.exceptions import HolidayConflictException, NotFoundException
 from app.services.billing_lock import lock_open_period
 from app.utils.timezone import now_ist
 

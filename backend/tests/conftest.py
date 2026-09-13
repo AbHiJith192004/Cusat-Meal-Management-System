@@ -55,7 +55,7 @@ async def setup_test_db():
         yield
         async with test_engine.begin() as conn:
             await conn.run_sync(Base.metadata.drop_all)
-    except Exception as e:
+    except Exception:
         # If DB connection fails, yield gracefully for tests that don't need DB
         yield
     finally:

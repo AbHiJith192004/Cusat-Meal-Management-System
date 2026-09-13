@@ -1,4 +1,3 @@
-import uuid
 from datetime import date
 
 from sqlalchemy import select, and_, or_

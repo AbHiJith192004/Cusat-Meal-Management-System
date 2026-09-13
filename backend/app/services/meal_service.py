@@ -10,7 +10,7 @@ from app.repositories.meal_repo import MealRepository
 from app.repositories.holiday_repo import HolidayRepository
 from app.repositories.audit_repo import AuditRepository
 from app.services.meal_timing_service import MealTimingService
-from app.utils.enums import MealStatus, MealType
+from app.utils.enums import MealStatus
 from app.utils.exceptions import MealSelectionLockedException, HolidayConflictException
 from app.utils.timezone import now_ist
 

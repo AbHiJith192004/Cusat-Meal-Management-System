@@ -37,7 +37,13 @@ jobs:
           node-version: "24"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - run: pip install -r requirements.lock pytest pytest-asyncio httpx
+      - run: pip install -r requirements.lock pytest pytest-asyncio httpx ruff
+        working-directory: backend
+      # Narrow ruleset, configured in backend/ruff.toml. An unused import was
+      # the only visible sign that the login lockout and the documented rate
+      # limits were imported but never called, so this gate is here to catch
+      # that class of defect rather than to police style.
+      - run: ruff check .
         working-directory: backend
       - run: PGPASSWORD=test psql -h localhost -U test -d messconnect_test -c 'CREATE DATABASE messconnect_unit'
       - run: alembic upgrade head && alembic check && pytest tests prod_tests -q

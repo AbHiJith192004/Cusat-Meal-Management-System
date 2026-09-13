@@ -1,4 +1,3 @@
-import uuid
 from datetime import date, timedelta
 from typing import Annotated
 
@@ -60,7 +59,9 @@ async def get_my_meals(
     result_days = []
     curr = start
     while curr <= end:
-        cutoff = datetime.combine(curr - timedelta(days=advance_days), datetime.strptime(cutoff_time, "%H:%M").time(), tzinfo=IST)
+        # strptime's naive result never escapes: .time() keeps the clock time
+        # only, and datetime.combine attaches IST.
+        cutoff = datetime.combine(curr - timedelta(days=advance_days), datetime.strptime(cutoff_time, "%H:%M").time(), tzinfo=IST)  # noqa: DTZ007
         day = {"meal_date": curr.isoformat(), "locked": now_ist() >= cutoff, "cutoff_at": cutoff.isoformat()}
         for mt in ("BREAKFAST", "LUNCH", "DINNER"):
             selection = selections.get((curr, mt))

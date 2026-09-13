@@ -1,13 +1,11 @@
 import uuid
 from datetime import date
-from decimal import Decimal
 
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.fine import Fine
 from app.repositories.base import BaseRepository
-from app.utils.enums import FineStatus
 
 
 class FineRepository(BaseRepository[Fine]):
