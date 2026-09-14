@@ -225,3 +225,51 @@ async def test_import_cannot_be_tricked_into_creating_an_admin(client):
     async with async_session_factory() as db:
         created = await db.scalar(select(User).where(User.registration_number == reg))
     assert created.role == 'STUDENT'
+
+
+@pytest.mark.asyncio
+async def test_monthly_mess_cut_limit_is_driven_by_the_setting(client):
+    """Changing max_monthly_mess_cuts must actually change what students hit.
+
+    The limit was a hardcoded 10 in meal_service while this setting existed and
+    was read nowhere, so editing it on the settings screen did nothing. Setting
+    it to 1 here proves the configured value is the enforced one; a hardcoded
+    10 would let the second mess cut through.
+    """
+    from app.models.settings import SystemSetting
+
+    student, super_admin = await user(), await user('SUPER_ADMIN')
+    # Two days in one calendar month, comfortably past the selection cutoff.
+    first_of_next = (now_ist().date().replace(day=1) + timedelta(days=32)).replace(day=1)
+    day_one, day_two = first_of_next.replace(day=10), first_of_next.replace(day=11)
+
+    async def set_limit(value: str):
+        return await client.put('/api/v1/super-admin/settings',
+                                json={'settings': [{'key': 'max_monthly_mess_cuts', 'value': value}]},
+                                headers=headers(super_admin))
+
+    assert (await set_limit('1')).status_code == 200
+    try:
+        first = await client.put(f'/api/v1/meals/{day_one.isoformat()}',
+                                 json={'status': 'SKIPPED'}, headers=headers(student))
+        assert first.status_code == 200, first.text
+
+        second = await client.put(f'/api/v1/meals/{day_two.isoformat()}',
+                                  json={'status': 'SKIPPED'}, headers=headers(student))
+        assert second.status_code == 422, second.text
+        # The refusal quotes the configured limit, not a baked-in 10.
+        assert '1 per month' in second.text
+
+        async with async_session_factory() as db:
+            cut_days = await db.scalar(select(func.count(func.distinct(MealSelection.meal_date))).where(
+                MealSelection.student_id == student.id, MealSelection.status == 'SKIPPED'))
+        assert cut_days == 1
+    finally:
+        # Settings are global to the database this suite shares, so a low limit
+        # left behind would fail unrelated tests.
+        async with async_session_factory() as db:
+            row = await db.scalar(select(SystemSetting).where(
+                SystemSetting.key == 'max_monthly_mess_cuts'))
+            if row:
+                row.value = '10'
+                await db.commit()

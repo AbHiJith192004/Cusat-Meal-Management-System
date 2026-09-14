@@ -90,15 +90,19 @@ class MealService:
                 message="Invalid selection. You can either opt out of 1 meal per day or opt out of the entire day for a mess cut."
             )
 
-        # Validation Rule B: If opting for a Full Day Mess Cut (3 meals skipped), check monthly limit of 10
+        # Validation Rule B: a Full Day Mess Cut (3 meals skipped) counts against
+        # the monthly limit. The limit comes from the max_monthly_mess_cuts
+        # setting, so what the Super Admin configures is what students hit; it
+        # was a hardcoded 10 here while the setting existed and was never read.
         if is_now_full_day_mess_cut and not was_full_day_mess_cut:
+            monthly_limit = await self.timing_service.get_max_monthly_mess_cuts()
             current_monthly_mess_cuts = await self.meal_repo.count_student_monthly_mess_cuts(
                 student_id, meal_date.year, meal_date.month
             )
-            if current_monthly_mess_cuts + 1 > 10:
+            if current_monthly_mess_cuts + 1 > monthly_limit:
                 from app.utils.exceptions import ValidationException
                 raise ValidationException(
-                    message="Maximum number of mess cuts allowed is 10 per month."
+                    message=f"Maximum number of mess cuts allowed is {monthly_limit} per month."
                 )
 
         selections = []

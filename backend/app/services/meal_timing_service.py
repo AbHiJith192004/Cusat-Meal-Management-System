@@ -1,9 +1,12 @@
+import logging
 from datetime import date, datetime, time, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.repositories.settings_repo import SystemSettingRepository
 from app.config import get_settings
 from app.utils.timezone import now_ist, IST
+
+logger = logging.getLogger(__name__)
 
 DEFAULT_SETTINGS = {
     "meal_window_breakfast_start": "07:00",
@@ -16,6 +19,7 @@ DEFAULT_SETTINGS = {
     "selection_cutoff_advance_days": "1",
     "fine_amount": "30.00",
     "qr_validity_seconds": "60",
+    "max_monthly_mess_cuts": "10",
 }
 
 
@@ -30,6 +34,36 @@ class MealTimingService:
         if setting:
             return setting.value
         return DEFAULT_SETTINGS.get(key, "")
+
+    async def get_max_monthly_mess_cuts(self) -> int:
+        """How many full-day mess cuts a student may take in one calendar month.
+
+        Read from the system settings rather than hardcoded, so the figure the
+        Super Admin sees on the settings screen is the one actually enforced.
+        It used to be a literal 10 in meal_service while this setting existed
+        and was never read, which meant editing it silently did nothing.
+
+        update_settings stores whatever string it is given with no validation,
+        so a typo must not break meal selection for every student: anything
+        non-numeric or negative falls back to the default and is logged.
+        """
+        raw = await self._get_val("max_monthly_mess_cuts")
+        default = int(DEFAULT_SETTINGS["max_monthly_mess_cuts"])
+        try:
+            value = int(str(raw).strip())
+        except (TypeError, ValueError):
+            logger.warning(
+                "max_monthly_mess_cuts is not a number (%r); using %d", raw, default
+            )
+            return default
+        if value < 0:
+            logger.warning(
+                "max_monthly_mess_cuts is negative (%d); using %d", value, default
+            )
+            return default
+        # Zero is honoured, not treated as unset: it is a legitimate way to
+        # suspend mess cuts entirely, e.g. during exam weeks.
+        return value
 
     async def get_cutoff_datetime(self, target_date: date) -> datetime:
         """Calculate the cutoff datetime for a target meal date.

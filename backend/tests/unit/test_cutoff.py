@@ -98,3 +98,32 @@ async def test_window_boundaries_are_inclusive_at_both_ends():
     service = _service()
     for moment in (make_ist(2026, 8, 9, 12, 0, 0), make_ist(2026, 8, 9, 14, 30, 0)):
         assert await service.is_within_meal_window('LUNCH', date(2026, 8, 9), moment) is True
+
+
+@pytest.mark.asyncio
+async def test_monthly_mess_cut_limit_defaults_to_ten():
+    assert await _service().get_max_monthly_mess_cuts() == 10
+
+
+@pytest.mark.asyncio
+async def test_monthly_mess_cut_limit_follows_the_setting():
+    assert await _service({'max_monthly_mess_cuts': '15'}).get_max_monthly_mess_cuts() == 15
+
+
+@pytest.mark.asyncio
+async def test_monthly_mess_cut_limit_of_zero_is_honoured():
+    """Zero suspends mess cuts entirely - a real choice, not an unset value."""
+    assert await _service({'max_monthly_mess_cuts': '0'}).get_max_monthly_mess_cuts() == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize('bad', ['', '   ', 'ten', 'abc', '5.5', '-3', None])
+async def test_unusable_limit_falls_back_instead_of_breaking_selection(bad):
+    """update_settings stores any string with no validation, so a typo on the
+    settings screen must not make meal selection raise for every student."""
+    assert await _service({'max_monthly_mess_cuts': bad}).get_max_monthly_mess_cuts() == 10
+
+
+@pytest.mark.asyncio
+async def test_limit_tolerates_surrounding_whitespace():
+    assert await _service({'max_monthly_mess_cuts': ' 12 '}).get_max_monthly_mess_cuts() == 12
