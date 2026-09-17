@@ -30,3 +30,4 @@ build/
 /audit/
 /.audit-private/
 /.audit-venv/
+ops/backups/

@@ -1,17 +1,22 @@
 ---
-status: full_application_ready_for_digitalocean_staging_not_yet_live
-updated: 2026-09-08
-branch: codex/digitalocean-production-readiness
+status: database_created_app_not_yet_created
+updated: 2026-09-18
+branch: main
 provider: digitalocean
 region: blr
-estimated_monthly_usd_before_tax: 25.15
-estimated_monthly_inr_after_18_percent_tax: 2805
-live_changes: none
+estimated_monthly_usd_before_tax: 40.45
+estimated_monthly_inr_after_18_percent_tax: 4573
+planned_provider_change: hetzner_vps_after_first_month
+live_changes: messconnect-db cluster created 2026-09-17, billing
 ---
 
 # DigitalOcean production deployment
 
-MessConnect is configured for a low-cost DigitalOcean App Platform deployment in Bangalore. The application uses one fixed shared 1 vCPU/1 GiB container, one separately created 1 vCPU/1 GiB managed PostgreSQL 16 cluster, and short-lived pre-deploy and scheduled jobs. The React frontend is compiled into the FastAPI image, so it does not require a second service.
+MessConnect is configured for a DigitalOcean App Platform deployment in Bangalore. The application uses one fixed shared 1 vCPU/1 GiB container, one separately created 1 vCPU/2 GiB managed PostgreSQL 16 cluster, and short-lived pre-deploy and scheduled jobs.
+
+The database is 2 GiB rather than 1 GiB for one reason: connection count. DigitalOcean caps a 1 GiB cluster at 22 connections, and this app's measured configuration needs 40. The extra memory is incidental; the connection ceiling is the constraint.
+
+This is deliberately a first-month arrangement. The intent is to move to a self-managed Hetzner VPS once a month of real production behaviour has shown what the system actually needs, at roughly a seventh of the cost. See "Leaving DigitalOcean" below; the exit is prepared now, while there is no data to lose, rather than improvised later. The React frontend is compiled into the FastAPI image, so it does not require a second service.
 
 The complete application scope is now persisted in PostgreSQL. This includes menu authoring, purchase/operational/administrative ledgers, inventory catalogue and movement history, time-limited committee scanner access, atomic bulk attendance, bill-bound UTR submissions, and one-time staff payment review. Every privileged mutation writes append-only audit history. Voids and revocations retain the original record and their reason.
 
@@ -24,19 +29,21 @@ The tracked `.do/app.yaml` is intentionally fail-closed: the managed database cl
 | Component | Base monthly price |
 |---|---:|
 | App Platform fixed shared 1 vCPU / 1 GiB | $10.00 |
-| Managed PostgreSQL 1 vCPU / 1 GiB / 10 GiB | $15.15 |
+| Managed PostgreSQL 1 vCPU / 2 GiB / 30 GiB | $30.45 |
 | Pre-deploy migration and daily reconciliation | Per-second runtime, normally small |
-| Base total before job runtime and tax | $25.15 |
+| Base total before job runtime and tax | $40.45 |
 
-At the 2026-09-07 reference rate of INR 94.49 per USD, the base total with 18% Indian tax is approximately INR 2,805 per month. Bank foreign-exchange fees, a domain, excess transfer, and unusual job runtime are separate. Set a DigitalOcean spend alert at $30 and a second alert at $40.
+At a reference rate of INR 95.8 per USD, the base total with 18% Indian tax is approximately INR 4,573 per month. Bank foreign-exchange fees, a domain, excess transfer, and unusual job runtime are separate. Set a DigitalOcean spend alert at $45 and a second at $60.
 
-The 1 GiB service runs one Uvicorn worker. Upgrade to `apps-s-1vcpu-2gb` ($25/month) when staging or production measurements show sustained memory pressure, restarts, database pool waits, or unacceptable peak latency. Do not downgrade to a development database: it has no default backups and is tied to the app lifecycle.
+Registering a GSTIN on the account removes the 18%, taking this to about INR 3,875. That is worth doing whoever ends up paying.
+
+The 1 GiB service runs two Uvicorn workers. Upgrade to `apps-s-1vcpu-2gb` ($25/month) when production measurements show sustained memory pressure, restarts, database pool waits, or unacceptable peak latency. Do not downgrade to a development database: it has no default backups and is tied to the app lifecycle.
 
 ## Deployment procedure
 
 1. Run the repository CI checks and merge this reviewed branch to `main`. `.do/app.yaml` deliberately deploys `main` with automatic deploys disabled.
-2. In DigitalOcean, create a PostgreSQL 16 managed database in Bangalore (`BLR1`) using the Basic Regular 1 vCPU / 1 GiB plan with 10 GiB storage. Put it in the same Bangalore VPC as the App Platform app. Do not select the $7 development database.
-3. Replace `REPLACE_WITH_DATABASE_CLUSTER_NAME` in `.do/app.yaml` with the exact managed database cluster name. Do not put its password or connection string in Git.
+2. Done on 2026-09-17: `messconnect-db`, PostgreSQL 16, `db-s-1vcpu-2gb`, `BLR1`, single node. It is billing from that date. Do not select the $7 development database if this ever has to be recreated.
+3. Done: `.do/app.yaml` names `messconnect-db` in its `databases` block, which attaches to that existing cluster rather than creating one. The cluster's password and connection string stay out of Git.
 4. Generate two different secrets with `openssl rand -hex 32`. In DigitalOcean App Platform, set `JWT_SECRET_KEY` and `QR_SECRET_KEY` as encrypted run-time variables. Never paste either value into the app spec, a commit, logs, or chat.
 5. Create the app from `.do/app.yaml` through `doctl apps create --spec .do/app.yaml`, or reproduce the spec in the control panel. The app must attach the existing managed database and use `${messconnect-db.DATABASE_PRIVATE_URL}`. Add the app as a database trusted source.
 6. Confirm that the app and database use the same Bangalore VPC before deployment. Public database access should remain disabled except for a temporary, tightly restricted migration source when needed.
@@ -51,11 +58,23 @@ If the Render database contains records, do not create accounts or seed the Digi
 
 An immediate application rollback should deploy the previously reviewed image while leaving the additive schema in place. Do not run destructive Alembic downgrades against production data.
 
+## Backups, and leaving DigitalOcean
+
+DigitalOcean takes its own daily backups with point-in-time recovery, and those are the first line of defence. They are also non-portable: they restore only into another DigitalOcean cluster. They are therefore no help on the day we move to Hetzner, and no help if the account itself is the problem.
+
+`ops/backup_db.sh` covers both gaps with one file. It takes a custom-format `pg_dump`, then refuses to call the result a backup unless the dump actually contains the tables whose loss is unrecoverable: `users`, `student_profiles`, `meal_selections`, `attendance`, `billing_periods`, `student_bill_snapshots`, `payment_submissions`. That check exists because a `pg_dump` pointed at the wrong database succeeds and exits 0.
+
+Verified on 2026-09-18 against a local PostgreSQL 16 with the full Alembic schema: dump, restore into a separate empty database, matching row counts, the student row read back intact, `alembic_version` preserved at `20260917_regfields`, and the unique index on `registration_number` still rejecting a duplicate after restore.
+
+Run it weekly during the first month, and keep the output off the laptop that is also the development machine. The files contain every student's name, date of birth and billing history, so `ops/backups/` is gitignored and the dumps should not go anywhere unencrypted or shared.
+
+The Hetzner migration is that same dump plus `pg_restore`, which is why it is worth having the routine working before there is data that matters. What the first month on DigitalOcean is for is measuring the things that decide the target VPS size: peak concurrent students at meal times, actual memory use of the web container, database size growth, and whether two Uvicorn workers were enough. Move at a month boundary after a billing period is published and paid, never mid-month with an open period, and keep the DigitalOcean app running read-only until the new host has served a full meal cycle.
+
 ## Platform-specific security
 
 `TRUST_PROXY_HEADERS=true` is set only on the App Platform web component. App Platform is the public ingress and the container has no direct public address, so the application may use the first validated `X-Forwarded-For` address for rate limiting. Local and direct-host deployments keep the default `false`; enabling it on a directly reachable server would allow callers to forge addresses.
 
-The application limits the one worker to ten pooled database connections including overflow, disables test mode, requires independent signing keys, and exposes no production API documentation. Sensitive responses remain non-cacheable and migrations and seed operations do not run inside web workers.
+The application budgets its database connections explicitly against the cluster's 47-connection ceiling: two web workers at 8 + 8 each is 32, and the two jobs are capped at 4 each because they do not inherit the web component's environment and would otherwise take the 5 + 5 default from `config.py`. That is 40, leaving 7 spare. It disables test mode, requires independent signing keys, and exposes no production API documentation. Sensitive responses remain non-cacheable and migrations and seed operations do not run inside web workers.
 
 ## Required staging evidence
 

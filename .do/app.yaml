@@ -1,7 +1,9 @@
-# DigitalOcean App Platform production template.
-# Before applying it, create a PostgreSQL 16 managed database in BLR1 and
-# replace REPLACE_WITH_DATABASE_CLUSTER_NAME below with its exact cluster name.
-# App creation must also supply the two secret values declared without values.
+# DigitalOcean App Platform production spec.
+# messconnect-db (PostgreSQL 16, db-s-1vcpu-2gb, blr1) must already exist --
+# the database block below attaches to it by name, it does not create it.
+# App creation must also supply the two secret values declared without values;
+# they are typed in the DO console so production signing keys stay out of the
+# repository and out of any transcript.
 name: messconnect
 region: blr
 
@@ -41,24 +43,28 @@ services:
       - key: PORT
         scope: RUN_TIME
         value: "8080"
-      # WEB_CONCURRENCY x (DB_POOL_SIZE + DB_MAX_OVERFLOW) is this instance's
-      # ceiling on connections to messconnect-db: 2 x 20 = 40. A local load
-      # test at 300 concurrent students (audit/tools/load.py, single vCPU,
-      # matching these exact settings) held 0% error rate throughout and cut
-      # P50 latency from 2.3s to ~0.8s versus the previous 1/5/5 config, which
-      # was queuing on the pool (max observed latency sat right at
-      # DB_POOL_TIMEOUT's 10s). Before raising these further, confirm
-      # messconnect-db's plan allows at least 40 connections with headroom for
-      # the migrate/daily-reconciliation jobs and any second `web` instance.
+      # Connection budget against messconnect-db (db-s-1vcpu-2gb, 47 max):
+      #   web    2 x (8 + 8) = 32
+      #   migrate            =  4  (capped below; alembic needs one)
+      #   daily-reconciliation= 4  (capped below; the script is serial)
+      #   total              = 40, leaving 7 spare for psql and DO internals.
+      # The jobs are capped explicitly because they do NOT inherit these
+      # service-scoped values -- they would otherwise take config.py's 5 + 5
+      # default each, putting the worst case at 52 and over the ceiling.
+      # A local load test at 300 concurrent students (audit/tools/load.py,
+      # single vCPU) held 0% error rate and cut P50 latency from 2.3s to ~0.8s
+      # versus the old 1/5/5 config, which was queuing on the pool (max
+      # latency sat right at DB_POOL_TIMEOUT's 10s). 8 + 8 keeps that
+      # headroom; raising it needs a bigger database plan, not a bigger pool.
       - key: WEB_CONCURRENCY
         scope: RUN_TIME
         value: "2"
       - key: DB_POOL_SIZE
         scope: RUN_TIME
-        value: "10"
+        value: "8"
       - key: DB_MAX_OVERFLOW
         scope: RUN_TIME
-        value: "10"
+        value: "8"
       - key: CORS_ORIGINS
         scope: RUN_TIME
         value: ${APP_URL}
@@ -95,6 +101,13 @@ jobs:
     dockerfile_path: backend/Dockerfile
     source_dir: backend
     instance_size_slug: apps-s-1vcpu-0.5gb
+    envs:
+      - key: DB_POOL_SIZE
+        scope: RUN_TIME
+        value: "2"
+      - key: DB_MAX_OVERFLOW
+        scope: RUN_TIME
+        value: "2"
     run_command: alembic upgrade head
 
   - name: daily-reconciliation
@@ -109,6 +122,13 @@ jobs:
     dockerfile_path: backend/Dockerfile
     source_dir: backend
     instance_size_slug: apps-s-1vcpu-0.5gb
+    envs:
+      - key: DB_POOL_SIZE
+        scope: RUN_TIME
+        value: "2"
+      - key: DB_MAX_OVERFLOW
+        scope: RUN_TIME
+        value: "2"
     run_command: python -m scripts.run_fine_reconciliation
 
 databases:
@@ -116,4 +136,4 @@ databases:
     engine: PG
     version: "16"
     production: true
-    cluster_name: REPLACE_WITH_DATABASE_CLUSTER_NAME
+    cluster_name: messconnect-db
