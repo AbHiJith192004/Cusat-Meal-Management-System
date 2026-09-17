@@ -20,6 +20,13 @@ class User(Base, TimestampMixin):
     id: Mapped[uuid.UUID] = mapped_column(sa.UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     registration_number: Mapped[str] = mapped_column(sa.String(50), unique=True, nullable=False, index=True)
     name: Mapped[str] = mapped_column(sa.String(255), nullable=False)
+    # Identity and recovery, so they live with the account rather than the
+    # student profile: administrators need them too, and a password reset has
+    # to find an account by address before any profile is loaded. Nullable
+    # because the bootstrap super admin is created from a terminal prompt with
+    # neither. Unique where present, which is what a reset factor requires.
+    email: Mapped[str | None] = mapped_column(sa.String(255), unique=True, nullable=True, index=True)
+    phone: Mapped[str | None] = mapped_column(sa.String(20), nullable=True)
     password_hash: Mapped[str | None] = mapped_column(sa.String(255), nullable=True)
     role: Mapped[str] = mapped_column(sa.String(20), nullable=False, default=Role.STUDENT.value)
     account_status: Mapped[str] = mapped_column(sa.String(20), nullable=False, default=AccountStatus.PENDING.value)

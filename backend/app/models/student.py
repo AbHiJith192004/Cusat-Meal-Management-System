@@ -3,7 +3,7 @@ if TYPE_CHECKING:
     from app.models.user import User
 
 import uuid
-from datetime import date
+from datetime import date, datetime
 
 import sqlalchemy as sa
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -23,5 +23,14 @@ class StudentProfile(Base, TimestampMixin):
     student_type: Mapped[str] = mapped_column(sa.String(20), nullable=False, default=StudentType.HOSTELLER.value)
     campus_location: Mapped[str] = mapped_column(sa.String(50), nullable=False, default="MAIN_CAMPUS")
     photo_url: Mapped[str | None] = mapped_column(sa.String(500), nullable=True)
+    course: Mapped[str | None] = mapped_column(sa.String(150), nullable=True)
+    hostel_name: Mapped[str | None] = mapped_column(sa.String(100), nullable=True)
+    # Text, not an integer: real room numbers include a block letter, e.g.
+    # 29B or 58 A. Nullable because a student who does not live in a hostel
+    # has none.
+    room_number: Mapped[str | None] = mapped_column(sa.String(20), nullable=True)
+    # When the student agreed to their details being used. Null means no
+    # consent has been recorded, which is not the same as refusing.
+    consent_at: Mapped[datetime | None] = mapped_column(sa.DateTime(timezone=True), nullable=True)
 
     user: Mapped["User"] = relationship("User", back_populates="profile")

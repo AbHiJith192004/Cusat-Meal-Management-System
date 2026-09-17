@@ -1,10 +1,11 @@
 import io
 import secrets
 import uuid
-from datetime import date, datetime, timedelta
+from datetime import datetime, timedelta
 from typing import Any
 
 import openpyxl
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User
@@ -14,7 +15,7 @@ from app.repositories.user_repo import UserRepository
 from app.repositories.settings_repo import SystemSettingRepository
 from app.repositories.audit_repo import AuditRepository
 from app.security.jwt_handler import hash_refresh_token
-from app.utils.enums import Role, AccountStatus, StudentType
+from app.utils.enums import Role, AccountStatus
 from app.utils.exceptions import ConflictException, ValidationException
 from app.utils.timezone import now_ist
 
@@ -33,14 +34,31 @@ class SuperAdminService:
     async def import_students_from_excel(
         self, file_contents: bytes, actor_id: uuid.UUID
     ) -> dict[str, Any]:
-        """Parse Excel file and bulk import student records (PENDING activation)."""
+        """Import students from the intake workbook.
+
+        The whole sheet is parsed and validated before a single row is
+        written, so the caller gets one complete verdict - every rejection
+        with its spreadsheet row number and a reason - rather than discovering
+        problems halfway through a partial import.
+
+        Students arrive PENDING with no password; they set one through the
+        activation flow. An existing account is never touched: a re-import of
+        the same sheet must not reset a password or revive a suspended
+        account. Role is fixed to STUDENT in code, so no column in any
+        workbook can create an administrator.
+        """
         import zipfile
         from itertools import islice
+
+        from app.services.student_import import missing_required_columns, build_column_map, review_rows
+
         try:
             with zipfile.ZipFile(io.BytesIO(file_contents)) as archive:
                 if sum(item.file_size for item in archive.infolist()) > 25 * 1024 * 1024:
                     raise ValidationException(message="Excel workbook expands beyond the 25 MB limit.")
             wb = openpyxl.load_workbook(filename=io.BytesIO(file_contents), data_only=True, read_only=True)
+        except ValidationException:
+            raise
         except Exception as e:
             raise ValidationException(message=f"Invalid Excel file format: {e!s}")
 
@@ -52,90 +70,85 @@ class SuperAdminService:
         if not rows or len(rows) < 2:
             raise ValidationException(message="Excel file is empty or missing data rows.")
 
-        # Header validation (Row 1)
-        # Expected: registration_number, name, date_of_birth, student_type, mess_id
+        header, data_rows = rows[0], rows[1:]
+        missing = missing_required_columns(build_column_map(header))
+        if missing:
+            raise ValidationException(
+                message="The sheet is missing required columns: " + ", ".join(missing)
+                        + ". Column headings are matched by name, so check the first row."
+            )
+
+        review = review_rows(header, data_rows)
+
+        # Existing accounts and addresses are settled against the database in
+        # one pass each, rather than a query per row.
+        candidates = review.importable
+        numbers = [s.registration_number for s in candidates]
+        emails = [s.email for s in candidates if s.email]
+        taken_numbers = set((await self.session.execute(
+            select(User.registration_number).where(User.registration_number.in_(numbers))
+        )).scalars().all()) if numbers else set()
+        taken_emails = set((await self.session.execute(
+            select(User.email).where(User.email.in_(emails))
+        )).scalars().all()) if emails else set()
+
         imported_count = 0
-        skipped_count = 0
-        errors = []
-
-        total_rows = len(rows) - 1
-
-        for idx, row in enumerate(rows[1:], start=2):
-            if not row or not any(row):
+        for student in candidates:
+            if student.registration_number in taken_numbers:
+                review.skip(student.row, student.registration_number,
+                            "An account already exists with this student id; it was left unchanged.")
                 continue
-
-            reg_no = str(row[0]).strip().upper() if row[0] is not None else ""
-            name = str(row[1]).strip() if len(row) > 1 and row[1] is not None else ""
-            dob_val = row[2] if len(row) > 2 else None
-            student_type = str(row[3]).strip().upper() if len(row) > 3 and row[3] is not None else "HOSTELLER"
-            mess_id = str(row[4]).strip() if len(row) > 4 and row[4] is not None else None
-
-            if not reg_no or not name or not dob_val:
-                errors.append({"row": idx, "registration_number": reg_no, "error": "Missing required fields (registration_number, name, date_of_birth)."})
-                skipped_count += 1
+            if student.email and student.email in taken_emails:
+                review.skip(student.row, student.registration_number,
+                            f"Email {student.email} already belongs to another account.")
                 continue
-
-            # Parse DOB
-            dob = None
-            if isinstance(dob_val, (datetime, date)):
-                dob = dob_val if isinstance(dob_val, date) else dob_val.date()
-            elif isinstance(dob_val, str):
-                try:
-                    dob = date.fromisoformat(dob_val.strip())
-                except ValueError:
-                    pass
-
-            if not dob:
-                errors.append({"row": idx, "registration_number": reg_no, "error": "Invalid date_of_birth format (expected YYYY-MM-DD)."})
-                skipped_count += 1
-                continue
-
-            # Check duplicate
-            existing = await self.user_repo.get_by_registration_number(reg_no)
-            if existing:
-                errors.append({"row": idx, "registration_number": reg_no, "error": "Registration number already exists."})
-                skipped_count += 1
-                continue
-
-            # Create User + Profile
-            st_type = student_type if student_type in [StudentType.HOSTELLER.value, StudentType.DAY_SCHOLAR.value] else StudentType.HOSTELLER.value
 
             user = User(
                 id=uuid.uuid4(),
-                registration_number=reg_no,
-                name=name,
+                registration_number=student.registration_number,
+                name=student.name,
+                email=student.email,
+                phone=student.phone,
                 role=Role.STUDENT.value,
                 account_status=AccountStatus.PENDING.value,
             )
             profile = StudentProfile(
                 id=uuid.uuid4(),
                 user_id=user.id,
-                mess_id=mess_id,
-                date_of_birth=dob,
-                student_type=st_type,
+                date_of_birth=student.date_of_birth,
+                department=student.department,
+                course=student.course,
+                student_type=student.student_type,
+                hostel_name=student.hostel_name,
+                room_number=student.room_number,
+                photo_url=student.photo_url,
+                consent_at=student.consent_at,
             )
             self.session.add(user)
             self.session.add(profile)
             imported_count += 1
 
-        if imported_count > 0:
+        if imported_count:
             await self.session.flush()
-            await self.audit_repo.log(
-                actor_id=actor_id,
-                action="STUDENTS_IMPORTED_EXCEL",
-                target_type="user",
-                metadata={
-                    "total_rows": total_rows,
-                    "imported_count": imported_count,
-                    "skipped_count": skipped_count,
-                },
-            )
+
+        await self.audit_repo.log(
+            actor_id=actor_id,
+            action="STUDENTS_IMPORTED_EXCEL",
+            target_type="user",
+            metadata={
+                "total_rows": review.total_rows,
+                "imported_count": imported_count,
+                "skipped_count": len(review.skipped),
+                "flagged_count": len(review.needs_attention),
+            },
+        )
 
         return {
-            "total_rows": total_rows,
+            "total_rows": review.total_rows,
             "imported_count": imported_count,
-            "skipped_count": skipped_count,
-            "errors": errors,
+            "skipped_count": len(review.skipped),
+            "errors": sorted(review.skipped, key=lambda e: e["row"]),
+            "needs_attention": review.needs_attention,
         }
 
     async def create_admin(

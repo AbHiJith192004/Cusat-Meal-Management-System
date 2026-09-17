@@ -30,3 +30,8 @@ ignore = [
 # then shadowed by the parameter of the same name. Both are the idiom, not
 # defects: --fix once deleted such an import and broke the whole file.
 "prod_tests/*" = ["F811"]
+# A Google Forms export's Timestamp column is naive local time, and openpyxl
+# refuses to write a tz-aware datetime at all, so the fixtures that stand in
+# for a real sheet must use naive ones.
+"tests/unit/test_student_import.py" = ["DTZ001"]
+"prod_tests/test_operations.py" = ["DTZ001"]

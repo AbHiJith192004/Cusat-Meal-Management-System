@@ -1,5 +1,5 @@
 import uuid
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 import pytest
@@ -10,6 +10,7 @@ from app.models.attendance import Attendance
 from app.models.audit import AuditLog
 from app.models.billing import BillingPeriod, StudentBillSnapshot
 from app.models.meal import MealSelection
+from app.models.student import StudentProfile
 from app.models.operations import InventoryItem, LedgerEntry, MenuPublication, PaymentSubmission
 from app.models.notification import Notification
 from app.models.user import User
@@ -169,7 +170,9 @@ async def test_excel_import_creates_pending_students_and_cannot_grant_a_role(cli
     ws.append(['registration_number', 'name', 'date_of_birth', 'student_type', 'mess_id'])
     ws.append([reg_ok, 'Imported One', '2005-05-15', 'HOSTELLER', 'M-1'])
     ws.append([reg_dupe, 'Imported Two', '2004-11-20', 'DAY_SCHOLAR', 'M-2'])
-    ws.append([reg_dupe, 'Duplicate Of Two', '2004-11-20', 'DAY_SCHOLAR', 'M-3'])
+    # A repeated student id is a RESUBMISSION, not an error: students fill the
+    # form again to correct themselves, so the later row wins.
+    ws.append([reg_dupe, 'Corrected Two', '2004-11-20', 'DAY_SCHOLAR', 'M-3'])
     ws.append(['', 'Missing Registration', '2004-01-01', 'HOSTELLER', 'M-4'])
     buf = io.BytesIO()
     wb.save(buf)
@@ -183,15 +186,22 @@ async def test_excel_import_creates_pending_students_and_cannot_grant_a_role(cli
     summary = response.json()['data']
 
     assert summary['imported_count'] == 2
-    assert summary['skipped_count'] == 2
+    # Only the row with no student id is a rejection; the repeat is a
+    # correction and is folded into one account.
+    assert summary['skipped_count'] == 1
     # Every rejection names its row so staff can fix the sheet.
-    assert {err['row'] for err in summary['errors']} == {4, 5}
+    assert [err['row'] for err in summary['errors']] == [5]
 
     async with async_session_factory() as db:
         imported = await db.scalar(select(User).where(User.registration_number == reg_ok))
         assert imported.role == 'STUDENT'
         assert imported.account_status == 'PENDING'
         assert imported.password_hash is None
+        # The later answer is the one kept, and only one account exists.
+        corrected = (await db.execute(select(User).where(
+            User.registration_number == reg_dupe))).scalars().all()
+        assert len(corrected) == 1
+        assert corrected[0].name == 'Corrected Two'
 
 
 @pytest.mark.asyncio
@@ -273,3 +283,124 @@ async def test_monthly_mess_cut_limit_is_driven_by_the_setting(client):
             if row:
                 row.value = '10'
                 await db.commit()
+
+
+def _workbook(rows: list[tuple]) -> bytes:
+    """A sheet shaped like the live Google Form export, Timestamp first."""
+    import io
+    import openpyxl
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(['Timestamp', 'Student id', 'Full name ', 'Date of birth ', 'Email address ',
+               'Phone number ', 'Department ', 'Lakeside ', 'Guest / inmate',
+               'Course/programme ', 'Room number ', 'Profile picture '])
+    for r in rows:
+        # openpyxl cannot write a tz-aware datetime, and a Forms export never
+        # contains one - the Timestamp column is naive local time.
+        ws.append([v.replace(tzinfo=None) if isinstance(v, datetime) else v for v in r])
+    buf = io.BytesIO()
+    wb.save(buf)
+    return buf.getvalue()
+
+
+@pytest.mark.asyncio
+async def test_import_never_disturbs_an_account_that_already_exists(client):
+    """Re-importing the sheet must not reset a password or revive an account.
+
+    Staff re-upload a corrected workbook routinely, and by then some students
+    have already activated. Overwriting them would lock those students out.
+    """
+    from app.security.password import hash_password
+
+    super_admin = await user('SUPER_ADMIN')
+    reg = 'IMP-' + uuid.uuid4().hex[:8].upper()
+    sheet = _workbook([
+        (now_ist(), reg, 'Imported Student', date(2004, 5, 1), f'{reg.lower()}@example.com',
+         9876543210, 'DCA', 'Yes', 'Inmate', 'MCA', '29B', ''),
+    ])
+    files = {'file': ('students.xlsx', sheet,
+                      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')}
+
+    first = await client.post('/api/v1/super-admin/students/import', files=files,
+                              headers=headers(super_admin))
+    assert first.status_code == 200, first.text
+    assert first.json()['data']['imported_count'] == 1
+
+    # The student activates, then staff re-upload the same workbook.
+    async with async_session_factory() as db:
+        row = await db.scalar(select(User).where(User.registration_number == reg))
+        row.password_hash = hash_password('student-chose-this')
+        row.account_status = 'ACTIVE'
+        await db.commit()
+
+    second = await client.post('/api/v1/super-admin/students/import', files=files,
+                               headers=headers(super_admin))
+    assert second.status_code == 200, second.text
+    body = second.json()['data']
+    assert body['imported_count'] == 0
+    assert 'already exists' in body['errors'][0]['error'].lower()
+
+    async with async_session_factory() as db:
+        after = await db.scalar(select(User).where(User.registration_number == reg))
+        duplicates = await db.scalar(select(func.count()).select_from(User).where(
+            User.registration_number == reg))
+    assert after.account_status == 'ACTIVE'
+    assert after.password_hash is not None
+    assert duplicates == 1
+
+
+@pytest.mark.asyncio
+async def test_import_maps_the_form_columns_and_skips_non_members(client):
+    """Columns are matched by heading, so the leading Timestamp is harmless."""
+    super_admin = await user('SUPER_ADMIN')
+    keep = 'IMPK-' + uuid.uuid4().hex[:8].upper()
+    drop = 'IMPD-' + uuid.uuid4().hex[:8].upper()
+    sheet = _workbook([
+        (now_ist(), keep, ' Padded Name ', date(2003, 2, 14), f'{keep.lower()}@example.com',
+         '+919876543211', 'DCS', 'Yes', 'Inmate', 'M.Tech', '58 A', ''),
+        (now_ist(), drop, 'Outmess Person', date(2003, 3, 3), f'{drop.lower()}@example.com',
+         9876543212, 'DCA', 'No', 'Outmess', 'MCA', 'NA', ''),
+    ])
+    response = await client.post(
+        '/api/v1/super-admin/students/import',
+        files={'file': ('students.xlsx', sheet,
+                        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')},
+        headers=headers(super_admin))
+    assert response.status_code == 200, response.text
+    body = response.json()['data']
+    assert body['imported_count'] == 1
+    assert any('not a mess member' in e['error'].lower() for e in body['errors'])
+
+    async with async_session_factory() as db:
+        created = await db.scalar(select(User).where(User.registration_number == keep))
+        profile = await db.scalar(select(StudentProfile).where(StudentProfile.user_id == created.id))
+        assert await db.scalar(select(User).where(User.registration_number == drop)) is None
+    assert created.name == 'Padded Name'
+    assert created.phone == '9876543211'          # +91 stripped
+    assert created.role == 'STUDENT' and created.account_status == 'PENDING'
+    assert created.password_hash is None
+    assert profile.room_number == '58 A'          # block letter preserved
+    assert profile.hostel_name == 'Lakeside'
+    assert profile.date_of_birth == date(2003, 2, 14)
+
+
+@pytest.mark.asyncio
+async def test_import_rejects_a_sheet_whose_headings_do_not_match(client):
+    """A wrong file should be refused outright, not imported as junk."""
+    import io
+    import openpyxl
+
+    super_admin = await user('SUPER_ADMIN')
+    wb = openpyxl.Workbook()
+    wb.active.append(['Some', 'Unrelated', 'Spreadsheet'])
+    wb.active.append([1, 2, 3])
+    buf = io.BytesIO()
+    wb.save(buf)
+
+    response = await client.post(
+        '/api/v1/super-admin/students/import',
+        files={'file': ('wrong.xlsx', buf.getvalue(),
+                        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')},
+        headers=headers(super_admin))
+    assert response.status_code == 422
+    assert 'missing required columns' in response.text.lower()
