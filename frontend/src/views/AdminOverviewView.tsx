@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { adminApi } from '../services/api';
+import { adminApi, menuApi } from '../services/api';
 
 type MealKey = 'breakfast' | 'lunch' | 'dinner';
 
@@ -24,6 +24,8 @@ const MEALS: MealKey[] = ['breakfast', 'lunch', 'dinner'];
 
 export function AdminOverviewView() {
   const [data, setData] = useState<DashboardData | null>(null);
+  const [menu, setMenu] = useState<any[]>([]);
+  const [pendingPayments, setPendingPayments] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -31,7 +33,24 @@ export function AdminOverviewView() {
     setLoading(true);
     setError('');
     try {
-      setData(await adminApi.getDashboard());
+      const today = new Date();
+      const pad = (n: number) => String(n).padStart(2, '0');
+      // Local calendar date. toISOString() would roll back a day in IST
+      // before 05:30 and show yesterday's menu as today's.
+      const iso = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+      // The menu and payment counts are extras: if either fails the meal
+      // figures below are still worth showing, so they are settled
+      // separately rather than taking the whole screen down with them.
+      const [dash, todayMenu, payments] = await Promise.allSettled([
+        adminApi.getDashboard(),
+        menuApi.list(iso, iso),
+        adminApi.getPayments('PENDING'),
+      ]);
+      if (dash.status === 'rejected') throw dash.reason;
+      setData(dash.value as DashboardData);
+      setMenu(todayMenu.status === 'fulfilled' && Array.isArray(todayMenu.value) ? todayMenu.value : []);
+      setPendingPayments(payments.status === 'fulfilled' && Array.isArray(payments.value)
+        ? payments.value.length : null);
     } catch (err) {
       setData(null);
       setError(err instanceof Error ? err.message : 'Could not load the live dashboard.');
@@ -70,7 +89,7 @@ export function AdminOverviewView() {
 
       {data && (
         <>
-          <div className="mb-5 grid gap-3 sm:grid-cols-2">
+          <div className="mb-5 grid gap-3 sm:grid-cols-3">
             <article className="stitch-card p-5">
               <p className="section-label">Active student records</p>
               <p className="mt-2 font-display text-3xl font-bold">{data.total_students.toLocaleString()}</p>
@@ -79,7 +98,38 @@ export function AdminOverviewView() {
               <p className="section-label">Pending fines</p>
               <p className="mt-2 font-display text-3xl font-bold">{data.pending_fines_count.toLocaleString()}</p>
             </article>
+            <article className="stitch-card p-5">
+              <p className="section-label">Payments awaiting review</p>
+              <p className="mt-2 font-display text-3xl font-bold">
+                {pendingPayments === null ? '—' : pendingPayments.toLocaleString()}
+              </p>
+            </article>
           </div>
+
+          <article className="stitch-card mb-5 p-5">
+            <p className="section-label">Today's published menu</p>
+            {menu.length === 0 ? (
+              <p className="mt-2 text-sm" style={{ color: 'var(--text-muted)' }}>
+                Nothing is published for today. Students see an empty menu until it is.
+              </p>
+            ) : (
+              <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                {MEALS.map(meal => {
+                  const row = menu.find((m: any) => String(m.meal_type).toLowerCase() === meal);
+                  return (
+                    <div key={meal}>
+                      <p className="text-xs font-bold capitalize" style={{ color: 'var(--text-muted)' }}>{meal}</p>
+                      <p className="text-sm mt-0.5" style={{ color: 'var(--text-dark)' }}>
+                        {row && Array.isArray(row.items) && row.items.length > 0
+                          ? row.items.join(', ')
+                          : 'Not published'}
+                      </p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </article>
 
           <div className="grid gap-4 lg:grid-cols-3">
             {MEALS.map(meal => {

@@ -21,6 +21,8 @@ const PAGE_META: Partial<Record<ActiveTab, { title: string; sub: string }>> = {
   'admin-scanner':   { title: 'QR Scanner',        sub: 'Verify passes at the entrance' },
   'admin-students':  { title: 'Students',          sub: 'Directory and mess membership' },
   'admin-billing':   { title: 'Billing',           sub: 'Monthly bills and fine adjustments' },
+  'admin-ledger':    { title: 'Ledger',            sub: 'Purchases, expenses and reconciliation' },
+  'admin-payments':  { title: 'Payments',          sub: 'Collections and pending dues' },
   'admin-menu':      { title: 'Weekly Menu',      sub: 'Plan and publish the mess menu' },
   'admin-operations': { title: 'Operations',        sub: 'Finance, inventory, access, and payments' },
 };

@@ -13,6 +13,8 @@ export type ActiveTab =
   | 'admin-students'
   | 'admin-scanner'
   | 'admin-menu'
+  | 'admin-ledger'
+  | 'admin-payments'
   | 'admin-operations'
   | 'admin-billing';
 

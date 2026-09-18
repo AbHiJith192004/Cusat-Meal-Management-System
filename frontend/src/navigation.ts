@@ -53,7 +53,9 @@ export const ADMIN_GROUPS: NavGroup[] = [
   {
     heading: 'Finance',
     items: [
+      { id: 'admin-ledger',   label: 'Ledger',   short: 'Ledger',   icon: 'account_balance_wallet' },
       { id: 'admin-billing',  label: 'Billing',  short: 'Billing',  icon: 'receipt_long' },
+      { id: 'admin-payments', label: 'Payments', short: 'Pay',      icon: 'payments' },
     ],
   },
   {
