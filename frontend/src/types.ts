@@ -12,6 +12,7 @@ export type ActiveTab =
   | 'admin-dashboard'
   | 'admin-students'
   | 'admin-scanner'
+  | 'admin-menu'
   | 'admin-operations'
   | 'admin-billing';
 

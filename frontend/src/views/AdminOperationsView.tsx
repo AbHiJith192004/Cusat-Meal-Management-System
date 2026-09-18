@@ -3,14 +3,14 @@ import { adminApi, menuApi } from '../services/api';
 
 type Panel = 'menu' | 'ledger' | 'inventory' | 'committee' | 'attendance' | 'payments';
 const panels: {id: Panel; label: string; icon: string}[] = [
-  {id:'menu',label:'Menu',icon:'restaurant_menu'}, {id:'ledger',label:'Ledger',icon:'account_balance_wallet'},
+  {id:'ledger',label:'Ledger',icon:'account_balance_wallet'},
   {id:'inventory',label:'Inventory',icon:'inventory_2'}, {id:'committee',label:'Committee',icon:'badge'},
   {id:'attendance',label:'Bulk attendance',icon:'fact_check'}, {id:'payments',label:'Payments',icon:'payments'},
 ];
 const today = () => new Date().toISOString().slice(0, 10);
 
 export const AdminOperationsView: React.FC = () => {
-  const [panel, setPanel] = useState<Panel>('menu');
+  const [panel, setPanel] = useState<Panel>('ledger');
   const [data, setData] = useState<any>(null);
   const [students, setStudents] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);

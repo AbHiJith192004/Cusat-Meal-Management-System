@@ -13,6 +13,7 @@ const AdminOverviewView = lazy(() => import('./views/AdminOverviewView').then(mo
 const BillingManagementView = lazy(() => import('./views/BillingManagementView').then(module => ({ default: module.BillingManagementView })));
 const AdminScannerView = lazy(() => import('./views/AdminScannerView').then(module => ({ default: module.AdminScannerView })));
 const AdminOperationsView = lazy(() => import('./views/AdminOperationsView').then(module => ({ default: module.AdminOperationsView })));
+const WeeklyMenuView = lazy(() => import('./views/WeeklyMenuView').then(module => ({ default: module.WeeklyMenuView })));
 import { StudentDirectoryView } from './views/StudentDirectoryView';
 import { ProfileView } from './views/ProfileView';
 import { AlertsView } from './views/AlertsView';
@@ -276,6 +277,7 @@ export function App() {
             {currentTab === 'admin-billing' && (
               <BillingManagementView />
             )}
+            {currentTab === 'admin-menu' && <WeeklyMenuView />}
             {currentTab === 'admin-operations' && <AdminOperationsView />}
             {currentTab === 'alerts' && (
               <AlertsView onUnreadChange={setUnreadAlertsCount} />
