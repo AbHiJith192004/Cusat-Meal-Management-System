@@ -423,3 +423,121 @@ async def test_activation_codes_are_minted_in_bulk_and_rerunning_is_safe(client)
         assert row.account_status == 'ACTIVE'
         assert row.password_hash is not None
         assert row.setup_code_hash is None, 'the code survived redemption and is reusable'
+
+
+@pytest.mark.asyncio
+async def test_dob_activation_works_once_and_can_never_reset_a_live_account(client):   # noqa: ARG001 - fixture sets up the engine
+    """Activation on id + date of birth, and the boundary that makes it safe.
+
+    Date of birth is a weak secret: on the live sheet 141 of 143 ids are 2602
+    plus four digits, and a hostel-mate knows a birthday rather than guessing
+    it. This route is therefore restricted to PENDING accounts. Once a student
+    has a password, the same details must not move it -- that would be a
+    reset, and ids plus dates of birth are explicitly not reset credentials.
+
+    Takes its own client address. Activation is 5/minute per IP and the
+    buckets live in Postgres, so they outlast a single test and even a single
+    run; sharing the fixture's address makes this 429 rather than assert
+    anything. Each activation test therefore owns an address. The `client`
+    fixture is still requested because it is what initialises the engine.
+    """
+    from app.models.student import StudentProfile
+    from datetime import date
+
+    reg = 'DOB' + uuid.uuid4().hex[:10].upper()
+    dob = date(2004, 4, 19)
+
+    async with async_session_factory() as db:
+        u = User(id=uuid.uuid4(), registration_number=reg, name='Pending student',
+                 role='STUDENT', account_status='PENDING')
+        db.add(u)
+        await db.flush()
+        db.add(StudentProfile(id=uuid.uuid4(), user_id=u.id, date_of_birth=dob,
+                              student_type='HOSTELLER', campus_location='MAIN_CAMPUS'))
+        await db.commit()
+        student_id = u.id
+
+    async with AsyncClient(transport=ASGITransport(app=create_app(), raise_app_exceptions=False,
+                                                  client=('10.77.0.8', 5558)),
+                           base_url='https://testserver') as own:
+        async def attempt(dob_text, password='student-chosen-passphrase'):
+            return await own.post('/api/v1/auth/activate-with-dob',
+                                  json={'registration_number': reg,
+                                        'date_of_birth': dob_text, 'password': password})
+
+        # A wrong date is refused, and the message must not reveal whether the
+        # id exists -- the ids are already easy to enumerate.
+        wrong = await attempt('2004-04-20')
+        assert wrong.status_code == 401, wrong.text
+        missing = await own.post('/api/v1/auth/activate-with-dob',
+                                 json={'registration_number': 'NOSUCHSTUDENT',
+                                       'date_of_birth': '2004-04-19',
+                                       'password': 'student-chosen-passphrase'})
+        assert missing.status_code == 401
+        assert wrong.json()['error']['message'] == missing.json()['error']['message']
+
+        # The real date activates, accepting the separator the sheet and the
+        # browser each use.
+        ok = await attempt('19/04/2004')
+        assert ok.status_code == 200, ok.text
+        async with async_session_factory() as db:
+            row = await db.scalar(select(User).where(User.id == student_id))
+            assert row.account_status == 'ACTIVE'
+            assert row.password_hash is not None
+            assert row.activated_at is not None
+
+        signed_in = await own.post('/api/v1/auth/login',
+                                   json={'registration_number': reg,
+                                         'password': 'student-chosen-passphrase'})
+        assert signed_in.status_code == 200, signed_in.text
+
+        # THE IMPORTANT ASSERTION. The same correct date must not be able to
+        # replace the password now that one exists.
+        again = await attempt('2004-04-19', password='attacker-chosen-passphrase')
+        assert again.status_code == 401, 'date of birth reset a live account'
+        still_theirs = await own.post('/api/v1/auth/login',
+                                      json={'registration_number': reg,
+                                            'password': 'student-chosen-passphrase'})
+        assert still_theirs.status_code == 200, 'the original password stopped working'
+
+
+@pytest.mark.asyncio
+async def test_dob_activation_spends_an_outstanding_setup_code(client):   # noqa: ARG001 - fixture sets up the engine
+    """A code issued before the student self-activated must not stay usable.
+
+    Uses its own client address rather than the shared `client` fixture:
+    activation is capped at 5/minute per IP, and the test above spends that
+    budget, so sharing one address makes this fail with 429 instead of
+    testing anything. Worth noting that this is the same reason students on
+    one campus NAT address throttle each other on activation day.
+    """
+    from app.models.student import StudentProfile
+    from app.services.auth_service import AuthService
+    from datetime import date
+
+    reg = 'DOBC' + uuid.uuid4().hex[:9].upper()
+    admin = await user('ADMIN')
+    async with async_session_factory() as db:
+        u = User(id=uuid.uuid4(), registration_number=reg, name='Pending student',
+                 role='STUDENT', account_status='PENDING')
+        db.add(u)
+        await db.flush()
+        db.add(StudentProfile(id=uuid.uuid4(), user_id=u.id, date_of_birth=date(2005, 1, 2),
+                              student_type='HOSTELLER', campus_location='MAIN_CAMPUS'))
+        await db.commit()
+        issued = await AuthService(db).issue_setup_code(u.id, admin.id, 'Identity checked in person')
+        await db.commit()
+
+    async with AsyncClient(transport=ASGITransport(app=create_app(), raise_app_exceptions=False,
+                                                  client=('10.77.0.9', 5559)),
+                           base_url='https://testserver') as own:
+        done = await own.post('/api/v1/auth/activate-with-dob',
+                              json={'registration_number': reg, 'date_of_birth': '2005-01-02',
+                                    'password': 'student-chosen-passphrase'})
+        assert done.status_code == 200, done.text
+
+        stale = await own.post('/api/v1/auth/activate',
+                               json={'registration_number': reg,
+                                     'setup_code': issued['setup_code'],
+                                     'password': 'someone-elses-passphrase'})
+        assert stale.status_code == 401, 'a setup code outlived the activation it was for'

@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.schemas.auth import (
     ActivateRequest,
+    ActivateWithDobRequest,
     LoginRequest,
 )
 from app.schemas.common import success_response
@@ -18,6 +19,7 @@ from app.security.rate_limiter import (
     ACTIVATION_RATE_LIMIT,
     REFRESH_RATE_LIMIT,
     SETUP_ACCOUNT_RATE_LIMIT,
+    DOB_ACTIVATION_ACCOUNT_LIMIT,
 )
 
 logger = logging.getLogger(__name__)
@@ -57,6 +59,32 @@ async def activate_account(
     await check_shared_rate_limit(f"setup-account:{body.registration_number.strip().upper()}", SETUP_ACCOUNT_RATE_LIMIT)
     result = await AuthService(db).set_password_with_code(
         body.registration_number, body.setup_code, body.password,
+    )
+    return success_response(data=result)
+
+
+@router.post("/activate-with-dob", response_model=None)
+async def activate_account_with_dob(
+    request: Request,
+    body: ActivateWithDobRequest,
+    db: AsyncSession = Depends(get_db, scope="function"),
+):
+    """First activation on student id plus date of birth. PENDING accounts only.
+
+    Two throttles, and the per-account one is what matters here. The per-IP
+    limit is coarse by necessity because a hostel shares one NAT address;
+    DOB_ACTIVATION_ACCOUNT_LIMIT is what bounds guessing a single student's
+    birthday, which is the actual attack given how few candidate dates there
+    are for a cohort of one age group.
+    """
+    from app.services.student_import import parse_date_of_birth
+
+    client_ip = get_client_ip(request)
+    reg = body.registration_number.strip().upper()
+    await check_shared_rate_limit(f"activate:{client_ip}", ACTIVATION_RATE_LIMIT)
+    await check_shared_rate_limit(f"dob-activate:{reg}", DOB_ACTIVATION_ACCOUNT_LIMIT)
+    result = await AuthService(db).activate_with_date_of_birth(
+        reg, parse_date_of_birth(body.date_of_birth), body.password,
     )
     return success_response(data=result)
 

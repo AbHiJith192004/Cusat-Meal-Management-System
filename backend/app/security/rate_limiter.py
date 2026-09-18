@@ -69,6 +69,14 @@ REFRESH_RATE_LIMIT = _LIMITS["refresh"]
 # a different credential with a different blast radius.
 SETUP_ACCOUNT_RATE_LIMIT = RateLimitConfig(max_requests=5, window_seconds=900)
 
+# Per-account limit for activation by date of birth. Tighter than the
+# setup-code window because the secret is far weaker: a cohort of one age
+# group spans roughly 1,100 candidate dates, against 2**256 for a code. At
+# 5/hour a blind search of that space takes about nine days per account,
+# which is the point -- it cannot make a known birthday safe, only stop the
+# guessing of an unknown one.
+DOB_ACTIVATION_ACCOUNT_LIMIT = RateLimitConfig(max_requests=5, window_seconds=3600)
+
 
 def get_client_ip(request: Request) -> str:
     """Use the ingress-provided client address only with explicit opt-in.

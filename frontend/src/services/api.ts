@@ -97,6 +97,15 @@ export const authApi = {
       body: JSON.stringify({ registration_number, setup_code, password }),
     }),
 
+  // First activation on id + date of birth. Works only while the account is
+  // PENDING; once it has a password this route refuses, and a forgotten
+  // password needs a staff-issued code instead.
+  activateWithDob: (registration_number: string, date_of_birth: string, password: string) =>
+    request<{ message: string }>('/auth/activate-with-dob', {
+      method: 'POST',
+      body: JSON.stringify({ registration_number, date_of_birth, password }),
+    }),
+
   resetPasswordWithCode: (registration_number: string, setup_code: string, password: string) =>
     request<{ message: string }>('/auth/activate', {
       method: 'POST', body: JSON.stringify({ registration_number, setup_code, password }),

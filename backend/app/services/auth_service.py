@@ -143,6 +143,72 @@ class AuthService:
                                   target_type="user", target_id=user.id)
         return {"message": "Password saved. Sign in with your new password."}
 
+    async def activate_with_date_of_birth(self, registration_number: str, date_of_birth,
+                                         password: str) -> dict:
+        """First activation using the student's own id and date of birth.
+
+        THE ONE RULE THAT MAKES THIS TOLERABLE: it works only while the
+        account is PENDING. Date of birth is a weak secret -- 141 of 143
+        student ids on the live sheet are 2602 plus four digits, and a
+        hostel-mate does not guess a birthday, they know it -- so it must
+        never be able to take an account that already has a password. That
+        would be a reset, and the standing decision is that ids and dates of
+        birth do not suffice for a reset. After activation this path is
+        permanently closed for that account and only a staff-issued code
+        works, which is set_password_with_code above.
+
+        Chosen over activation links because sending 139 students their own
+        individual link by hand was not workable, and the links cannot be
+        posted to a group -- any student could then claim any account.
+
+        The residual risk is real and accepted: someone who knows another
+        student's id and birthday can activate that account first, and the
+        rightful student then finds activation refused. That is visible in
+        the audit log and an administrator can re-issue, which is why the
+        action below is logged distinctly from a code redemption.
+        """
+        from app.utils.exceptions import ValidationException
+        from app.models.student import StudentProfile
+
+        if date_of_birth is None:
+            raise ValidationException(message="A valid date of birth is required.")
+
+        row = (await self.db.execute(
+            select(User, StudentProfile)
+            .outerjoin(StudentProfile, StudentProfile.user_id == User.id)
+            .where(User.registration_number == registration_number.strip().upper())
+            .with_for_update(of=User)
+        )).first()
+
+        # One message for every failure. Distinguishing "no such student" from
+        # "wrong date" would turn this into a way to test which ids exist, and
+        # the ids are already easy to enumerate.
+        refusal = InvalidCredentialsException(
+            message="We could not match those details. If your account is already "
+                    "set up, sign in instead, or ask mess staff for a setup code.")
+
+        if row is None:
+            raise refusal
+        user, profile = row
+        if (user.role != "STUDENT"
+                or user.account_status != AccountStatus.PENDING.value
+                or profile is None
+                or profile.date_of_birth != date_of_birth):
+            raise refusal
+
+        user.password_hash = await run_in_threadpool(hash_password, password)
+        user.account_status = AccountStatus.ACTIVE.value
+        user.activated_at = user.activated_at or now_ist()
+        # Any outstanding staff-issued code is spent along with this, so a
+        # code handed out earlier cannot be redeemed a second time later.
+        user.setup_code_hash = None
+        user.setup_code_expires_at = None
+        user.session_version += 1
+        await self.token_repo.revoke_all_user_tokens(user.id)
+        await self.audit_repo.log(actor_id=user.id, action="PASSWORD_SET_WITH_DATE_OF_BIRTH",
+                                  target_type="user", target_id=user.id)
+        return {"message": "Password saved. Sign in with your new password."}
+
     async def login(
         self, registration_number: str, password: str
     ) -> tuple[str, str, int]:

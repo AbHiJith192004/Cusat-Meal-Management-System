@@ -24,6 +24,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [fromLink, setFromLink] = useState(false);
+  const [dob, setDob] = useState('');
 
   // An activation link carries the student id and the one-use code in the
   // query string: /activate?id=26021658&code=<43 chars>. The code is
@@ -77,7 +78,14 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         setLoading(false);
         return;
       }
-      if (mode === 'activate') await authApi.activate(trimmed, setupCode, password);
+      if (mode === 'activate') {
+        // A link carries a real one-use code, which is strictly stronger, so
+        // prefer it when present. Otherwise the student proves identity with
+        // their date of birth -- only possible before the account has a
+        // password; afterwards this route refuses and staff issue a code.
+        if (fromLink) await authApi.activate(trimmed, setupCode, password);
+        else await authApi.activateWithDob(trimmed, dob, password);
+      }
       await authApi.login(trimmed, password);
       let role: 'admin' | 'student' = 'student';
       let name = trimmed;
@@ -113,7 +121,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
       : mode === 'activate'
       ? fromLink
         ? 'Your account is ready. Choose a password to finish.'
-        : 'First-time setup for your mess account.'
+        : 'First-time setup. Confirm your date of birth and choose a password.'
       : 'Meal planning and your dining pass, in one place.';
 
   const form = (
@@ -196,7 +204,27 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             />
           </div>
 
-          {(mode === 'activate' || mode === 'reset') && !fromLink && (
+          {mode === 'activate' && !fromLink && (
+            <div>
+              <label
+                htmlFor="login-dob"
+                className="block text-[12px] font-black mb-1.5"
+                style={{ color: 'var(--text-body)' }}
+              >
+                Date of birth
+              </label>
+              <input
+                id="login-dob"
+                type="date"
+                required
+                value={dob}
+                onChange={e => setDob(e.target.value)}
+                className="stitch-input"
+              />
+            </div>
+          )}
+
+          {mode === 'reset' && (
             <div>
               <label
                 htmlFor="login-setup-code"
