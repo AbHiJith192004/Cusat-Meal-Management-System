@@ -26,9 +26,24 @@ envs:
   - key: ALLOW_TEST_MODE
     scope: RUN_TIME
     value: "false"
+  # The PUBLIC hostname, not DATABASE_PRIVATE_URL. The private one was tried
+  # first and both deployments died identically: the migrate job raised
+  # asyncpg TimeoutError after ~60s reaching private-messconnect-db-*, at
+  # step 7 of 13. A timeout rather than a refusal means the packets had
+  # nowhere to go -- App Platform components do not sit in the database's
+  # VPC (default-blr1), so that hostname does not route for them. Adding the
+  # app as a database trusted source did not change it; the second failure
+  # was byte-for-byte the first.
+  #
+  # The public host is not a downgrade here. The URL carries
+  # sslmode=require, so the connection is TLS-encrypted end to end, and the
+  # cluster's trusted sources now admit only app:8116d81b -- before that
+  # rule was added the firewall was EMPTY, which for DO managed Postgres
+  # means reachable from any address on the internet. The posture is
+  # stricter than when the private URL was configured and failing.
   - key: DATABASE_URL
     scope: RUN_TIME
-    value: ${messconnect-db.DATABASE_PRIVATE_URL}
+    value: ${messconnect-db.DATABASE_URL}
   - key: JWT_SECRET_KEY
     scope: RUN_TIME
     type: SECRET
