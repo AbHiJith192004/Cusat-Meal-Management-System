@@ -45,18 +45,85 @@ class AuthService:
         self.token_repo = RefreshTokenRepository(db)
         self.audit_repo = AuditRepository(db)
 
-    async def issue_setup_code(self, student_id: uuid.UUID, actor_id: uuid.UUID, reason: str) -> dict:
+    # A code handed over in person is used within minutes, and a short window
+    # limits the damage if it is overheard. A code sent as an activation link
+    # to a whole intake cannot be: students read messages hours later, and
+    # re-minting 135 codes because the window closed is the problem this is
+    # meant to avoid. Hence two windows, not one.
+    HANDOVER_TTL_MINUTES = 30
+    ACTIVATION_LINK_TTL_MINUTES = 48 * 60
+
+    async def issue_setup_code(self, student_id: uuid.UUID, actor_id: uuid.UUID, reason: str,
+                               ttl_minutes: int | None = None) -> dict:
         from app.utils.exceptions import ValidationException
         user = (await self.db.execute(select(User).where(User.id == student_id).with_for_update())).scalar_one_or_none()
         if not user or user.role != "STUDENT" or user.account_status == "SUSPENDED":
             raise ValidationException(message="An eligible student account is required.")
         code = secrets.token_urlsafe(32)
         user.setup_code_hash = hash_refresh_token(code)
-        user.setup_code_expires_at = now_ist() + timedelta(minutes=30)
+        user.setup_code_expires_at = now_ist() + timedelta(
+            minutes=ttl_minutes if ttl_minutes is not None else self.HANDOVER_TTL_MINUTES)
         await self.audit_repo.log(actor_id=actor_id, action="ACCOUNT_SETUP_CODE_ISSUED",
                                   target_type="user", target_id=user.id, metadata={"reason": reason})
         # Only the digest is stored. Staff delivers this once after checking identity.
         return {"setup_code": code, "expires_at": user.setup_code_expires_at.isoformat()}
+
+    async def issue_activation_codes(self, actor_id: uuid.UUID, reason: str,
+                                     reissue: bool = False) -> dict:
+        """Mint activation codes for every student who still cannot sign in.
+
+        Minting a code overwrites whatever digest the account held, which
+        silently invalidates any link already sent to that student. So by
+        default an account that still holds an unexpired code is SKIPPED and
+        reported, making this safe to run twice -- the realistic case being
+        a second run to catch students imported after the first batch.
+        Passing reissue replaces them, for when the links themselves leaked
+        or were lost.
+
+        Only PENDING accounts are touched. An ACTIVE student already has a
+        password, and handing out a credential that overwrites it in bulk is
+        not activation, it is a mass password reset.
+        """
+        now = now_ist()
+        students = (await self.db.execute(select(User).where(
+            User.role == "STUDENT",
+            User.account_status == AccountStatus.PENDING.value,
+        ).order_by(User.registration_number, User.id).with_for_update())).scalars().all()
+
+        issued, skipped = [], []
+        for user in students:
+            holds_live_code = (user.setup_code_hash is not None
+                               and user.setup_code_expires_at is not None
+                               and user.setup_code_expires_at > now)
+            if holds_live_code and not reissue:
+                skipped.append({
+                    "registration_number": user.registration_number,
+                    "name": user.name,
+                    "reason": "Already holds an unexpired code; its link is still valid.",
+                    "expires_at": user.setup_code_expires_at.isoformat(),
+                })
+                continue
+            code = secrets.token_urlsafe(32)
+            user.setup_code_hash = hash_refresh_token(code)
+            user.setup_code_expires_at = now + timedelta(minutes=self.ACTIVATION_LINK_TTL_MINUTES)
+            await self.audit_repo.log(
+                actor_id=actor_id, action="ACCOUNT_SETUP_CODE_ISSUED",
+                target_type="user", target_id=user.id,
+                metadata={"reason": reason, "bulk": True, "reissue": reissue},
+            )
+            issued.append({
+                "registration_number": user.registration_number,
+                "name": user.name,
+                "setup_code": code,
+                "expires_at": user.setup_code_expires_at.isoformat(),
+            })
+        return {
+            "issued": issued,
+            "skipped": skipped,
+            "issued_count": len(issued),
+            "skipped_count": len(skipped),
+            "pending_total": len(students),
+        }
 
     async def set_password_with_code(self, registration_number: str, setup_code: str, password: str) -> dict:
         user = (await self.db.execute(select(User).where(

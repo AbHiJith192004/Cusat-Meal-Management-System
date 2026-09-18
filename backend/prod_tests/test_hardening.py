@@ -333,3 +333,93 @@ async def test_single_student_creation_requires_super_admin(client):
                                 headers=headers(super_admin))
     assert allowed.status_code == 200, allowed.text
     assert allowed.json()['data']['account_status'] == 'PENDING'
+
+
+@pytest.mark.asyncio
+async def test_activation_codes_are_minted_in_bulk_and_rerunning_is_safe(client):
+    """Bulk activation for a whole intake, and the footgun it has to avoid.
+
+    Minting a code overwrites the stored digest, which silently kills any
+    link already sent to that student. With 135 students that is not a
+    theoretical risk -- a second run to catch late imports would invalidate
+    every link from the first. So a live code is skipped unless reissue is
+    passed, and this test is mostly about that.
+    """
+    from app.security.jwt_handler import hash_refresh_token
+    from app.services.auth_service import AuthService
+
+    super_admin = await user('SUPER_ADMIN')
+    tag = uuid.uuid4().hex[:8].upper()
+    pending_regs = [f'ACT{tag}-{i}' for i in range(3)]
+    active_reg = f'ACTIVE{tag}'
+
+    async with async_session_factory() as db:
+        for reg in pending_regs:
+            db.add(User(id=uuid.uuid4(), registration_number=reg, name='Pending student',
+                        role='STUDENT', account_status='PENDING'))
+        # An ACTIVE student with a real password: bulk activation must not
+        # hand out a credential that would overwrite it.
+        db.add(User(id=uuid.uuid4(), registration_number=active_reg, name='Already active',
+                    role='STUDENT', account_status='ACTIVE', password_hash='argon2-placeholder'))
+        await db.commit()
+
+    async def mint(reissue=False):
+        async with async_session_factory() as db:
+            result = await AuthService(db).issue_activation_codes(
+                super_admin.id, 'Bulk activation for the new intake', reissue)
+            await db.commit()
+            return result
+
+    first = await mint()
+    minted = {r['registration_number']: r['setup_code'] for r in first['issued']}
+    assert set(pending_regs) <= set(minted), f"pending students missed: {set(pending_regs) - set(minted)}"
+    assert active_reg not in minted, 'an ACTIVE student was handed an activation code'
+
+    # Every code is distinct, and only its digest reaches the database.
+    ours = [minted[r] for r in pending_regs]
+    assert len(set(ours)) == 3
+    async with async_session_factory() as db:
+        for reg in pending_regs:
+            row = await db.scalar(select(User).where(User.registration_number == reg))
+            assert row.setup_code_hash == hash_refresh_token(minted[reg])
+            assert row.setup_code_hash != minted[reg]
+            # 48 hours, not the 30 minutes of a hand-delivered code: a link
+            # sent to a WhatsApp group is read hours later.
+            assert (row.setup_code_expires_at - now_ist()) > timedelta(hours=24)
+
+    # A second run must NOT invalidate the links already sent.
+    second = await mint()
+    reissued = {r['registration_number'] for r in second['issued']}
+    skipped = {r['registration_number'] for r in second['skipped']}
+    assert set(pending_regs) <= skipped, 'a second run re-minted live codes'
+    assert not (set(pending_regs) & reissued)
+    async with async_session_factory() as db:
+        for reg in pending_regs:
+            row = await db.scalar(select(User).where(User.registration_number == reg))
+            assert row.setup_code_hash == hash_refresh_token(minted[reg]), \
+                'the originally issued code stopped working'
+
+    # reissue replaces them, for when the links themselves leaked.
+    third = await mint(reissue=True)
+    replaced = {r['registration_number']: r['setup_code'] for r in third['issued']}
+    assert set(pending_regs) <= set(replaced)
+    async with async_session_factory() as db:
+        for reg in pending_regs:
+            row = await db.scalar(select(User).where(User.registration_number == reg))
+            assert row.setup_code_hash == hash_refresh_token(replaced[reg])
+            assert row.setup_code_hash != hash_refresh_token(minted[reg]), \
+                'reissue did not actually replace the code'
+
+    # The minted code genuinely activates the account through the public
+    # endpoint -- the whole point, and not provable from the digest alone.
+    reg = pending_regs[0]
+    chosen = 'student-chooses-this-one'
+    done = await client.post('/api/v1/auth/activate',
+                             json={'registration_number': reg, 'setup_code': replaced[reg],
+                                   'password': chosen})
+    assert done.status_code == 200, done.text
+    async with async_session_factory() as db:
+        row = await db.scalar(select(User).where(User.registration_number == reg))
+        assert row.account_status == 'ACTIVE'
+        assert row.password_hash is not None
+        assert row.setup_code_hash is None, 'the code survived redemption and is reusable'

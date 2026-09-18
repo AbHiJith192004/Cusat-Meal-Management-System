@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { authApi, studentApi } from '../services/api';
 import { ChefMascot, DosaCartoon } from './FoodIllustrations';
 
@@ -23,6 +23,36 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [fromLink, setFromLink] = useState(false);
+
+  // An activation link carries the student id and the one-use code in the
+  // query string: /activate?id=26021658&code=<43 chars>. The code is
+  // token_urlsafe, so it survives a URL unescaped. Reading it here is the
+  // point of the link -- nobody can be asked to type 43 random characters
+  // on a phone, which is what activating an intake by hand would require.
+  useEffect(() => {
+    if (!isOpen) return;
+    let params: URLSearchParams;
+    try {
+      params = new URLSearchParams(window.location.search);
+    } catch {
+      return;
+    }
+    const id = params.get('id');
+    const code = params.get('code');
+    if (!id || !code) return;
+    setRegNo(id.trim().toUpperCase());
+    setSetupCode(code.trim());
+    setMode('activate');
+    setFromLink(true);
+    // Drop the code from the address bar so it does not sit in history or
+    // get shared with the page's next screenshot. State already holds it.
+    try {
+      window.history.replaceState({}, '', window.location.pathname);
+    } catch {
+      /* not fatal: the form is filled either way */
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -81,7 +111,9 @@ export const LoginModal: React.FC<LoginModalProps> = ({
     mode === 'reset'
       ? 'Enter the one-use setup code provided by mess staff.'
       : mode === 'activate'
-      ? 'First-time setup for your mess account.'
+      ? fromLink
+        ? 'Your account is ready. Choose a password to finish.'
+        : 'First-time setup for your mess account.'
       : 'Meal planning and your dining pass, in one place.';
 
   const form = (
@@ -164,7 +196,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             />
           </div>
 
-          {(mode === 'activate' || mode === 'reset') && (
+          {(mode === 'activate' || mode === 'reset') && !fromLink && (
             <div>
               <label
                 htmlFor="login-setup-code"

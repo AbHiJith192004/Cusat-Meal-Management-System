@@ -873,6 +873,31 @@ async def issue_student_setup_code(
     return success_response(data=await AuthService(db).issue_setup_code(student_id, admin.id, body.reason))
 
 
+class ActivationCodesRequest(BaseModel):
+    reason: str = Field(min_length=10, max_length=500)
+    # Replaces codes that are still live, invalidating links already sent.
+    # Off by default so a second run is safe.
+    reissue: bool = False
+
+
+@router.post("/students/activation-codes")
+async def issue_activation_codes(
+    body: ActivationCodesRequest, super_admin: SuperAdminUser,
+    db: AsyncSession = Depends(get_db, scope="function"),
+):
+    """Mint activation codes for every student who cannot sign in yet.
+
+    Super-admin only, unlike the single-student version: this returns a
+    credential for every pending account at once, which is the whole intake.
+    The response is the only time the codes exist in readable form -- the
+    database keeps digests -- so the caller must deliver or save them before
+    discarding it.
+    """
+    from app.services.auth_service import AuthService
+    return success_response(
+        data=await AuthService(db).issue_activation_codes(super_admin.id, body.reason, body.reissue))
+
+
 @router.post("/bills/preview")
 async def preview_monthly_bill(body: PublishBillRequest, admin: AdminUser,
                                db: AsyncSession = Depends(get_db, scope="function")):
