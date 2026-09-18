@@ -19,7 +19,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   const [regNo, setRegNo] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [dob, setDob] = useState('');
+  const [setupCode, setSetupCode] = useState('');   // NOT a date of birth: see label below
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -39,7 +39,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
           setLoading(false);
           return;
         }
-        const res = await authApi.resetPasswordWithCode(trimmed, dob, password);
+        const res = await authApi.resetPasswordWithCode(trimmed, setupCode, password);
         setSuccessMsg(res.message || 'Password reset. Please sign in.');
         setMode('login');
         setPassword('');
@@ -47,7 +47,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         setLoading(false);
         return;
       }
-      if (mode === 'activate') await authApi.activate(trimmed, dob, password);
+      if (mode === 'activate') await authApi.activate(trimmed, setupCode, password);
       await authApi.login(trimmed, password);
       let role: 'admin' | 'student' = 'student';
       let name = trimmed;
@@ -167,18 +167,18 @@ export const LoginModal: React.FC<LoginModalProps> = ({
           {(mode === 'activate' || mode === 'reset') && (
             <div>
               <label
-                htmlFor="login-dob"
+                htmlFor="login-setup-code"
                 className="block text-[12px] font-black mb-1.5"
                 style={{ color: 'var(--text-body)' }}
               >
                 Setup code from mess staff
               </label>
               <input
-                id="login-dob"
+                id="login-setup-code"
                 type="text"
                 required
-                value={dob}
-                onChange={e => setDob(e.target.value)}
+                value={setupCode}
+                onChange={e => setSetupCode(e.target.value)}
                 className="stitch-input"
               />
             </div>
