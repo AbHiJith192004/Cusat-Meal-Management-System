@@ -225,3 +225,18 @@ def test_malformed_email_is_rejected():
 def test_a_student_without_an_email_is_still_importable():
     """Email is unique where present, but not everyone supplies one."""
     assert len(review_rows(HEADER, [row(email='')], today=TODAY).importable) == 1
+
+
+def test_skipped_rows_carry_a_kind_so_callers_need_not_match_message_text():
+    """Re-running an import reports every existing student as skipped.
+
+    On the live sheet that is 139 rows against 4 real problems, so anything
+    presenting this has to group them apart. `kind` is the stable way to do
+    that; the message wording is not.
+    """
+    review = review_rows(HEADER, [row(student_id='', name='No Id')], today=TODAY)
+    assert review.skipped[0]['kind'] == 'data'
+
+    review.skip(9, '26021658', 'An account already exists.', kind='already_exists')
+    assert review.skipped[-1]['kind'] == 'already_exists'
+    assert {e['kind'] for e in review.skipped} == {'data', 'already_exists'}

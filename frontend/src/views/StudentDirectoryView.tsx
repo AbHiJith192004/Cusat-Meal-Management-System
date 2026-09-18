@@ -201,7 +201,7 @@ export const StudentDirectoryView: React.FC = () => {
             <span className="material-symbols-outlined text-[48px] mb-2 text-[#923606]">group_off</span>
             <p className="font-semibold text-base text-[#151c27]">No Student Records Found</p>
             <p className="text-xs text-[#434655] mt-1">
-              Use "Add Student" button above to add student records, or import from Excel.
+              Use "Add Student" above for one student. A whole intake is loaded with ops/import_students.py; there is no upload control here yet.
             </p>
           </div>
         ) : (

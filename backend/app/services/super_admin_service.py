@@ -96,11 +96,13 @@ class SuperAdminService:
         for student in candidates:
             if student.registration_number in taken_numbers:
                 review.skip(student.row, student.registration_number,
-                            "An account already exists with this student id; it was left unchanged.")
+                            "An account already exists with this student id; it was left unchanged.",
+                            kind="already_exists")
                 continue
             if student.email and student.email in taken_emails:
                 review.skip(student.row, student.registration_number,
-                            f"Email {student.email} already belongs to another account.")
+                            f"Email {student.email} already belongs to another account.",
+                            kind="already_exists")
                 continue
 
             user = User(

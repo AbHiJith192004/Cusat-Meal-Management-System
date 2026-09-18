@@ -174,8 +174,19 @@ class SheetReview:
     needs_attention: list[dict] = field(default_factory=list)
     total_rows: int = 0
 
-    def skip(self, row: int, registration_number: str, reason: str) -> None:
-        self.skipped.append({"row": row, "registration_number": registration_number, "error": reason})
+    def skip(self, row: int, registration_number: str, reason: str, kind: str = "data") -> None:
+        """Record a row that produced no account.
+
+        `kind` separates the two situations a caller has to present very
+        differently. "data" is something wrong with the row that a person
+        must fix. "already_exists" is the expected, harmless outcome of
+        re-running an import, and on a second run it is every previously
+        imported student -- 139 of them here, which buries the handful of
+        real problems unless they can be grouped apart. Callers should
+        group on this field rather than matching the message text.
+        """
+        self.skipped.append({"row": row, "registration_number": registration_number,
+                             "error": reason, "kind": kind})
 
 
 def _hostel_from_cell(raw: str) -> str | None:
