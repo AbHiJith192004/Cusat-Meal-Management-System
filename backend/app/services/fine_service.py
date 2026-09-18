@@ -10,6 +10,7 @@ from app.models.user import User
 from app.repositories.holiday_repo import HolidayRepository
 from app.services.meal_timing_service import MealTimingService
 from app.services.billing_lock import lock_open_period
+from app.services.mess_membership import excluded_from_the_mess
 from app.models.meal import MealSelection
 from app.models.attendance import Attendance
 from app.repositories.fine_repo import FineRepository
@@ -68,7 +69,10 @@ class FineService:
         stmt = select(User.id).where(
             User.role == "STUDENT", User.account_status != "PENDING",
             func.coalesce(User.activated_at, User.created_at) <= datetime.combine(target_date, end_time, tzinfo=IST),
-            User.id.not_in(sub_att), User.id.not_in(sub_fine), User.id.not_in(excluded))
+            User.id.not_in(sub_att), User.id.not_in(sub_fine), User.id.not_in(excluded),
+            # An outmess student never booked the meal, so missing it is not
+            # a no-show. Same reason they are absent from the bill.
+            User.id.not_in(excluded_from_the_mess()))
         student_ids = (await self.session.execute(stmt)).scalars().all()
 
         fines_created = 0

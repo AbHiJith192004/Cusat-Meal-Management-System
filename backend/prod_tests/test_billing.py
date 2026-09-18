@@ -23,6 +23,7 @@ from app.models.holiday import Holiday
 from app.models.fine import Fine
 from app.models.attendance import Attendance
 from app.models.billing import StudentBillSnapshot
+from app.models.student import StudentProfile
 from app.services.billing_service import BillingService
 from app.services.student_billing_service import StudentBillingService
 from app.services.report_service import ReportService
@@ -242,3 +243,56 @@ async def test_midmonth_enrollment_pending_and_zero_denominator(database):
         empty = await BillingService(db).preview(MONTH, YEAR, FIGURES)
         with pytest.raises(ValidationException):
             await BillingService(db).publish(MONTH, YEAR, {**FIGURES, 'preview_token': empty['preview_token']}, admin.id)
+
+
+@pytest.mark.asyncio
+async def test_outmess_students_are_billed_nothing_and_do_not_dilute_the_rate(database):
+    """An outmess student takes no meals, so they must not appear on a bill.
+
+    The trap this guards: a missing MealSelection row counts as CONFIRMED, so
+    an outmess student included in the cohort would silently draw all 31 days
+    of May, be charged a third of the expenses for food they never ate, and
+    push the denominator from 62 to 93 -- quietly reducing what A and B owe.
+    The exclusion is by student_type, which nothing in billing read before.
+    """
+    factory, (a, b, admin) = database
+    enrolled = datetime(2024, 5, 1, tzinfo=IST)
+    async with factory() as db:
+        outmess = User(id=uuid.uuid4(), registration_number='OUTMESS1', name='Not On The Mess',
+                       role='STUDENT', account_status='ACTIVE',
+                       created_at=enrolled, activated_at=enrolled)
+        db.add(outmess)
+        await db.flush()
+        db.add(StudentProfile(id=uuid.uuid4(), user_id=outmess.id, date_of_birth=date(2004, 10, 7),
+                              student_type='OUTMESS', campus_location='MAIN_CAMPUS'))
+        # A hosteller with a profile, to prove the exclusion keys on the type
+        # rather than merely on having a profile row at all.
+        db.add(StudentProfile(id=uuid.uuid4(), user_id=a.id, date_of_birth=date(2004, 1, 1),
+                              student_type='HOSTELLER', campus_location='MAIN_CAMPUS'))
+        await db.commit()
+
+    # Fines first: publishing freezes the period against further changes.
+    # A meal they never booked is not a meal they missed, so the count is the
+    # two real students and no Fine row names the outmess account.
+    async with factory() as db:
+        assert await FineService(db).reconcile_missed_meals(date(YEAR, MONTH, 2), 'LUNCH', admin.id) == 2
+        await db.commit()
+    async with factory() as db:
+        assert await db.scalar(select(func.count()).select_from(Fine)
+                               .where(Fine.student_id == outmess.id)) == 0
+
+    preview, _ = await preview_publish(factory, admin)
+
+    numbers = [s['student']['registration_number'] for s in preview['students']]
+    assert numbers == ['A', 'B'], f'outmess student reached the bill: {numbers}'
+    # 31 days x 2 students, not x 3.
+    assert preview['chargeable_days'] == 62
+    # Every rupee still allocated, just across the students who actually ate.
+    # Had the outmess student been included this would be 130.00 each.
+    assert preview['students'][0]['base_charge'] == '195.00'
+    assert sum(Decimal(x['base_charge']) for x in preview['students']) == Decimal('390.00')
+
+    async with factory() as db:
+        assert await db.scalar(
+            select(func.count()).select_from(StudentBillSnapshot)
+            .where(StudentBillSnapshot.student_id == outmess.id)) == 0

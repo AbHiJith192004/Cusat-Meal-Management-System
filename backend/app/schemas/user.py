@@ -21,5 +21,5 @@ class CreateStudentRequest(BaseModel):
     date_of_birth: str = Field(..., description="Date of birth in YYYY-MM-DD format")
     department: Optional[str] = Field(default="Computer Science", max_length=100)
     mess_id: Optional[str] = Field(default=None, max_length=50)
-    student_type: Literal["HOSTELLER", "DAY_SCHOLAR"] = "HOSTELLER"
+    student_type: Literal["HOSTELLER", "DAY_SCHOLAR", "OUTMESS"] = "HOSTELLER"
     campus_location: Optional[str] = Field(default="MAIN_CAMPUS", description="MAIN_CAMPUS or LAKESIDE_CAMPUS")

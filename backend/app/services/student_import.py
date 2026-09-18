@@ -48,17 +48,20 @@ HEADER_ALIASES: dict[str, tuple[str, ...]] = {
 
 REQUIRED_FIELDS = ("registration_number", "name", "date_of_birth")
 
-# A student outside the mess system has no meals and no bill, so an account
-# would never be used. Recognised explicitly rather than rejected as junk, so
-# the skip reason can say why.
-NON_MEMBER_STATUSES = frozenset({"outmess", "out mess", "out-mess"})
-
 STATUS_TO_STUDENT_TYPE = {
     "inmate": StudentType.HOSTELLER.value,
     "hosteller": StudentType.HOSTELLER.value,
     "guest": StudentType.DAY_SCHOLAR.value,
     "day scholar": StudentType.DAY_SCHOLAR.value,
     "day_scholar": StudentType.DAY_SCHOLAR.value,
+    # Imported like anyone else and then excluded from billing and fines by
+    # app/services/mess_membership.py. These rows used to be skipped, which
+    # meant the two students who answered outmess had no account at all and
+    # would have had to re-register to ever join the mess.
+    "outmess": StudentType.OUTMESS.value,
+    "out mess": StudentType.OUTMESS.value,
+    "out-mess": StudentType.OUTMESS.value,
+    "out of mess": StudentType.OUTMESS.value,
 }
 
 # Ages outside this band are data-entry errors rather than real students; the
@@ -238,10 +241,6 @@ def review_rows(header_row: tuple, data_rows: list[tuple], today: date | None = 
             contacts.setdefault(early_phone, {}).setdefault(registration_number, (row_number, name))
 
         status = value(row, "student_type").strip().lower()
-        if status in NON_MEMBER_STATUSES:
-            review.skip(row_number, registration_number,
-                        "Not a mess member (answered outmess), so no account is created.")
-            continue
 
         dob = parse_date_of_birth(dob_raw)
         if dob is None:

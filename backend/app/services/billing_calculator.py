@@ -8,6 +8,7 @@ from app.models.user import User
 from app.models.meal import MealSelection
 from app.models.holiday import Holiday
 from app.models.fine import Fine
+from app.services.mess_membership import excluded_from_the_mess
 from app.utils.timezone import IST
 
 MEALS = ('BREAKFAST', 'LUNCH', 'DINNER')
@@ -18,9 +19,13 @@ CENT = Decimal('0.01')
 async def calculate_bills(session, year: int, month: int, expenses: Decimal) -> dict:
     start = date(year, month, 1)
     end = date(year, month, calendar.monthrange(year, month)[1])
-    # Pending, never-activated imports do not silently accrue default charges.
+    # Pending, never-activated imports do not silently accrue default charges,
+    # and outmess students are not on the mess at all -- without that second
+    # clause they would draw a full month of opted-in days (a missing
+    # selection counts as CONFIRMED below) and take a share of the expenses.
     users = (await session.execute(select(User).where(
-        User.role == 'STUDENT', User.account_status != 'PENDING'
+        User.role == 'STUDENT', User.account_status != 'PENDING',
+        User.id.not_in(excluded_from_the_mess()),
     ).order_by(User.registration_number, User.id))).scalars().all()
     selections = (await session.execute(select(MealSelection).where(
         MealSelection.meal_date.between(start, end)))).scalars().all()

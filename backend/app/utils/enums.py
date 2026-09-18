@@ -44,9 +44,15 @@ class FineStatus(str, Enum):
 
 
 class StudentType(str, Enum):
-    """Student residential type."""
+    """Student residential type.
+
+    OUTMESS is not a residence, it is an opt-out: the student is registered
+    and can sign in, but takes no meals and so is never billed or fined. See
+    app/services/mess_membership.py, which is what actually enforces that.
+    """
     HOSTELLER = "HOSTELLER"
     DAY_SCHOLAR = "DAY_SCHOLAR"
+    OUTMESS = "OUTMESS"
 
 
 class NotificationType(str, Enum):

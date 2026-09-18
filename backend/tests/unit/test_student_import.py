@@ -121,10 +121,27 @@ def test_a_clean_row_is_importable_and_fully_mapped():
     assert student.row == 2                       # spreadsheet row, header included
 
 
-def test_outmess_students_are_skipped_with_a_reason_not_an_error():
+def test_outmess_students_are_imported_and_typed_outmess():
+    """They used to be skipped outright, which left them with no account to
+    join the mess from later. Billing and fines exclude them by student_type
+    instead -- see tests/unit/test_mess_membership.py."""
     review = review_rows(HEADER, [row(status='Outmess')], today=TODAY)
-    assert review.importable == []
-    assert 'not a mess member' in review.skipped[0]['error'].lower()
+    assert len(review.importable) == 1
+    assert review.importable[0].student_type == StudentType.OUTMESS.value
+    assert review.skipped == []
+
+
+@pytest.mark.parametrize('answer', ['Outmess', 'outmess', 'out mess', 'Out-Mess', 'out of mess'])
+def test_outmess_is_recognised_however_it_is_written(answer):
+    assert review_rows(HEADER, [row(status=answer)], today=TODAY)\
+        .importable[0].student_type == StudentType.OUTMESS.value
+
+
+def test_an_unrecognised_status_still_defaults_to_hosteller_not_outmess():
+    """Guessing wrong towards OUTMESS would silently drop a real student off
+    the bill; guessing wrong towards HOSTELLER shows up as a bill to query."""
+    assert review_rows(HEADER, [row(status='my friend John')], today=TODAY)\
+        .importable[0].student_type == StudentType.HOSTELLER.value
 
 
 def test_status_maps_to_student_type():

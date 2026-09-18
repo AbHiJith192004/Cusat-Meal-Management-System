@@ -350,15 +350,21 @@ async def test_import_never_disturbs_an_account_that_already_exists(client):
 
 
 @pytest.mark.asyncio
-async def test_import_maps_the_form_columns_and_skips_non_members(client):
-    """Columns are matched by heading, so the leading Timestamp is harmless."""
+async def test_import_maps_the_form_columns_and_types_outmess_students(client):
+    """Columns are matched by heading, so the leading Timestamp is harmless.
+
+    The outmess student is imported like anyone else and distinguished by
+    student_type. They used to be skipped, which left them with no account
+    to join the mess from later; billing and fines exclude them instead,
+    which prod_tests/test_billing.py proves.
+    """
     super_admin = await user('SUPER_ADMIN')
     keep = 'IMPK-' + uuid.uuid4().hex[:8].upper()
-    drop = 'IMPD-' + uuid.uuid4().hex[:8].upper()
+    out = 'IMPD-' + uuid.uuid4().hex[:8].upper()
     sheet = _workbook([
         (now_ist(), keep, ' Padded Name ', date(2003, 2, 14), f'{keep.lower()}@example.com',
          '+919876543211', 'DCS', 'Yes', 'Inmate', 'M.Tech', '58 A', ''),
-        (now_ist(), drop, 'Outmess Person', date(2003, 3, 3), f'{drop.lower()}@example.com',
+        (now_ist(), out, 'Outmess Person', date(2003, 3, 3), f'{out.lower()}@example.com',
          9876543212, 'DCA', 'No', 'Outmess', 'MCA', 'NA', ''),
     ])
     response = await client.post(
@@ -368,13 +374,18 @@ async def test_import_maps_the_form_columns_and_skips_non_members(client):
         headers=headers(super_admin))
     assert response.status_code == 200, response.text
     body = response.json()['data']
-    assert body['imported_count'] == 1
-    assert any('not a mess member' in e['error'].lower() for e in body['errors'])
+    assert body['imported_count'] == 2
+    assert body['errors'] == []
 
     async with async_session_factory() as db:
         created = await db.scalar(select(User).where(User.registration_number == keep))
         profile = await db.scalar(select(StudentProfile).where(StudentProfile.user_id == created.id))
-        assert await db.scalar(select(User).where(User.registration_number == drop)) is None
+        outmess = await db.scalar(select(User).where(User.registration_number == out))
+        assert outmess is not None
+        outmess_profile = await db.scalar(
+            select(StudentProfile).where(StudentProfile.user_id == outmess.id))
+        assert outmess_profile.student_type == 'OUTMESS'
+        assert profile.student_type == 'HOSTELLER'
     assert created.name == 'Padded Name'
     assert created.phone == '9876543211'          # +91 stripped
     assert created.role == 'STUDENT' and created.account_status == 'PENDING'
