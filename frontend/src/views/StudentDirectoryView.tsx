@@ -16,6 +16,13 @@ export const StudentDirectoryView: React.FC = () => {
   const [setupBusy, setSetupBusy] = useState(false);
   const [setupError, setSetupError] = useState<string | null>(null);
   const [setupReason, setSetupReason] = useState('');
+  // Scanner (committee) access, granted straight from the student panel so
+  // staff do not have to memorise a name and go hunting in a dropdown on
+  // the Operations screen.
+  const [committee, setCommittee] = useState<any[]>([]);
+  const [scannerDays, setScannerDays] = useState('7');
+  const [scannerBusy, setScannerBusy] = useState(false);
+  const [scannerError, setScannerError] = useState<string | null>(null);
   const [addLoading, setAddLoading] = useState(false);
 
   const [newStudent, setNewStudent] = useState({
@@ -72,6 +79,22 @@ export const StudentDirectoryView: React.FC = () => {
     const timer = window.setTimeout(fetchStudents, 250);
     return () => window.clearTimeout(timer);
   }, [searchQuery]);
+
+  // Active scanner grants, so the panel can show whether THIS student
+  // already holds one rather than offering to grant a second (the server
+  // rejects overlapping assignments anyway, but the error is a poor way to
+  // learn it). Fetched once, and refreshed after every grant or revoke.
+  const fetchCommittee = async () => {
+    try {
+      const rows = await adminApi.getCommittee();
+      setCommittee(Array.isArray(rows) ? rows : []);
+    } catch { setCommittee([]); }
+  };
+  useEffect(() => { fetchCommittee(); }, []);
+
+  const scannerGrant = selectedStudent
+    ? committee.find((c: any) => c.student_id === selectedStudent.id)
+    : undefined;
 
   const displayList = apiStudents;
 
@@ -301,6 +324,62 @@ export const StudentDirectoryView: React.FC = () => {
                 <p>Give this code privately to this student. Expires {new Date(setupResult.expiry).toLocaleTimeString()}.</p>
                 <code className="block break-all select-all">{setupResult.code}</code>
               </div>}
+            </section>
+
+            <section className="my-3 space-y-2" aria-label="Meal scanner access">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-[#B7470D] block">Meal scanner access</span>
+              {scannerGrant ? (
+                <>
+                  <p className="text-xs text-[#434655]">
+                    Can scan meals until{' '}
+                    <span className="font-semibold">{new Date(scannerGrant.ends_at).toLocaleString('en-IN')}</span>.
+                    It stops by itself then; revoking is only for ending it early.
+                  </p>
+                  <button className="btn-secondary" disabled={scannerBusy} onClick={async () => {
+                    setScannerBusy(true); setScannerError(null);
+                    try {
+                      await adminApi.revokeCommittee(selectedStudent.id, 'Scanner access ended early by an administrator');
+                      await fetchCommittee();
+                    } catch (error: any) { setScannerError(error.message); }
+                    finally { setScannerBusy(false); }
+                  }}>Revoke scanner access</button>
+                </>
+              ) : selectedStudent.accountStatus !== 'ACTIVE' ? (
+                <p className="text-xs text-[#434655]">
+                  This student has not activated their account yet, so they cannot be
+                  given scanner access. Issue a setup code above, or ask them to
+                  activate with their student ID and date of birth.
+                </p>
+              ) : (
+                <>
+                  <label className="block text-sm">For how long
+                    <select className="stitch-input" value={scannerDays} onChange={e => setScannerDays(e.target.value)}>
+                      <option value="1">Today only</option>
+                      <option value="7">7 days</option>
+                      <option value="30">30 days</option>
+                    </select>
+                  </label>
+                  <button className="btn-secondary" disabled={scannerBusy} onClick={async () => {
+                    setScannerBusy(true); setScannerError(null);
+                    try {
+                      // Start a minute ago so a clock skew between this browser
+                      // and the server cannot reject a window as starting in
+                      // the past, and so access works immediately.
+                      const starts = new Date(Date.now() - 60_000);
+                      const ends = new Date(starts.getTime() + Number(scannerDays) * 86_400_000);
+                      await adminApi.assignCommittee({
+                        student_id: selectedStudent.id,
+                        starts_at: starts.toISOString(),
+                        ends_at: ends.toISOString(),
+                        scope: 'ATTENDANCE_SCANNER',
+                      });
+                      await fetchCommittee();
+                    } catch (error: any) { setScannerError(error.message); }
+                    finally { setScannerBusy(false); }
+                  }}>Let this student scan meals</button>
+                </>
+              )}
+              {scannerError && <p role="alert" className="text-xs" style={{color: 'var(--red)'}}>{scannerError}</p>}
             </section>
             <div className="border-t border-[#c3c6d7] pt-3 space-y-2 text-xs text-[#434655]">
               <div className="flex justify-between">
