@@ -2,8 +2,16 @@
 # messconnect-db (PostgreSQL 16, db-s-1vcpu-2gb, blr1) must already exist --
 # the database block below attaches to it by name, it does not create it.
 # App creation must also supply the two secret values declared without values;
-# they are typed in the DO console so production signing keys stay out of the
+# they are generated at create time so production signing keys stay out of the
 # repository and out of any transcript.
+#
+# The three components clone the public repository directly rather than going
+# through DigitalOcean's GitHub integration. That integration exists to enable
+# deploy-on-push, which this spec deliberately does not want, and it requires
+# authorising a third-party OAuth app against the GitHub account. A public
+# clone URL needs no such grant, so there is one less provider tie to undo
+# when this moves to a VPS. Deploys are explicit:
+#   doctl apps create-deployment <app-id>
 name: messconnect
 region: blr
 
@@ -30,10 +38,9 @@ envs:
 
 services:
   - name: web
-    github:
-      repo: AbHiJith192004/Cusat-Meal-Management-System
+    git:
+      repo_clone_url: https://github.com/AbHiJith192004/Cusat-Meal-Management-System.git
       branch: main
-      deploy_on_push: false
     dockerfile_path: Dockerfile
     source_dir: /
     http_port: 8080
@@ -94,10 +101,9 @@ services:
 jobs:
   - name: migrate
     kind: PRE_DEPLOY
-    github:
-      repo: AbHiJith192004/Cusat-Meal-Management-System
+    git:
+      repo_clone_url: https://github.com/AbHiJith192004/Cusat-Meal-Management-System.git
       branch: main
-      deploy_on_push: false
     dockerfile_path: backend/Dockerfile
     source_dir: backend
     instance_size_slug: apps-s-1vcpu-0.5gb
@@ -115,10 +121,9 @@ jobs:
     schedule:
       cron: "0 1 * * *"
       time_zone: Asia/Kolkata
-    github:
-      repo: AbHiJith192004/Cusat-Meal-Management-System
+    git:
+      repo_clone_url: https://github.com/AbHiJith192004/Cusat-Meal-Management-System.git
       branch: main
-      deploy_on_push: false
     dockerfile_path: backend/Dockerfile
     source_dir: backend
     instance_size_slug: apps-s-1vcpu-0.5gb

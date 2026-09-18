@@ -41,7 +41,7 @@ The 1 GiB service runs two Uvicorn workers. Upgrade to `apps-s-1vcpu-2gb` ($25/m
 
 ## Deployment procedure
 
-1. Run the repository CI checks and merge this reviewed branch to `main`. `.do/app.yaml` deliberately deploys `main` with automatic deploys disabled.
+1. Run the repository CI checks and merge this reviewed branch to `main`. All three components clone the public repository over HTTPS instead of using DigitalOcean's GitHub integration, so no OAuth grant against the GitHub account is needed. That integration only exists to enable deploy-on-push, which this spec deliberately does not want. Deploys are explicit: `doctl apps create-deployment <app-id>`. If the repository is ever made private, this has to change back to a `github:` source and the integration must then be authorised.
 2. Done on 2026-09-17: `messconnect-db`, PostgreSQL 16, `db-s-1vcpu-2gb`, `BLR1`, single node. It is billing from that date. Do not select the $7 development database if this ever has to be recreated.
 3. Done: `.do/app.yaml` names `messconnect-db` in its `databases` block, which attaches to that existing cluster rather than creating one. The cluster's password and connection string stay out of Git.
 4. Generate two different secrets with `openssl rand -hex 32`. In DigitalOcean App Platform, set `JWT_SECRET_KEY` and `QR_SECRET_KEY` as encrypted run-time variables. Never paste either value into the app spec, a commit, logs, or chat.
