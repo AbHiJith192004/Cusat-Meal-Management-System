@@ -111,8 +111,35 @@ export const MealPlanningView: React.FC = () => {
     );
   }
 
+  const isFullDayCut = MEALS.every(m => (activePlan[m]?.status || 'CONFIRMED') === 'SKIPPED');
+  const noService = MEALS.some(m => activePlan[m]?.status === 'NO_SERVICE');
+
   return (
     <main className="page-container">
+      {/* ── Monthly Mess Cut Policy Banner ──────────────────────────── */}
+      <div
+        className="p-3.5 sm:p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 transition-all"
+        style={{ background: 'var(--card)', borderColor: 'var(--line)', boxShadow: 'var(--card-shadow)' }}
+      >
+        <div className="flex items-start sm:items-center gap-3">
+          <span className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0 bg-[#FDF7EA] border border-[#E3CB9B] text-[#F47A35]">
+            <span className="material-symbols-outlined" style={{ fontSize: 20 }}>event_busy</span>
+          </span>
+          <div>
+            <span className="font-extrabold text-xs sm:text-sm block" style={{ color: 'var(--text-dark)' }}>
+              Monthly Mess Cut Policy
+            </span>
+            <span className="text-[11px] sm:text-xs font-semibold block mt-0.5" style={{ color: 'var(--text-muted)' }}>
+              Note: A student can take up to a maximum of <strong>10 mess cuts per month</strong>.
+            </span>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 self-start sm:self-auto px-3 py-1.5 rounded-xl border bg-[#FDF7EA] border-[#E3CB9B]">
+          <span className="text-[10px] font-black uppercase text-[#9B7B52]">Policy:</span>
+          <span className="text-xs font-black text-[#F47A35] font-mono">Max 10 Cuts / Month</span>
+        </div>
+      </div>
+
       {errorMsg && (
         <div
           className="mb-4 px-3.5 py-3 rounded-xl text-xs font-bold flex items-start gap-2"
@@ -124,9 +151,6 @@ export const MealPlanningView: React.FC = () => {
         </div>
       )}
 
-      <button className="btn-secondary mb-4" disabled={isLocked || MEALS.some(m => activePlan[m]?.status === "NO_SERVICE")} onClick={handleFullDay}>
-        {saving ? "Saving…" : MEALS.every(m => activePlan[m]?.status === "SKIPPED") ? "Restore all meals" : "Skip the whole day"}
-      </button>
       {/* ── Date selector ──────────────────────────────────────────── */}
       <div className="flex gap-2.5 pb-4 overflow-x-auto hide-scrollbar snap-x lg:flex-wrap lg:overflow-visible lg:pb-5">
         {dateChips.map(date => {
@@ -150,6 +174,65 @@ export const MealPlanningView: React.FC = () => {
             </button>
           );
         })}
+      </div>
+
+      {/* ── Full-Day Mess Cut Master Toggle Card ───────────────────── */}
+      <div
+        className="p-4 rounded-2xl border mb-4 flex items-center justify-between gap-3 sm:gap-4 transition-all shadow-xs"
+        style={{
+          background: isFullDayCut ? '#FFF0F0' : 'var(--card)',
+          borderColor: isFullDayCut ? '#F87171' : 'var(--line)',
+        }}
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <span
+            className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg shrink-0 ${
+              isFullDayCut ? 'bg-[#FEE2E2] text-[#DC2626]' : 'bg-[#FDF7EA] text-[#F47A35] border border-[#E3CB9B]'
+            }`}
+          >
+            {isFullDayCut ? '🚫' : '🍽️'}
+          </span>
+          <div className="min-w-0">
+            <h4
+              className="font-display text-[15px] font-extrabold flex flex-wrap items-center gap-2"
+              style={{ color: 'var(--text-dark)' }}
+            >
+              <span>Full-Day Mess Cut</span>
+              {isFullDayCut && (
+                <span className="px-2 py-0.5 bg-[#DC2626] text-white text-[10px] font-black rounded-full uppercase tracking-wider">
+                  ALL MEALS SKIPPED
+                </span>
+              )}
+            </h4>
+            <p className="text-xs font-semibold truncate sm:whitespace-normal" style={{ color: 'var(--text-muted)' }}>
+              {noService
+                ? 'The mess is not serving on this day, so there is nothing to opt out of.'
+                : isFullDayCut
+                ? 'Opted out of Breakfast, Lunch, and Dinner for this entire day.'
+                : 'Toggle ON to take a full-day mess cut (opts out of Breakfast, Lunch, and Dinner at once).'}
+            </p>
+          </div>
+        </div>
+
+        <div className="shrink-0">
+          {isLocked || noService ? (
+            <span className="text-xs font-bold flex items-center gap-1" style={{ color: 'var(--text-muted)' }}>
+              <span className="material-symbols-outlined text-[16px]">lock</span>
+              {saving ? 'Saving…' : 'Locked'}
+            </span>
+          ) : (
+            <label className="stitch-toggle" title={isFullDayCut ? 'Cancel Full-Day Mess Cut' : 'Take Full-Day Mess Cut'}>
+              <input
+                type="checkbox"
+                checked={isFullDayCut}
+                onChange={handleFullDay}
+                aria-label="Full-Day Mess Cut Toggle"
+              />
+              <div className="stitch-toggle-track" />
+              <div className="stitch-toggle-thumb" />
+            </label>
+          )}
+        </div>
       </div>
 
       {/* ── Day summary (desktop) ──────────────────────────────────── */}

@@ -2,10 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { attendanceApi } from '../services/api';
 import { ChefMascot } from '../components/FoodIllustrations';
+import { AdminScannerView } from './AdminScannerView';
 
 interface StudentQrViewProps {
   studentName: string;
   regNo: string;
+  /** True when the mess office has granted this student scanner access. */
+  canScan?: boolean;
 }
 
 type MealType = 'Breakfast' | 'Lunch' | 'Dinner';
@@ -26,7 +29,8 @@ const MEAL_SCHEDULE: Record<MealType, string> = {
 
 const MEALS: MealType[] = ['Breakfast', 'Lunch', 'Dinner'];
 
-export const StudentQrView: React.FC<StudentQrViewProps> = ({ studentName, regNo }) => {
+export const StudentQrView: React.FC<StudentQrViewProps> = ({ studentName, regNo, canScan = false }) => {
+  const [activeSubView, setActiveSubView] = useState<'scanner' | 'pass'>('pass');
   const [secondsLeft, setSecondsLeft] = useState(60);
   const [mealType, setMealType] = useState<MealType>(getCurrentMealType());
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -82,6 +86,53 @@ export const StudentQrView: React.FC<StudentQrViewProps> = ({ studentName, regNo
 
   return (
     <main className="page-container space-y-4">
+      {/* Committee officers get the scanner on this screen too, so they never
+          have to hunt for a second destination while a queue is waiting. The
+          grant comes from the server, not from local storage. */}
+      {canScan && (
+        <div className="p-4 bg-[#16a34a]/10 border border-[#16a34a]/30 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs shadow-xs">
+          <div className="flex items-center gap-2.5">
+            <span className="material-symbols-outlined text-[26px] text-[#16a34a]">stars</span>
+            <div>
+              <h4 className="font-extrabold text-[#2D1A0E] text-sm flex items-center gap-1.5">
+                Mess Committee Officer Mode
+              </h4>
+              <p className="text-[#15803d] font-semibold mt-0.5">
+                The scanner is enabled for you, so you can take attendance for fellow students. Your
+                own pass still has to be scanned like everyone else&rsquo;s.
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0" role="tablist" aria-label="Committee view">
+            <button
+              role="tab"
+              aria-selected={activeSubView === 'scanner'}
+              onClick={() => setActiveSubView('scanner')}
+              className={`px-3.5 py-1.5 rounded-xl font-black text-xs cursor-pointer transition-all flex items-center gap-1 ${
+                activeSubView === 'scanner' ? 'bg-[#16a34a] text-white shadow-xs' : 'bg-white text-[#2D1A0E] border border-[#E3CB9B]'
+              }`}
+            >
+              <span className="material-symbols-outlined text-[16px]">qr_code_scanner</span>
+              <span>Scanner</span>
+            </button>
+            <button
+              role="tab"
+              aria-selected={activeSubView === 'pass'}
+              onClick={() => setActiveSubView('pass')}
+              className={`px-3.5 py-1.5 rounded-xl font-black text-xs cursor-pointer transition-all flex items-center gap-1 ${
+                activeSubView === 'pass' ? 'bg-[#F47A35] text-white shadow-xs' : 'bg-white text-[#2D1A0E] border border-[#E3CB9B]'
+              }`}
+            >
+              <span className="material-symbols-outlined text-[16px]">qr_code_2</span>
+              <span>My Pass</span>
+            </button>
+          </div>
+        </div>
+      )}
+
+      {canScan && activeSubView === 'scanner' ? (
+        <AdminScannerView />
+      ) : (
       <div className="mx-auto w-full max-w-[440px] lg:max-w-none lg:grid lg:grid-cols-[minmax(0,420px)_minmax(0,1fr)] lg:gap-8 lg:items-start">
         {/* ── The pass ───────────────────────────────────────────── */}
         <div>
@@ -295,6 +346,7 @@ export const StudentQrView: React.FC<StudentQrViewProps> = ({ studentName, regNo
           </div>
         </div>
       </div>
+      )}
     </main>
   );
 };

@@ -74,7 +74,7 @@ export const CreateAdminModal: React.FC<CreateAdminModalProps> = ({ isOpen, onCl
         </button>
 
         <div className="text-center space-y-1">
-          <div className="w-12 h-12 rounded-full bg-[#B7470D]/10 text-[#923606] flex items-center justify-center mx-auto mb-2">
+          <div className="w-12 h-12 rounded-full bg-[#F47A35]/10 text-[#D45E1A] flex items-center justify-center mx-auto mb-2">
             <span className="material-symbols-outlined text-[28px]">admin_panel_settings</span>
           </div>
           <h2 className="text-2xl font-bold text-[#151c27]">Create Admin Account</h2>
@@ -92,8 +92,8 @@ export const CreateAdminModal: React.FC<CreateAdminModalProps> = ({ isOpen, onCl
               </span>
             </div>
 
-            <div className="p-4 rounded-xl border border-[#B7470D]/30 bg-[#B7470D]/5 space-y-2">
-              <p className="text-xs font-bold text-[#923606] flex items-center gap-1.5">
+            <div className="p-4 rounded-xl border border-[#F47A35]/30 bg-[#F47A35]/5 space-y-2">
+              <p className="text-xs font-bold text-[#D45E1A] flex items-center gap-1.5">
                 <span className="material-symbols-outlined text-[16px]">key</span>
                 One-time setup code
               </p>
@@ -118,7 +118,7 @@ export const CreateAdminModal: React.FC<CreateAdminModalProps> = ({ isOpen, onCl
                       () => setCopied(false),
                     );
                   }}
-                  className="shrink-0 px-3 py-2.5 bg-[#B7470D] text-white text-xs font-semibold rounded-lg hover:bg-[#923606] transition-colors cursor-pointer"
+                  className="shrink-0 px-3 py-2.5 bg-[#F47A35] text-white text-xs font-semibold rounded-lg hover:bg-[#D45E1A] transition-colors cursor-pointer"
                 >
                   {copied ? 'Copied' : 'Copy'}
                 </button>
@@ -216,7 +216,7 @@ export const CreateAdminModal: React.FC<CreateAdminModalProps> = ({ isOpen, onCl
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-[#B7470D] text-white font-semibold text-sm rounded-xl hover:bg-[#923606] transition-colors shadow-xs flex items-center justify-center gap-2 cursor-pointer"
+            className="w-full py-3 bg-[#F47A35] text-white font-semibold text-sm rounded-xl hover:bg-[#D45E1A] transition-colors shadow-xs flex items-center justify-center gap-2 cursor-pointer"
           >
             {loading ? (
               <span className="material-symbols-outlined animate-spin text-[20px]">refresh</span>

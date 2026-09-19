@@ -244,7 +244,7 @@ export function App() {
             )}
             {currentTab === 'calendar' && <MealPlanningView />}
             {currentTab === 'qr' && (
-              <StudentQrView studentName={studentInfo.name} regNo={studentInfo.regNo} />
+              <StudentQrView studentName={studentInfo.name} regNo={studentInfo.regNo} canScan={canScan} />
             )}
             {currentTab === 'admin-scanner' && canScan && (
               <AdminScannerView />
