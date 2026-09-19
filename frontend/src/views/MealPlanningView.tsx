@@ -30,7 +30,13 @@ const MEALS: MealKey[] = ['breakfast', 'lunch', 'dinner'];
 export const MealPlanningView: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [mealPlans, setMealPlans] = useState<any[]>([]);
-  const [saving, setSaving] = useState(false);
+  // WHICH control is waiting on the server, not WHETHER one is. A single
+  // shared boolean meant that saving one meal put every other meal into the
+  // locked state as well: all three toggles vanished, were replaced by the
+  // grey "Locked" chip, and came back when the request finished. Toggling
+  // breakfast made lunch and dinner flicker for no reason.
+  const [savingMeal, setSavingMeal] = useState<MealKey | null>(null);
+  const [savingFullDay, setSavingFullDay] = useState(false);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -55,11 +61,19 @@ export const MealPlanningView: React.FC = () => {
     };
 
   const todayStr = new Date().toISOString().split('T')[0];
-  const isLocked = loading || saving || !activePlan.cutoff_at || Date.now() >= new Date(activePlan.cutoff_at).getTime();
+  // isLocked means the choice genuinely cannot be changed -- the cutoff has
+  // passed, or the day has not loaded. A request being in flight is not that,
+  // and must not be conflated with it.
+  const isLocked = loading || !activePlan.cutoff_at
+    || Date.now() >= new Date(activePlan.cutoff_at).getTime();
+  // A full-day save rewrites all three rows and then reloads them, so while it
+  // runs the individual toggles really do have to hold still. A single meal's
+  // save does not touch the other two, so they stay live.
+  const wholeDayBusy = savingFullDay;
 
   const handleToggle = async (meal: MealKey) => {
-    if (isLocked) return;
-    setSaving(true);
+    if (isLocked || wholeDayBusy || savingMeal === meal) return;
+    setSavingMeal(meal);
     const cur = activePlan[meal]?.status || 'CONFIRMED';
     const next = cur === 'CONFIRMED' ? 'SKIPPED' : 'CONFIRMED';
     try {
@@ -72,19 +86,19 @@ export const MealPlanningView: React.FC = () => {
       );
     } catch (e: any) {
       setErrorMsg(e.message || 'Could not save. The cutoff may have passed.');
-    } finally { setSaving(false); }
+    } finally { setSavingMeal(null); }
   };
 
   const handleFullDay = async () => {
-    if (isLocked) return;
-    setSaving(true);
+    if (isLocked || wholeDayBusy || savingMeal) return;
+    setSavingFullDay(true);
     const status = MEALS.every(m => activePlan[m]?.status === 'SKIPPED') ? 'CONFIRMED' : 'SKIPPED';
     try {
       await mealApi.updateFullDay(selectedDate, status);
       setMealPlans(await mealApi.getMeals());
       setErrorMsg(null);
     } catch (e: any) { setErrorMsg(e.message); }
-    finally { setSaving(false); }
+    finally { setSavingFullDay(false); }
   };
 
   const dateChips =
@@ -215,16 +229,22 @@ export const MealPlanningView: React.FC = () => {
         </div>
 
         <div className="shrink-0">
-          {isLocked || noService ? (
+          {savingFullDay ? (
+            <span className="text-xs font-bold flex items-center gap-1" style={{ color: 'var(--text-muted)' }} role="status">
+              <span className="material-symbols-outlined animate-spin text-[16px]">progress_activity</span>
+              Saving…
+            </span>
+          ) : isLocked || noService ? (
             <span className="text-xs font-bold flex items-center gap-1" style={{ color: 'var(--text-muted)' }}>
               <span className="material-symbols-outlined text-[16px]">lock</span>
-              {saving ? 'Saving…' : 'Locked'}
+              Locked
             </span>
           ) : (
             <label className="stitch-toggle" title={isFullDayCut ? 'Cancel Full-Day Mess Cut' : 'Take Full-Day Mess Cut'}>
               <input
                 type="checkbox"
                 checked={isFullDayCut}
+                disabled={Boolean(savingMeal)}
                 onChange={handleFullDay}
                 aria-label="Full-Day Mess Cut Toggle"
               />
@@ -321,7 +341,18 @@ export const MealPlanningView: React.FC = () => {
                       {confirmed ? "I'm eating" : 'Skipping'}
                     </span>
 
-                    {isLocked ? (
+                    {savingMeal === meal ? (
+                      <span
+                        className="text-[11px] font-bold flex items-center gap-1"
+                        style={{ color: 'var(--text-muted)' }}
+                        role="status"
+                      >
+                        <span className="material-symbols-outlined animate-spin" style={{ fontSize: 15 }}>
+                          progress_activity
+                        </span>
+                        Saving…
+                      </span>
+                    ) : isLocked ? (
                       <span
                         className="text-[11px] font-bold flex items-center gap-1"
                         style={{ color: 'var(--text-muted)' }}
@@ -334,7 +365,7 @@ export const MealPlanningView: React.FC = () => {
                         <input
                           type="checkbox"
                           checked={confirmed}
-                          disabled={isLocked || activePlan[meal]?.status === "NO_SERVICE"}
+                          disabled={wholeDayBusy || activePlan[meal]?.status === "NO_SERVICE"}
                           onChange={() => handleToggle(meal)}
                           aria-label={`${MEAL_LABELS[meal]} — ${confirmed ? 'eating' : 'skipping'}`}
                         />
