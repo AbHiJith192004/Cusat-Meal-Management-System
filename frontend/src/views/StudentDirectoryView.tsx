@@ -561,7 +561,7 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({ isSu
                       } catch (error: any) { setScannerError(error.message); }
                       finally { setScannerBusy(false); }
                     }}
-                    className="w-full py-2 bg-[#16a34a] hover:bg-[#15803d] disabled:opacity-50 text-white font-bold text-xs rounded-xl cursor-pointer"
+                    className="w-full py-2 bg-[#15803d] hover:bg-[#126b33] disabled:opacity-50 text-white font-bold text-xs rounded-xl cursor-pointer"
                   >
                     {scannerBusy ? 'Working…' : 'Let this student scan meals'}
                   </button>

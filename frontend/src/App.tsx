@@ -23,13 +23,37 @@ import { authApi, notificationsApi, studentApi, getAuthToken, restoreSession } f
 import { PwaInstallPrompt } from './components/PwaInstallPrompt';
 import { LoginModal } from './components/LoginModal';
 
+
+/**
+ * Which screen to open on.
+ *
+ * The PWA manifest's shortcuts -- long-press the app icon for "Meal Schedule"
+ * or "Mess Pass" -- point at /?tab=calendar and /?tab=qr. Nothing read that
+ * parameter, so both shortcuts silently dropped the student wherever they had
+ * been last. Only the two tabs the shortcuts actually use are accepted, so a
+ * crafted link cannot deep-link into an admin screen; the role check in the
+ * view switcher decides what renders regardless.
+ */
+const SHORTCUT_TABS: ActiveTab[] = ['calendar', 'qr'];
+
+const shortcutTab = (): ActiveTab | null => {
+  try {
+    const asked = new URLSearchParams(window.location.search).get('tab') as ActiveTab | null;
+    if (asked && SHORTCUT_TABS.includes(asked)) return asked;
+  } catch {
+    /* malformed query string - fall through to the remembered tab */
+  }
+  return null;
+};
+
+const requestedTab = (): ActiveTab =>
+  shortcutTab() || (localStorage.getItem('messconnect_tab') as ActiveTab) || 'home';
+
 export function App() {
   const [userRole, setUserRole] = useState<UserRole>(
     () => (localStorage.getItem('messconnect_role') as UserRole) || 'student'
   );
-  const [currentTab, setCurrentTab] = useState<ActiveTab>(
-    () => (localStorage.getItem('messconnect_tab') as ActiveTab) || 'home'
-  );
+  const [currentTab, setCurrentTab] = useState<ActiveTab>(() => requestedTab());
   const [studentInfo, setStudentInfo] = useState(INITIAL_STUDENT);
   const [unreadAlertsCount, setUnreadAlertsCount] = useState(0);
   const [isLoginOpen, setIsLoginOpen] = useState<boolean>(false);
@@ -72,7 +96,13 @@ export function App() {
           setCanScan(Boolean(profile.capabilities?.attendance_scanner));
           setServerRole(profile.role || 'STUDENT');
           setUserRole(verifiedRole);
-          setCurrentTab(verifiedRole === "admin" ? "admin-dashboard" : "home");
+          // A shortcut the student deliberately tapped outranks the default
+          // landing screen; otherwise restoring the session would throw them
+          // back to Home and the shortcut would look broken again.
+          const asked = shortcutTab();
+          setCurrentTab(asked && verifiedRole === "student"
+            ? asked
+            : verifiedRole === "admin" ? "admin-dashboard" : "home");
           setStudentInfo((prev) => ({
             ...prev,
             name: profile.name || prev.name,

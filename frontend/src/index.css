@@ -53,8 +53,21 @@
 
   --text-dark:       #2D1A0E;
   --text-body:       #5C3D1E;
-  --text-muted:      #9B7B52;
-  --text-light:      #C4A882;
+  --text-muted:      #8A6B45;
+  --text-light:      #9B7B52;
+
+
+/* ---------------------------------------------------------------------------
+   CONTRAST. Measured against WCAG 2.1 AA (4.5:1 for text under 18.66px bold).
+   --text-muted was #9B7B52, which is 3.93:1 on a white card and 3.67:1 on the
+   page background -- it carries most of the secondary copy in the app, so it
+   was the single largest legibility problem. #8A6B45 is the same brown one
+   step darker: 4.92:1 on card, 4.61:1 on background.
+   --text-light was #C4A882 at 2.27:1, which is not readable text at any size;
+   it is now the old muted value and is reserved for non-text decoration
+   (chevrons, dividers), where the contrast minimum does not apply.
+   The brand --orange is deliberately NOT darkened here: see .btn-primary.
+   --------------------------------------------------------------------------- */
 
   --line:            #EFDCB4;
   --line-soft:       #F6EAD2;

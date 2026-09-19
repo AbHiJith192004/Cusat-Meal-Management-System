@@ -289,7 +289,7 @@ export function AdminOverviewView() {
               type="button"
               onClick={() => void autoMarkPresent()}
               disabled={marking || loading || !data}
-              className="px-4 py-2.5 bg-[#16a34a] hover:bg-[#15803d] disabled:opacity-60 text-white font-black text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center justify-center gap-2 hover:scale-[1.02]"
+              className="px-4 py-2.5 bg-[#15803d] hover:bg-[#126b33] disabled:opacity-60 text-white font-black text-xs rounded-xl shadow-xs transition-all cursor-pointer flex items-center justify-center gap-2 hover:scale-[1.02]"
               title="Record Present for every opted-in student who has not been scanned for the meal now being served. Mess cuts and skips are excluded."
             >
               <span className={`material-symbols-outlined text-[18px] ${marking ? 'animate-spin' : ''}`}>

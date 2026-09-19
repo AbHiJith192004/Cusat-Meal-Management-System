@@ -392,9 +392,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       </div>
 
       {/* Required by the icon set's licence */}
+      {/* --text-light is decoration-only now; 11px credit text needs --text-muted. */}
       <p
         className="text-[11px] font-semibold text-center mt-8 lg:text-left"
-        style={{ color: 'var(--text-light)' }}
+        style={{ color: 'var(--text-muted)' }}
       >
         {ART_CREDIT}
       </p>

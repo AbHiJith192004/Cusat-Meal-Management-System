@@ -1,0 +1,7 @@
+# CUSAT MessConnect is a private service for enrolled hostel students and mess
+# office staff. Every useful page is behind a sign-in, and student names, meal
+# records and bills must never appear in a search result. Nothing here is meant
+# to be indexed, so there is no sitemap either -- a sitemap would only advertise
+# URLs we are asking crawlers to stay out of.
+User-agent: *
+Disallow: /

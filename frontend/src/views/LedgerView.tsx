@@ -485,7 +485,7 @@ export const LedgerView: React.FC = () => {
                   try { await adminApi.downloadReportFile(year, month, 'pdf'); setShowExport(false); }
                   catch (e: any) { setError(e?.message || 'Export failed.'); setShowExport(false); }
                 }}
-                className="flex-1 py-2.5 bg-[#16a34a] hover:bg-[#15803d] text-white font-semibold rounded-xl cursor-pointer"
+                className="flex-1 py-2.5 bg-[#15803d] hover:bg-[#126b33] text-white font-semibold rounded-xl cursor-pointer"
               >
                 Download PDF
               </button>

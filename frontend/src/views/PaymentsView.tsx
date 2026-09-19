@@ -306,7 +306,7 @@ export const PaymentsView: React.FC = () => {
             <button
               onClick={exportSheet}
               disabled={shown.length === 0}
-              className="px-4 py-2 bg-[#16a34a] hover:bg-[#15803d] disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap"
+              className="px-4 py-2 bg-[#15803d] hover:bg-[#126b33] disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap"
             >
               <span className="material-symbols-outlined text-[18px]">table_chart</span>
               <span>Export Payments Excel</span>
@@ -391,7 +391,7 @@ export const PaymentsView: React.FC = () => {
                           <div className="flex items-center justify-center gap-1.5">
                             <button
                               onClick={() => { setReviewing({row, decision: 'VERIFIED'}); setNote(''); setError(''); }}
-                              className="px-2.5 py-1 bg-[#16a34a] hover:bg-[#15803d] text-white font-bold text-xs rounded-lg transition-colors cursor-pointer"
+                              className="px-2.5 py-1 bg-[#15803d] hover:bg-[#126b33] text-white font-bold text-xs rounded-lg transition-colors cursor-pointer"
                             >
                               Verify
                             </button>
@@ -478,7 +478,7 @@ export const PaymentsView: React.FC = () => {
                 disabled={busy || (reviewing.decision === 'REJECTED' && note.trim().length < 5)}
                 className={`flex-1 py-2.5 text-white font-semibold rounded-xl cursor-pointer disabled:opacity-50 ${
                   reviewing.decision === 'VERIFIED'
-                    ? 'bg-[#16a34a] hover:bg-[#15803d]'
+                    ? 'bg-[#15803d] hover:bg-[#126b33]'
                     : 'bg-[#dc2626] hover:bg-[#b91c1c]'
                 }`}
               >

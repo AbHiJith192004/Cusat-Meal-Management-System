@@ -681,7 +681,7 @@ export const BillingManagementView: React.FC = () => {
             <button
               onClick={exportStudentBilling}
               disabled={studentBilling.length === 0}
-              className="px-4 py-2 bg-[#16a34a] hover:bg-[#15803d] disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap"
+              className="px-4 py-2 bg-[#15803d] hover:bg-[#126b33] disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap"
             >
               <span className="material-symbols-outlined text-[18px]">table_chart</span>
               <span>Export Student Billing Excel</span>
