@@ -4,9 +4,18 @@ import {adminApi, menuApi} from '../services/api';
 const MEALS = ['BREAKFAST', 'LUNCH', 'DINNER'] as const;
 type Meal = typeof MEALS[number];
 
+/** Colour per meal, matching the Overview cards. */
+const MEAL_STYLE: Record<Meal, {icon: string; tint: string; ink: string; card: string}> = {
+  BREAKFAST: {icon: 'bakery_dining', tint: '#B7470D', ink: '#B7470D', card: '#FFF6EE'},
+  LUNCH:     {icon: 'lunch_dining',  tint: '#3F9E52', ink: '#3F9E52', card: '#EFF9F1'},
+  DINNER:    {icon: 'dinner_dining', tint: '#6B4FA8', ink: '#6B4FA8', card: '#F3EFFB'},
+};
+
+const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+
 const iso = (d: Date) => {
-  // Local calendar date, not UTC. toISOString() shifts backwards for IST and
-  // would publish Monday's menu onto Sunday for anyone editing before 05:30.
+  // Local calendar date. toISOString() shifts backwards for IST and would
+  // publish Monday's menu onto Sunday for anyone editing before 05:30.
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 };
@@ -25,20 +34,20 @@ const addDays = (d: Date, n: number) => {
   return copy;
 };
 
-interface Draft { items: string; notes: string }
-
 export const WeeklyMenuView: React.FC = () => {
   const [monday, setMonday] = useState(() => weekStart(new Date()));
+  // Which weekday is open. Defaults to today when the current week is shown.
+  const [dayIndex, setDayIndex] = useState(() => (new Date().getDay() + 6) % 7);
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
-  // Which cell is open for editing, as "YYYY-MM-DD|MEAL".
-  const [editing, setEditing] = useState<string | null>(null);
-  const [draft, setDraft] = useState<Draft>({items: '', notes: ''});
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState<Record<string, {items: string; notes: string}>>({});
   const [saving, setSaving] = useState(false);
 
   const days = Array.from({length: 7}, (_, i) => addDays(monday, i));
+  const day = days[dayIndex];
   const todayIso = iso(new Date());
 
   const load = useCallback(async () => {
@@ -53,30 +62,37 @@ export const WeeklyMenuView: React.FC = () => {
   }, [monday]);
   useEffect(() => { load(); }, [load]);
 
-  const cellFor = (day: Date, meal: Meal) =>
-    rows.find(r => r.menu_date === iso(day) && r.meal_type === meal);
+  const cellFor = (d: Date, meal: Meal) =>
+    rows.find(r => r.menu_date === iso(d) && r.meal_type === meal);
 
-  const openEditor = (day: Date, meal: Meal) => {
-    const existing = cellFor(day, meal);
-    setEditing(`${iso(day)}|${meal}`);
-    setDraft({
-      items: Array.isArray(existing?.items) ? existing.items.join(', ') : '',
-      notes: existing?.notes || '',
-    });
-    setMessage(''); setError('');
+  const startEditing = () => {
+    const next: Record<string, {items: string; notes: string}> = {};
+    for (const meal of MEALS) {
+      const existing = cellFor(day, meal);
+      next[meal] = {
+        items: Array.isArray(existing?.items) ? existing.items.join(', ') : '',
+        notes: existing?.notes || '',
+      };
+    }
+    setDraft(next); setEditing(true); setMessage(''); setError('');
   };
 
-  const save = async (day: Date, meal: Meal) => {
-    const items = draft.items.split(',').map(x => x.trim()).filter(Boolean);
-    if (items.length === 0) {
-      setError('Add at least one item, separated by commas.');
+  const saveDay = async () => {
+    // Only the meals that were actually given items are published, so
+    // opening the editor and saving does not wipe a meal left blank.
+    const toSave = MEALS.filter(m => (draft[m]?.items || '').trim().length > 0);
+    if (toSave.length === 0) {
+      setError('Add items to at least one meal, separated by commas.');
       return;
     }
     setSaving(true); setError('');
     try {
-      await adminApi.publishMenu(iso(day), meal, items, draft.notes.trim() || undefined);
-      setEditing(null);
-      setMessage(`${meal.charAt(0) + meal.slice(1).toLowerCase()} published for ${day.toLocaleDateString('en-IN', {weekday: 'long', day: 'numeric', month: 'short'})}.`);
+      for (const meal of toSave) {
+        const items = draft[meal].items.split(',').map(x => x.trim()).filter(Boolean);
+        await adminApi.publishMenu(iso(day), meal, items, draft[meal].notes.trim() || undefined);
+      }
+      setEditing(false);
+      setMessage(`${DAYS[dayIndex]}'s menu published.`);
       await load();
     } catch (e: any) {
       setError(e?.message || 'Could not publish that menu.');
@@ -87,96 +103,129 @@ export const WeeklyMenuView: React.FC = () => {
 
   return (
     <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="flex items-center gap-2 text-sm font-semibold" style={{color: 'var(--text-body)'}}>
+          <span className="material-symbols-outlined" style={{fontSize: 18}}>calendar_month</span>
+          {day.toLocaleDateString('en-IN', {weekday: 'short', month: 'short', day: 'numeric', year: 'numeric'})}
+        </p>
+        <div className="flex items-center gap-2">
+          <button className="btn-secondary" onClick={() => load()} disabled={loading}>
+            <span className={`material-symbols-outlined ${loading ? 'animate-spin' : ''}`}>refresh</span>
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="flex items-center gap-2 font-display text-xl font-bold" style={{color: 'var(--orange)'}}>
+            <span className="material-symbols-outlined">restaurant</span>
+            Weekly Mess Menu Management
+          </h2>
+          <p className="text-sm" style={{color: 'var(--text-muted)'}}>
+            Inspect and edit official food items for Monday through Sunday
+          </p>
+        </div>
+        <span className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold"
+              style={{background: '#E8F6EC', color: '#3F9E52'}}>
+          <span style={{fontSize: 18, lineHeight: 0}}>•</span>
+          {publishedCount} of 21 meals published
+        </span>
+      </div>
+
       <div className="flex flex-wrap items-center gap-2">
-        <button className="btn-secondary" onClick={() => setMonday(addDays(monday, -7))}>Previous week</button>
-        <button className="btn-secondary" onClick={() => setMonday(weekStart(new Date()))}>This week</button>
-        <button className="btn-secondary" onClick={() => setMonday(addDays(monday, 7))}>Next week</button>
-        <span className="text-sm font-semibold" style={{color: 'var(--text-dark)'}}>
-          {monday.toLocaleDateString('en-IN', {day: 'numeric', month: 'short'})}
-          {' – '}
-          {addDays(monday, 6).toLocaleDateString('en-IN', {day: 'numeric', month: 'short', year: 'numeric'})}
-        </span>
-        <span className="text-xs" style={{color: 'var(--text-body)'}}>
-          {loading ? 'Loading…' : `${publishedCount} of 21 meals published`}
-        </span>
+        <button className="btn-secondary text-xs" onClick={() => setMonday(addDays(monday, -7))}>‹ Previous</button>
+        {days.map((d, i) => (
+          <button key={iso(d)} onClick={() => { setDayIndex(i); setEditing(false); }}
+                  className={i === dayIndex ? 'btn-primary text-xs' : 'btn-secondary text-xs'}
+                  title={d.toLocaleDateString('en-IN', {day: 'numeric', month: 'short'})}>
+            {DAYS[i]}
+            {iso(d) === todayIso && <span style={{marginLeft: 4, fontSize: 9}}>●</span>}
+          </button>
+        ))}
+        <button className="btn-secondary text-xs" onClick={() => setMonday(addDays(monday, 7))}>Next ›</button>
       </div>
 
       {error && <p role="alert" className="text-sm" style={{color: 'var(--red)'}}>{error}</p>}
-      {message && <p className="text-sm" style={{color: 'var(--green, #006c49)'}}>{message}</p>}
+      {message && <p className="text-sm" style={{color: '#3F9E52'}}>{message}</p>}
 
-      <div className="space-y-3">
-        {days.map(day => {
-          const isToday = iso(day) === todayIso;
-          return (
-            <div key={iso(day)} className="rounded-2xl p-3 sm:p-4"
-                 style={{background: 'var(--card)', border: isToday ? '2px solid var(--primary, #B7470D)' : '1px solid var(--card-border)'}}>
-              <div className="flex items-baseline gap-2 mb-2">
-                <h3 className="font-bold" style={{color: 'var(--text-dark)'}}>
-                  {day.toLocaleDateString('en-IN', {weekday: 'long'})}
-                </h3>
-                <span className="text-xs" style={{color: 'var(--text-body)'}}>
-                  {day.toLocaleDateString('en-IN', {day: 'numeric', month: 'short'})}
-                </span>
-                {isToday && <span className="text-[10px] font-bold uppercase tracking-wider" style={{color: 'var(--primary, #B7470D)'}}>Today</span>}
-              </div>
-
-              <div className="grid sm:grid-cols-3 gap-2">
-                {MEALS.map(meal => {
-                  const key = `${iso(day)}|${meal}`;
-                  const existing = cellFor(day, meal);
-                  const open = editing === key;
-                  return (
-                    <div key={meal} className="rounded-xl p-3" style={{background: 'var(--bg)'}}>
-                      <p className="text-[11px] font-bold uppercase tracking-wider mb-1" style={{color: 'var(--text-body)'}}>
-                        {meal.charAt(0) + meal.slice(1).toLowerCase()}
-                      </p>
-
-                      {open ? (
-                        <div className="space-y-2">
-                          <textarea className="stitch-input" rows={3} autoFocus
-                                    placeholder="Idli, Sambar, Chutney"
-                                    value={draft.items}
-                                    onChange={e => setDraft({...draft, items: e.target.value})} />
-                          <input className="stitch-input" placeholder="Note (optional)"
-                                 value={draft.notes}
-                                 onChange={e => setDraft({...draft, notes: e.target.value})} />
-                          <div className="flex gap-2">
-                            <button className="btn-primary text-xs" disabled={saving}
-                                    onClick={() => save(day, meal)}>
-                              {saving ? 'Saving…' : 'Publish'}
-                            </button>
-                            <button className="btn-secondary text-xs" disabled={saving}
-                                    onClick={() => setEditing(null)}>Cancel</button>
-                          </div>
-                        </div>
-                      ) : (
-                        <button className="text-left w-full" onClick={() => openEditor(day, meal)}>
-                          {existing ? (
-                            <>
-                              <span className="text-sm block" style={{color: 'var(--text-dark)'}}>
-                                {(Array.isArray(existing.items) ? existing.items : []).join(', ')}
-                              </span>
-                              {existing.notes && (
-                                <span className="text-xs block mt-1" style={{color: 'var(--text-body)'}}>
-                                  {existing.notes}
-                                </span>
-                              )}
-                            </>
-                          ) : (
-                            <span className="text-sm" style={{color: 'var(--text-body)'}}>
-                              Not published — tap to add
-                            </span>
-                          )}
-                        </button>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
+      <section className="stitch-card p-4 sm:p-6">
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b pb-4"
+             style={{borderColor: 'var(--line)'}}>
+          <div>
+            <h3 className="font-display text-2xl font-bold" style={{color: 'var(--text-dark)'}}>
+              {DAYS[dayIndex]} Menu Schedule
+            </h3>
+            <p className="text-sm" style={{color: 'var(--text-muted)'}}>
+              {day.toLocaleDateString('en-IN', {day: 'numeric', month: 'long', year: 'numeric'})}
+              {iso(day) === todayIso ? ' · today' : ''}
+            </p>
+          </div>
+          {editing ? (
+            <div className="flex gap-2">
+              <button className="btn-primary" onClick={saveDay} disabled={saving}>
+                {saving ? 'Publishing…' : 'Publish menu'}
+              </button>
+              <button className="btn-secondary" onClick={() => setEditing(false)} disabled={saving}>Cancel</button>
             </div>
-          );
-        })}
-      </div>
+          ) : (
+            <button className="btn-primary" onClick={startEditing}>
+              <span className="material-symbols-outlined" style={{fontSize: 18}}>edit</span>
+              Edit {DAYS[dayIndex]} Menu
+            </button>
+          )}
+        </div>
+
+        <div className="mt-4 grid gap-4 lg:grid-cols-3">
+          {MEALS.map(meal => {
+            const style = MEAL_STYLE[meal];
+            const existing = cellFor(day, meal);
+            return (
+              <div key={meal} className="rounded-2xl p-4"
+                   style={{background: style.card, border: '1px solid var(--card-border)'}}>
+                <div className="flex items-center gap-3">
+                  <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"
+                        style={{background: style.tint, color: '#fff'}}>
+                    <span className="material-symbols-outlined">{style.icon}</span>
+                  </span>
+                  <div>
+                    <p className="font-display text-lg font-bold" style={{color: 'var(--text-dark)'}}>
+                      {meal.charAt(0) + meal.slice(1).toLowerCase()}
+                    </p>
+                    {existing?.updated_at && !editing && (
+                      <p className="text-[11px]" style={{color: 'var(--text-muted)'}}>
+                        Updated {new Date(existing.updated_at).toLocaleString('en-IN')}
+                      </p>
+                    )}
+                  </div>
+                </div>
+
+                {editing ? (
+                  <div className="mt-3 space-y-2">
+                    <textarea className="stitch-input" rows={3} placeholder="Idli, Sambar, Chutney"
+                              value={draft[meal]?.items || ''}
+                              onChange={e => setDraft({...draft, [meal]: {...draft[meal], items: e.target.value}})} />
+                    <input className="stitch-input" placeholder="Note (optional)"
+                           value={draft[meal]?.notes || ''}
+                           onChange={e => setDraft({...draft, [meal]: {...draft[meal], notes: e.target.value}})} />
+                  </div>
+                ) : (
+                  <>
+                    <p className="mt-3 text-sm" style={{color: 'var(--text-dark)'}}>
+                      {existing && Array.isArray(existing.items) && existing.items.length > 0
+                        ? existing.items.join(', ')
+                        : <span style={{color: 'var(--text-muted)'}}>Not published for this day.</span>}
+                    </p>
+                    {existing?.notes && (
+                      <p className="mt-1 text-xs" style={{color: 'var(--text-muted)'}}>{existing.notes}</p>
+                    )}
+                  </>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </section>
     </div>
   );
 };
