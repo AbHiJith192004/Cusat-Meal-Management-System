@@ -216,7 +216,7 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({ isSu
             )}
             <button
               onClick={() => setShowAddModal(true)}
-              className="px-4 py-2 bg-[#F47A35] hover:bg-[#D45E1A] text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+              className="px-4 py-2 bg-[#F47A35] hover:bg-[#F68C51] text-[#2D1A0E] font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
             >
               <span className="material-symbols-outlined text-[16px]">person_add</span>
               Add Student
@@ -378,7 +378,7 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({ isSu
                       <td className="py-3 px-4 text-center">
                         <button
                           onClick={(e) => { e.stopPropagation(); openStudent(row); }}
-                          className="px-3 py-1 bg-[#F47A35]/10 hover:bg-[#F47A35] text-[#F47A35] hover:text-white font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1 mx-auto whitespace-nowrap"
+                          className="px-3 py-1 bg-[#F47A35]/10 hover:bg-[#F47A35] text-[#F47A35] hover:text-[#2D1A0E] font-bold text-xs rounded-xl transition-all cursor-pointer flex items-center justify-center gap-1 mx-auto whitespace-nowrap"
                         >
                           <span className="material-symbols-outlined text-[16px]">visibility</span>
                           Quick View
@@ -477,7 +477,7 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({ isSu
                   } catch (error: any) { setSetupError(error.message); }
                   finally { setSetupBusy(false); }
                 }}
-                className="w-full py-2 bg-[#F47A35] hover:bg-[#D45E1A] disabled:opacity-50 text-white font-bold text-xs rounded-xl cursor-pointer"
+                className="w-full py-2 bg-[#F47A35] hover:bg-[#F68C51] disabled:opacity-50 text-[#2D1A0E] font-bold text-xs rounded-xl cursor-pointer"
               >
                 {setupBusy ? 'Issuing…' : 'Issue one-use password setup code'}
               </button>
@@ -728,7 +728,7 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({ isSu
               <button
                 type="submit"
                 disabled={addLoading}
-                className="flex-1 py-2.5 bg-[#F47A35] hover:bg-[#D45E1A] text-white font-bold text-sm rounded-xl disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                className="flex-1 py-2.5 bg-[#F47A35] hover:bg-[#F68C51] text-[#2D1A0E] font-bold text-sm rounded-xl disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
               >
                 {addLoading ? (
                   <><span className="material-symbols-outlined animate-spin text-[18px]">refresh</span> Creating…</>

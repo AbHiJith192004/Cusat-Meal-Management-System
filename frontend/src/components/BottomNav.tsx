@@ -182,7 +182,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                           {unreadFor(item.id) && (
                             <span
                               className="text-[10px] font-black px-1.5 py-0.5 rounded-full shrink-0"
-                              style={{ background: 'var(--orange)', color: '#fff' }}
+                              style={{ background: 'var(--orange)', color: 'var(--on-orange)' }}
                             >
                               {unreadAlertsCount}
                             </span>

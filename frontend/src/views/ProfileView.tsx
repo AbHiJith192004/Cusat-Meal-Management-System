@@ -239,7 +239,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 className="inline-block text-[11px] font-bold px-2.5 py-1 rounded-full mt-2"
                 style={{
                   background: 'var(--orange-soft)',
-                  color: 'var(--orange-dark)',
+                  color: 'var(--orange-ink)',
                   border: '1px solid var(--orange-light)',
                   fontFamily: 'Nunito, sans-serif',
                 }}

@@ -170,7 +170,7 @@ export const LedgerView: React.FC = () => {
 
             <button
               onClick={() => setShowExport(true)}
-              className="px-4 py-2 bg-[#F47A35] hover:bg-[#D45E1A] text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+              className="px-4 py-2 bg-[#F47A35] hover:bg-[#F68C51] text-[#2D1A0E] font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
             >
               <span className="material-symbols-outlined text-[16px]">file_download</span>
               Download Ledger Summary
@@ -184,7 +184,7 @@ export const LedgerView: React.FC = () => {
                 key={t.id}
                 onClick={() => { setTab(t.id); setForm(f => ({...f, category: SUGGESTIONS[t.id][0]})); }}
                 className={`shrink-0 lg:flex-1 py-2.5 px-3.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 whitespace-nowrap transition-colors cursor-pointer ${
-                  tab === t.id ? 'bg-[#F47A35] text-white' : 'text-[#9B7B52] hover:bg-[#F7EEDA] hover:text-[#2D1A0E]'
+                  tab === t.id ? 'bg-[#F47A35] text-[#2D1A0E]' : 'text-[#9B7B52] hover:bg-[#F7EEDA] hover:text-[#2D1A0E]'
                 }`}
               >
                 <span className="material-symbols-outlined" style={{fontSize: 17}}>{t.icon}</span>
@@ -273,7 +273,7 @@ export const LedgerView: React.FC = () => {
                     <button
                       type="submit"
                       disabled={saving}
-                      className="w-full sm:w-auto px-4 py-2.5 bg-[#F47A35] hover:bg-[#D45E1A] disabled:opacity-60 text-white font-bold text-xs rounded-xl transition-colors cursor-pointer whitespace-nowrap"
+                      className="w-full sm:w-auto px-4 py-2.5 bg-[#F47A35] hover:bg-[#F68C51] disabled:opacity-60 text-[#2D1A0E] font-bold text-xs rounded-xl transition-colors cursor-pointer whitespace-nowrap"
                     >
                       {saving ? 'Saving…' : 'Log Entry'}
                     </button>
@@ -476,7 +476,7 @@ export const LedgerView: React.FC = () => {
                   try { await adminApi.downloadReportFile(year, month, 'excel'); setShowExport(false); }
                   catch (e: any) { setError(e?.message || 'Export failed.'); setShowExport(false); }
                 }}
-                className="flex-1 py-2.5 bg-[#F47A35] hover:bg-[#D45E1A] text-white font-semibold rounded-xl cursor-pointer"
+                className="flex-1 py-2.5 bg-[#F47A35] hover:bg-[#F68C51] text-[#2D1A0E] font-semibold rounded-xl cursor-pointer"
               >
                 Download Excel (.xlsx)
               </button>

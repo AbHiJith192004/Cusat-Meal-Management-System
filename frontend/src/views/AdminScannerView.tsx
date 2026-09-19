@@ -199,7 +199,7 @@ export const AdminScannerView: React.FC = () => {
             className="text-[11px] font-bold px-2.5 py-1 rounded-full"
             style={{
               background: 'var(--orange-soft)',
-              color: 'var(--orange-dark)',
+              color: 'var(--orange-ink)',
               border: '1px solid var(--orange-light)',
               fontFamily: 'Nunito, sans-serif',
             }}

@@ -432,7 +432,7 @@ export function AdminOverviewView() {
                 >
                   <span
                     className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
-                    style={{ background: 'var(--orange-soft)', color: 'var(--orange-dark)' }}
+                    style={{ background: 'var(--orange-soft)', color: 'var(--orange-ink)' }}
                   >
                     <span className="material-symbols-outlined" style={{ fontSize: 20 }}>{card.icon}</span>
                   </span>

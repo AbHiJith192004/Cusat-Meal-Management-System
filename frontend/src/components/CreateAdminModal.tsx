@@ -120,7 +120,7 @@ export const CreateAdminModal: React.FC<CreateAdminModalProps> = ({ isOpen, onCl
                       () => setCopied(false),
                     );
                   }}
-                  className="shrink-0 px-3 py-2.5 bg-[#F47A35] text-white text-xs font-semibold rounded-lg hover:bg-[#D45E1A] transition-colors cursor-pointer"
+                  className="shrink-0 px-3 py-2.5 bg-[#F47A35] text-[#2D1A0E] text-xs font-semibold rounded-lg hover:bg-[#F68C51] transition-colors cursor-pointer"
                 >
                   {copied ? 'Copied' : 'Copy'}
                 </button>
@@ -218,7 +218,7 @@ export const CreateAdminModal: React.FC<CreateAdminModalProps> = ({ isOpen, onCl
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-[#F47A35] text-white font-semibold text-sm rounded-xl hover:bg-[#D45E1A] transition-colors shadow-xs flex items-center justify-center gap-2 cursor-pointer"
+            className="w-full py-3 bg-[#F47A35] text-[#2D1A0E] font-semibold text-sm rounded-xl hover:bg-[#F68C51] transition-colors shadow-xs flex items-center justify-center gap-2 cursor-pointer"
           >
             {loading ? (
               <span className="material-symbols-outlined animate-spin text-[20px]">refresh</span>

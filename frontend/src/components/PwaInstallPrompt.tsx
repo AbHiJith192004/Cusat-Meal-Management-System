@@ -65,7 +65,7 @@ export const PwaInstallPrompt: React.FC = () => {
       <button
         onClick={handleInstall}
         className="px-3 py-1.5 rounded-full text-[11px] font-black shrink-0 cursor-pointer"
-        style={{ background: 'var(--orange)', color: '#fff' }}
+        style={{ background: 'var(--orange)', color: 'var(--on-orange)' }}
       >
         Install
       </button>

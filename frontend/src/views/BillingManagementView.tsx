@@ -272,7 +272,7 @@ export const BillingManagementView: React.FC = () => {
                 <button
                   onClick={() => run(async () => { await adminApi.downloadReportFile(year, month, 'excel'); })}
                   disabled={busy}
-                  className="px-3.5 py-2 bg-[#F47A35] hover:bg-[#D45E1A] text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
+                  className="px-3.5 py-2 bg-[#F47A35] hover:bg-[#F68C51] text-[#2D1A0E] font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-1.5"
                 >
                   <span className="material-symbols-outlined text-[18px]">table_chart</span>
                   <span>Export Excel</span>
@@ -438,7 +438,7 @@ export const BillingManagementView: React.FC = () => {
             </div>
 
             {/* Mess daily rate */}
-            <div className="bg-[#F47A35] text-white p-6 rounded-2xl shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="bg-[#F47A35] text-[#2D1A0E] p-6 rounded-2xl shadow-lg flex flex-col sm:flex-row items-center justify-between gap-4">
               <div className="space-y-1 text-center sm:text-left">
                 <span className="text-xs font-bold uppercase tracking-wider bg-white/20 px-3 py-1 rounded-full text-white inline-block">
                   {published ? 'Published calculation' : summary ? 'Draft preview' : 'Awaiting preview'}
@@ -495,7 +495,7 @@ export const BillingManagementView: React.FC = () => {
                     setBills(await adminApi.getPublishedBills(month, year));
                     setPreview(null);
                   })}
-                  className="px-4 py-2.5 bg-[#F47A35] hover:bg-[#D45E1A] text-white font-bold text-xs rounded-xl cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                  className="px-4 py-2.5 bg-[#F47A35] hover:bg-[#F68C51] text-[#2D1A0E] font-bold text-xs rounded-xl cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
                 >
                   <span className="material-symbols-outlined text-[16px]">campaign</span>
                   Publish reviewed bills

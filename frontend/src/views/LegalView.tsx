@@ -249,7 +249,7 @@ export const LegalView: React.FC<{ page: LegalPage }> = ({ page }) => {
         <a
           href="/"
           className="inline-flex items-center gap-1.5 text-[13px] font-bold mb-6"
-          style={{ color: 'var(--orange-dark)' }}
+          style={{ color: 'var(--orange-ink)' }}
         >
           <span className="material-symbols-outlined" style={{ fontSize: 18 }}>arrow_back</span>
           Back to CUSAT MessConnect
@@ -266,8 +266,8 @@ export const LegalView: React.FC<{ page: LegalPage }> = ({ page }) => {
 
         <p className="mt-10 pt-5 text-[13px] font-semibold" style={{ borderTop: '1px solid var(--line)', color: 'var(--text-muted)' }}>
           {isPrivacy
-            ? <>See also the <a href="/terms" style={{ color: 'var(--orange-dark)', fontWeight: 800 }}>Terms of Use</a>.</>
-            : <>See also the <a href="/privacy" style={{ color: 'var(--orange-dark)', fontWeight: 800 }}>Privacy Policy</a>.</>}
+            ? <>See also the <a href="/terms" style={{ color: 'var(--orange-ink)', fontWeight: 800 }}>Terms of Use</a>.</>
+            : <>See also the <a href="/privacy" style={{ color: 'var(--orange-ink)', fontWeight: 800 }}>Privacy Policy</a>.</>}
         </p>
       </div>
     </main>

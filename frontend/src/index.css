@@ -48,6 +48,20 @@
 
   --orange:          #F47A35;
   --orange-dark:     #D45E1A;
+  /* Anything sitting ON the brand orange. White measures 2.73:1 against
+     #F47A35 -- below WCAG AA's 4.5:1 for a 14px bold label -- and the orange
+     cannot darken enough to rescue white without becoming the colour this
+     design deliberately moved away from. Dark ink on the same orange is
+     6.07:1, so the fill stays exactly as designed and the label inverts.
+     The hover goes LIGHTER for the same reason: the old #D45E1A hover drops
+     ink to 4.28:1, while #F68C51 holds 6.94:1. */
+  --on-orange:       #2D1A0E;
+  --orange-hover:    #F68C51;
+  /* Orange TEXT on a light background is a different problem from an orange
+     fill: --orange-dark is 3.88:1 on white, which is fine for an icon and not
+     for a link. --orange-ink is the same family at 4.85:1. Use --orange for
+     fills and icons, --orange-ink for any orange word a student has to read. */
+  --orange-ink:      #C14D0B;
   --orange-light:    #FFD9BE;
   --orange-soft:     #FFF1E6;
 
@@ -176,7 +190,7 @@ button { font-family: inherit; }
   border-radius: 4px;
 }
 
-::selection { background: var(--orange); color: #fff; }
+::selection { background: var(--orange); color: var(--on-orange); }
 
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -312,7 +326,7 @@ button { font-family: inherit; }
 .sidebar-item-active,
 .sidebar-item-active:hover {
   background: var(--orange-soft);
-  color: var(--orange-dark);
+  color: var(--orange-ink);
 }
 
 .sidebar-footer {
@@ -488,7 +502,7 @@ button { font-family: inherit; }
   border: none;
   border-radius: var(--radius-pill);
   background: var(--orange);
-  color: #fff;
+  color: var(--on-orange);
   font-family: "Nunito", sans-serif;
   font-size: 0.9rem;
   font-weight: 800;
@@ -498,7 +512,7 @@ button { font-family: inherit; }
   box-shadow: 0 4px 14px rgba(244, 122, 53, 0.28);
   transition: background 0.15s var(--ease), transform 0.12s var(--ease);
 }
-.btn-primary:hover  { background: var(--orange-dark); }
+.btn-primary:hover  { background: var(--orange-hover); }
 .btn-primary:active { transform: translateY(1px); }
 
 @media (min-width: 1024px) {
@@ -546,7 +560,7 @@ button { font-family: inherit; }
   font-weight: 800;
   cursor: pointer;
 }
-.btn-link:hover { color: var(--orange-dark); text-decoration: underline; text-underline-offset: 3px; }
+.btn-link:hover { color: var(--orange-ink); text-decoration: underline; text-underline-offset: 3px; }
 
 /* =====================================================================
    FORM CONTROLS
@@ -640,7 +654,7 @@ button { font-family: inherit; }
 
 /* The label colour has to follow the chip, which inverts on desktop */
 .date-chip-label { color: var(--text-dark); }
-.date-chip-active .date-chip-label { color: #fff; }
+.date-chip-active .date-chip-label { color: var(--on-orange); }
 
 @media (min-width: 1024px) {
   .date-chip { min-width: 0; padding: 7px 14px; border-radius: var(--radius-sm); }
@@ -650,7 +664,7 @@ button { font-family: inherit; }
     border-color: var(--orange);
     box-shadow: inset 0 0 0 1px var(--orange);
   }
-  .date-chip-active .date-chip-label { color: var(--orange-dark); }
+  .date-chip-active .date-chip-label { color: var(--orange-ink); }
 }
 
 /* =====================================================================

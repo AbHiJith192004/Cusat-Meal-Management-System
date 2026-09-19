@@ -90,7 +90,7 @@ export const SideNav: React.FC<SideNavProps> = ({
                   {badge && (
                     <span
                       className="text-[10px] font-black px-1.5 py-0.5 rounded-full shrink-0"
-                      style={{ background: 'var(--orange)', color: '#fff' }}
+                      style={{ background: 'var(--orange)', color: 'var(--on-orange)' }}
                     >
                       {unreadAlertsCount}
                     </span>
@@ -110,7 +110,7 @@ export const SideNav: React.FC<SideNavProps> = ({
         >
           <div
             className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-black shrink-0"
-            style={{ background: 'var(--orange-soft)', color: 'var(--orange-dark)', border: '1px solid var(--orange-light)' }}
+            style={{ background: 'var(--orange-soft)', color: 'var(--orange-ink)', border: '1px solid var(--orange-light)' }}
           >
             {(userName || 'U').trim().charAt(0).toUpperCase()}
           </div>

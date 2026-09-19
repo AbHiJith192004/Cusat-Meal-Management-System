@@ -198,7 +198,7 @@ export const WeeklyMenuView: React.FC = () => {
                 onClick={() => { setDayIndex(idx); setEditing(false); }}
                 className={`px-3.5 sm:px-4 py-2 rounded-xl font-bold text-xs sm:text-sm transition-colors whitespace-nowrap cursor-pointer shrink-0 ${
                   dayIndex === idx
-                    ? 'bg-[#F47A35] text-white'
+                    ? 'bg-[#F47A35] text-[#2D1A0E]'
                     : 'bg-white text-[#6B4A28] hover:bg-[#F7EEDA] border border-[#EFDCB4]'
                 }`}
                 title={d.toLocaleDateString('en-IN', {day: 'numeric', month: 'short'})}
@@ -236,7 +236,7 @@ export const WeeklyMenuView: React.FC = () => {
                   <button
                     onClick={saveDay}
                     disabled={saving}
-                    className="px-4 py-2 bg-[#F47A35] hover:bg-[#D45E1A] disabled:opacity-60 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                    className="px-4 py-2 bg-[#F47A35] hover:bg-[#F68C51] disabled:opacity-60 text-[#2D1A0E] font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
                   >
                     <span className={`material-symbols-outlined text-[16px] ${saving ? 'animate-spin' : ''}`}>
                       {saving ? 'sync' : 'publish'}
@@ -254,7 +254,7 @@ export const WeeklyMenuView: React.FC = () => {
               ) : (
                 <button
                   onClick={startEditing}
-                  className="px-4 py-2 bg-[#F47A35] hover:bg-[#D45E1A] text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                  className="px-4 py-2 bg-[#F47A35] hover:bg-[#F68C51] text-[#2D1A0E] font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
                 >
                   <span className="material-symbols-outlined text-[16px]">edit</span>
                   Edit {DAYS[dayIndex]} Menu

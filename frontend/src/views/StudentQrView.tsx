@@ -120,7 +120,7 @@ export const StudentQrView: React.FC<StudentQrViewProps> = ({ studentName, regNo
               aria-selected={activeSubView === 'pass'}
               onClick={() => setActiveSubView('pass')}
               className={`px-3.5 py-1.5 rounded-xl font-black text-xs cursor-pointer transition-all flex items-center gap-1 ${
-                activeSubView === 'pass' ? 'bg-[#F47A35] text-white shadow-xs' : 'bg-white text-[#2D1A0E] border border-[#E3CB9B]'
+                activeSubView === 'pass' ? 'bg-[#F47A35] text-[#2D1A0E] shadow-xs' : 'bg-white text-[#2D1A0E] border border-[#E3CB9B]'
               }`}
             >
               <span className="material-symbols-outlined text-[16px]">qr_code_2</span>
@@ -155,7 +155,7 @@ export const StudentQrView: React.FC<StudentQrViewProps> = ({ studentName, regNo
               className="px-2.5 py-1 rounded-full text-[11px] font-black shrink-0"
               style={{
                 background: 'var(--orange-soft)',
-                color: 'var(--orange-dark)',
+                color: 'var(--orange-ink)',
                 border: '1px solid var(--orange-light)',
                 fontVariantNumeric: 'tabular-nums',
               }}

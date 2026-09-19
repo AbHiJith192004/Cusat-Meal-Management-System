@@ -398,9 +398,9 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         {/* Reachable signed out, which is the only way a privacy notice is
             any use to someone deciding whether to sign in. */}
         <p className="text-[12px] font-semibold mt-1.5" style={{ color: 'var(--text-muted)' }}>
-          <a href="/privacy" style={{ color: 'var(--orange-dark)', fontWeight: 800 }}>Privacy Policy</a>
+          <a href="/privacy" style={{ color: 'var(--orange-ink)', fontWeight: 800 }}>Privacy Policy</a>
           <span aria-hidden="true"> · </span>
-          <a href="/terms" style={{ color: 'var(--orange-dark)', fontWeight: 800 }}>Terms of Use</a>
+          <a href="/terms" style={{ color: 'var(--orange-ink)', fontWeight: 800 }}>Terms of Use</a>
         </p>
       </aside>
 
