@@ -10,6 +10,28 @@ const money = (v: string | number) =>
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
                 'July', 'August', 'September', 'October', 'November', 'December'];
 
+const CATEGORY_LABEL: Record<string, string> = {
+  HOSTELLER: 'Hosteller', DAY_SCHOLAR: 'Day scholar', OUTMESS: 'Out-mess',
+};
+const CAMPUS_LABEL: Record<string, string> = {
+  MAIN_CAMPUS: 'Main Campus', LAKESIDE_CAMPUS: 'Lakeside',
+};
+
+const downloadCsv = (filename: string, rows: string[][]) => {
+  const escape = (cell: string) => `"${String(cell ?? '').replace(/"/g, '""')}"`;
+  const csv = rows.map(r => r.map(escape).join(',')).join('\n');
+  // BOM so Excel opens the rupee sign and Malayalam names correctly.
+  const blob = new Blob(['\uFEFF' + csv], {type: 'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.setAttribute('download', filename);
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
+
 const STATUS_PILL: Record<Status, string> = {
   PENDING:  'bg-[#ea580c]/10 text-[#ea580c] border-[#ea580c]/30',
   VERIFIED: 'bg-[#16a34a]/10 text-[#16a34a] border-[#16a34a]/30',
@@ -21,6 +43,8 @@ export const PaymentsView: React.FC = () => {
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [year, setYear] = useState(now.getFullYear());
   const [statusFilter, setStatusFilter] = useState<'ALL' | Status>('ALL');
+  const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
+  const [directory, setDirectory] = useState<any[]>([]);
   const [search, setSearch] = useState('');
   const [rows, setRows] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -35,8 +59,15 @@ export const PaymentsView: React.FC = () => {
     try {
       // Every status is fetched once and filtered here, so the summary cards
       // can count paid against pending without three round trips.
-      const data = await adminApi.getPayments();
+      // The roll carries mess id, membership category and campus; payment
+      // submissions carry only the name and registration number, so the two
+      // are joined here to give the sheet the same columns as Billing.
+      const [data, students] = await Promise.all([
+        adminApi.getPayments(),
+        adminApi.getAllStudents().catch(() => []),
+      ]);
       setRows(Array.isArray(data) ? data : []);
+      setDirectory(Array.isArray(students) ? students : []);
     } catch (e: any) {
       setRows([]);
       setError(e?.message || 'Could not load payment submissions.');
@@ -44,19 +75,66 @@ export const PaymentsView: React.FC = () => {
   }, []);
   useEffect(() => { load(); }, [load]);
 
+  const periodLabel = `${MONTHS[month - 1]} ${year}`;
+
+  const byReg = useMemo(() => {
+    const map: Record<string, any> = {};
+    directory.forEach(s => { map[s.registration_number] = s; });
+    return map;
+  }, [directory]);
+
+  /** Payment rows for the chosen period, each carrying its student's roll details. */
   const forPeriod = useMemo(
-    () => rows.filter(r => Number(r.month) === month && Number(r.year) === year),
-    [rows, month, year]);
+    () => rows
+      .filter(r => Number(r.month) === month && Number(r.year) === year)
+      .map(r => {
+        const profile = byReg[r.registration_number] || {};
+        return {
+          ...r,
+          messId: profile.mess_id || (r.registration_number ? `M-${r.registration_number}` : '\u2014'),
+          studentType: profile.student_type || '',
+          category: CATEGORY_LABEL[profile.student_type] || profile.student_type || '\u2014',
+          campus: CAMPUS_LABEL[profile.campus_location] || profile.campus_location || '\u2014',
+        };
+      }),
+    [rows, month, year, byReg]);
 
   const shown = useMemo(() => {
     const q = search.trim().toLowerCase();
     return forPeriod
       .filter(r => statusFilter === 'ALL' || r.status === statusFilter)
+      .filter(r => categoryFilter === 'ALL' || r.studentType === categoryFilter)
       .filter(r => !q
         || (r.student_name || '').toLowerCase().includes(q)
         || (r.registration_number || '').toLowerCase().includes(q)
+        || (r.messId || '').toLowerCase().includes(q)
         || (r.utr || '').toLowerCase().includes(q));
-  }, [forPeriod, statusFilter, search]);
+  }, [forPeriod, statusFilter, categoryFilter, search]);
+
+  const exportSheet = () => {
+    downloadCsv(`CUSAT_Student_Payments_${MONTHS[month - 1]}_${year}.csv`, [
+      [`CUSAT Mess Student Monthly Payments - ${periodLabel}`],
+      [`${shown.length} of ${forPeriod.length} submissions (filters applied)`],
+      [],
+      ['Sl No', 'Mess ID', 'Reg No', 'Name', 'Category', 'Campus', 'Submitted',
+       'Bill Revision', 'Amount (INR)', 'Status', 'Ref UTR Number', 'Reviewed', 'Review Note'],
+      ...shown.map((r, i) => [
+        String(i + 1), r.messId, r.registration_number || '', r.student_name || '',
+        r.category, r.campus,
+        r.created_at ? new Date(r.created_at).toLocaleString('en-IN') : '',
+        r.bill_revision ? String(r.bill_revision) : '',
+        Number(r.amount || 0).toFixed(2), r.status, r.utr || '',
+        r.reviewed_at ? new Date(r.reviewed_at).toLocaleString('en-IN') : '',
+        r.review_note || '',
+      ]),
+      [],
+      ['TOTALS', '', '', '', '', '', '', '',
+       shown.reduce((sum, r) => sum + Number(r.amount || 0), 0).toFixed(2)],
+      ['VERIFIED ONLY', '', '', '', '', '', '', '',
+       shown.filter(r => r.status === 'VERIFIED')
+            .reduce((sum, r) => sum + Number(r.amount || 0), 0).toFixed(2)],
+    ]);
+  };
 
   const counts = useMemo(() => ({
     total: forPeriod.length,
@@ -88,7 +166,6 @@ export const PaymentsView: React.FC = () => {
     } finally { setBusy(false); }
   };
 
-  const periodLabel = `${MONTHS[month - 1]} ${year}`;
   const yearOptions = Array.from({length: 4}, (_, i) => now.getFullYear() - i);
 
   return (
@@ -196,6 +273,21 @@ export const PaymentsView: React.FC = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
+            <label className="text-[10px] font-extrabold uppercase text-[#9B7B52]" htmlFor="pay-category">
+              Category:
+            </label>
+            <select
+              id="pay-category"
+              value={categoryFilter}
+              onChange={e => setCategoryFilter(e.target.value)}
+              className="px-3 py-1.5 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-xs font-bold text-[#2D1A0E] cursor-pointer"
+            >
+              <option value="ALL">All Categories</option>
+              <option value="HOSTELLER">Hosteller</option>
+              <option value="DAY_SCHOLAR">Day scholar</option>
+              <option value="OUTMESS">Out-mess</option>
+            </select>
+
             <label className="text-[10px] font-extrabold uppercase text-[#9B7B52]" htmlFor="pay-status">
               Payment Status:
             </label>
@@ -210,6 +302,15 @@ export const PaymentsView: React.FC = () => {
               <option value="VERIFIED">Verified</option>
               <option value="REJECTED">Rejected</option>
             </select>
+
+            <button
+              onClick={exportSheet}
+              disabled={shown.length === 0}
+              className="px-4 py-2 bg-[#16a34a] hover:bg-[#15803d] disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap"
+            >
+              <span className="material-symbols-outlined text-[18px]">table_chart</span>
+              <span>Export Payments Excel</span>
+            </button>
           </div>
         </div>
 
@@ -230,8 +331,11 @@ export const PaymentsView: React.FC = () => {
               <thead className="bg-[#FDF7EA] text-[#6B4A28] font-bold uppercase border-b border-[#EFDCB4]">
                 <tr>
                   <th className="py-3 px-4">Sl No</th>
-                  <th className="py-3 px-4">Reg No</th>
+                  <th className="py-3 px-4">Mess ID</th>
                   <th className="py-3 px-4">Student Name</th>
+                  <th className="py-3 px-4">Reg No</th>
+                  <th className="py-3 px-4 text-center">Category</th>
+                  <th className="py-3 px-4 text-center">Campus</th>
                   <th className="py-3 px-4">Submitted</th>
                   <th className="py-3 px-4 text-right">Amount (₹)</th>
                   <th className="py-3 px-4 text-center">Status</th>
@@ -241,10 +345,10 @@ export const PaymentsView: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-[#EFDCB4]">
                 {loading ? (
-                  <tr><td colSpan={8} className="py-8 text-center text-[#9B7B52] text-sm">Loading…</td></tr>
+                  <tr><td colSpan={11} className="py-8 text-center text-[#9B7B52] text-sm">Loading…</td></tr>
                 ) : shown.length === 0 ? (
                   <tr>
-                    <td colSpan={8} className="py-10 text-center text-[#9B7B52] text-sm">
+                    <td colSpan={11} className="py-10 text-center text-[#9B7B52] text-sm">
                       No payment submissions for {periodLabel}.
                       <span className="block text-xs mt-1">
                         Students can only submit once that month&rsquo;s bill has been published.
@@ -255,8 +359,15 @@ export const PaymentsView: React.FC = () => {
                   shown.map((row, idx) => (
                     <tr key={row.id} className="hover:bg-[#FDF7EA] transition-colors">
                       <td className="py-3 px-4 text-[#9B7B52]">{idx + 1}</td>
-                      <td className="py-3 px-4 font-mono font-bold text-[#F47A35]">{row.registration_number || '—'}</td>
+                      <td className="py-3 px-4 font-mono font-bold text-[#F47A35]">{row.messId}</td>
                       <td className="py-3 px-4 font-bold text-[#2D1A0E]">{row.student_name || 'Unknown student'}</td>
+                      <td className="py-3 px-4 font-mono text-[#5C3D1E]">{row.registration_number || '—'}</td>
+                      <td className="py-3 px-4 text-center">
+                        <span className="px-2.5 py-1 bg-[#F7EEDA] text-[#2D1A0E] font-bold text-xs rounded-lg border border-[#E3CB9B] inline-block whitespace-nowrap">
+                          {row.category}
+                        </span>
+                      </td>
+                      <td className="py-3 px-4 text-center text-[#6B4A28] whitespace-nowrap">{row.campus}</td>
                       <td className="py-3 px-4 text-[#6B4A28]">
                         {row.created_at ? new Date(row.created_at).toLocaleString('en-IN') : '—'}
                         {row.bill_revision ? (
@@ -301,6 +412,25 @@ export const PaymentsView: React.FC = () => {
                   ))
                 )}
               </tbody>
+              {shown.length > 0 && (
+                <tfoot className="bg-[#FDF7EA] font-black text-xs border-t-2 border-[#E3CB9B] text-[#2D1A0E]">
+                  <tr>
+                    <td colSpan={6} className="py-4 px-4 uppercase tracking-wider">
+                      Totals for {shown.length} shown {shown.length === 1 ? 'submission' : 'submissions'}:
+                    </td>
+                    <td className="py-4 px-4 text-[#9B7B52] font-semibold">
+                      {shown.filter(r => r.status === 'VERIFIED').length} verified
+                    </td>
+                    <td className="py-4 px-4 text-right font-mono text-sm text-[#F47A35] bg-[#F47A35]/10">
+                      {money(shown.reduce((sum, r) => sum + Number(r.amount || 0), 0))}
+                    </td>
+                    <td colSpan={3} className="py-4 px-4 text-[#9B7B52] font-semibold">
+                      {money(shown.filter(r => r.status === 'VERIFIED')
+                        .reduce((sum, r) => sum + Number(r.amount || 0), 0))} verified against the bank
+                    </td>
+                  </tr>
+                </tfoot>
+              )}
             </table>
           </div>
         </div>
