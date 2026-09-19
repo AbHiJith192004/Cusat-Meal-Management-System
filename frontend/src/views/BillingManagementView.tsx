@@ -479,7 +479,7 @@ export const BillingManagementView: React.FC = () => {
                     });
                     setPreview(null);
                   })}
-                  className="px-4 py-2.5 bg-white hover:bg-[#F7EEDA] border border-[#E3CB9B] text-[#6B4A28] font-bold text-xs rounded-xl cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                  className="px-4 py-2.5 bg-white hover:bg-[#F7EEDA] border border-[#E3CB9B] text-[#6B4A28] font-bold text-xs rounded-xl cursor-pointer btn-inert flex items-center gap-1.5"
                 >
                   <span className="material-symbols-outlined text-[16px]">download_for_offline</span>
                   Fill costs from ledger
@@ -487,7 +487,7 @@ export const BillingManagementView: React.FC = () => {
                 <button
                   disabled={busy || !status}
                   onClick={() => run(async () => setPreview(await adminApi.previewBill(payload())))}
-                  className="px-4 py-2.5 bg-[#2D1A0E] hover:bg-[#3E2718] text-white font-bold text-xs rounded-xl cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                  className="px-4 py-2.5 bg-[#2D1A0E] hover:bg-[#3E2718] text-white font-bold text-xs rounded-xl cursor-pointer btn-inert flex items-center gap-1.5"
                 >
                   <span className="material-symbols-outlined text-[16px]">visibility</span>
                   Preview student bills
@@ -501,7 +501,7 @@ export const BillingManagementView: React.FC = () => {
                     setBills(await adminApi.getPublishedBills(month, year));
                     setPreview(null);
                   })}
-                  className="px-4 py-2.5 bg-[#F47A35] hover:bg-[#F68C51] text-[#2D1A0E] font-bold text-xs rounded-xl cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+                  className="px-4 py-2.5 bg-[#F47A35] hover:bg-[#F68C51] text-[#2D1A0E] font-bold text-xs rounded-xl cursor-pointer btn-inert flex items-center gap-1.5"
                 >
                   <span className="material-symbols-outlined text-[16px]">campaign</span>
                   Publish reviewed bills
@@ -687,7 +687,7 @@ export const BillingManagementView: React.FC = () => {
             <button
               onClick={exportStudentBilling}
               disabled={studentBilling.length === 0}
-              className="px-4 py-2 bg-[#15803d] hover:bg-[#126b33] disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap"
+              className="px-4 py-2 bg-[#15803d] hover:bg-[#126b33] btn-inert text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap"
             >
               <span className="material-symbols-outlined text-[18px]">table_chart</span>
               <span>Export Student Billing Excel</span>
@@ -804,7 +804,7 @@ export const BillingManagementView: React.FC = () => {
                       setStatus({...status, is_published: false});
                       setPreview(null); setBills([]); setReason(''); setShowReopen(false);
                     })}
-                    className="px-4 py-2.5 bg-[#dc2626] hover:bg-[#b91c1c] disabled:opacity-50 text-white font-bold text-xs rounded-xl cursor-pointer"
+                    className="px-4 py-2.5 bg-[#dc2626] hover:bg-[#b91c1c] btn-inert text-white font-bold text-xs rounded-xl cursor-pointer"
                   >
                     Reopen for correction
                   </button>

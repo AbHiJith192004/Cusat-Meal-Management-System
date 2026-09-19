@@ -306,7 +306,7 @@ export const PaymentsView: React.FC = () => {
             <button
               onClick={exportSheet}
               disabled={shown.length === 0}
-              className="px-4 py-2 bg-[#15803d] hover:bg-[#126b33] disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap"
+              className="px-4 py-2 bg-[#15803d] hover:bg-[#126b33] btn-inert text-white font-bold text-xs rounded-xl shadow-xs transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap"
             >
               <span className="material-symbols-outlined text-[18px]">table_chart</span>
               <span>Export Payments Excel</span>
@@ -476,7 +476,7 @@ export const PaymentsView: React.FC = () => {
               <button
                 onClick={submit}
                 disabled={busy || (reviewing.decision === 'REJECTED' && note.trim().length < 5)}
-                className={`flex-1 py-2.5 text-white font-semibold rounded-xl cursor-pointer disabled:opacity-50 ${
+                className={`flex-1 py-2.5 text-white font-semibold rounded-xl cursor-pointer btn-inert ${
                   reviewing.decision === 'VERIFIED'
                     ? 'bg-[#15803d] hover:bg-[#126b33]'
                     : 'bg-[#dc2626] hover:bg-[#b91c1c]'

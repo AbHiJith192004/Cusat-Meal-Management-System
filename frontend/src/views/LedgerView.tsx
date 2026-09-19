@@ -532,7 +532,7 @@ export const LedgerView: React.FC = () => {
                     'Entry voided, with the reason kept in the audit history.');
                   if (ok) { setVoiding(null); setVoidReason(''); }
                 }}
-                className="flex-1 py-2.5 bg-[#dc2626] hover:bg-[#b91c1c] disabled:opacity-50 text-white font-semibold rounded-xl cursor-pointer"
+                className="flex-1 py-2.5 bg-[#dc2626] hover:bg-[#b91c1c] btn-inert text-white font-semibold rounded-xl cursor-pointer"
               >
                 {saving ? 'Voiding…' : 'Void entry'}
               </button>

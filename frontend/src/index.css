@@ -513,6 +513,23 @@ button { font-family: inherit; }
   transition: background 0.15s var(--ease), transform 0.12s var(--ease);
 }
 .btn-primary:hover  { background: var(--orange-hover); }
+
+/* A disabled action, styled as inert rather than as a faded live one.
+   `disabled:opacity-50` over the brand orange measured 2.01:1 -- the fill
+   washes to a pale smear and the label is barely legible, which reads as
+   broken rather than as "not available yet". A flat neutral with a readable
+   muted label says the same thing and can still be read. */
+.is-disabled,
+button:disabled.btn-inert {
+  background: var(--line-soft) !important;
+  /* --text-muted on this fill is 4.13:1. Disabled controls are exempt from the
+     AA minimum, but a label worth keeping is a label worth reading, and #7E6140
+     clears 4.5 without looking active. */
+  color: #7E6140 !important;
+  border-color: var(--line) !important;
+  cursor: not-allowed;
+  opacity: 1 !important;
+}
 .btn-primary:active { transform: translateY(1px); }
 
 @media (min-width: 1024px) {
@@ -736,7 +753,16 @@ button { font-family: inherit; }
   flex-direction: column;
   width: 100%;
   max-height: 92vh;
-  overflow: hidden;
+  /* `overflow: hidden` CLIPPED any dialog taller than max-height, with no way
+     to reach the rest: on a 375x812 phone the student Quick View overflowed by
+     46px, which put Close and "Reset Today's Attendance" below the panel edge
+     and off-screen, and elementFromPoint found nothing there. The only exits
+     were the X and tapping the scrim. Panels that carry their own inner
+     scroller (the drill-down's table) are unaffected -- that one absorbs the
+     overflow with flex-1 before this ever applies. */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
   background: var(--card);
   border: 1px solid var(--card-border);
   border-radius: 20px 20px 0 0;

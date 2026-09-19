@@ -447,7 +447,19 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({ isSu
                   </span>
                 )}
                 <div className="min-w-0">
-                  <h3 className="font-display text-[19px] font-bold text-[#2D1A0E] truncate">{selectedStudent.name}</h3>
+                  {/* Wraps rather than truncates: the name is the identifier on
+                      this panel, and "ZZ TEST ACCOUNT - DELETE BEF..." tells an
+                      admin nothing. Two lines, then ellipsis. */}
+                  <h3
+                    className="font-display text-[19px] font-bold text-[#2D1A0E] leading-tight"
+                    style={{
+                      display: '-webkit-box', WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical', overflow: 'hidden',
+                    }}
+                    title={selectedStudent.name}
+                  >
+                    {selectedStudent.name}
+                  </h3>
                   <p className="text-[11.5px] font-semibold text-[#9B7B52]">
                     Reg {selectedStudent.regNo} · {selectedStudent.messId}
                   </p>
@@ -547,7 +559,7 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({ isSu
                   <button
                     disabled={memberBusy || memberReason.trim().length < 5}
                     onClick={saveMembership}
-                    className="w-full py-2 bg-[#F47A35] hover:bg-[#F68C51] disabled:opacity-50 text-[#2D1A0E] font-bold text-xs rounded-xl cursor-pointer"
+                    className="w-full py-2 bg-[#F47A35] hover:bg-[#F68C51] btn-inert text-[#2D1A0E] font-bold text-xs rounded-xl cursor-pointer"
                   >
                     {memberBusy ? 'Saving…' : 'Save membership change'}
                   </button>
@@ -586,7 +598,7 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({ isSu
                   } catch (error: any) { setSetupError(error.message); }
                   finally { setSetupBusy(false); }
                 }}
-                className="w-full py-2 bg-[#F47A35] hover:bg-[#F68C51] disabled:opacity-50 text-[#2D1A0E] font-bold text-xs rounded-xl cursor-pointer"
+                className="w-full py-2 bg-[#F47A35] hover:bg-[#F68C51] btn-inert text-[#2D1A0E] font-bold text-xs rounded-xl cursor-pointer"
               >
                 {setupBusy ? 'Issuing…' : 'Issue one-use password setup code'}
               </button>
@@ -626,7 +638,7 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({ isSu
                       } catch (error: any) { setScannerError(error.message); }
                       finally { setScannerBusy(false); }
                     }}
-                    className="w-full py-2 bg-white hover:bg-[#F7EEDA] border border-[#E3CB9B] text-[#dc2626] font-bold text-xs rounded-xl cursor-pointer disabled:opacity-50"
+                    className="w-full py-2 bg-white hover:bg-[#F7EEDA] border border-[#E3CB9B] text-[#dc2626] font-bold text-xs rounded-xl cursor-pointer btn-inert"
                   >
                     {scannerBusy ? 'Working…' : 'Revoke scanner access'}
                   </button>
@@ -670,7 +682,7 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({ isSu
                       } catch (error: any) { setScannerError(error.message); }
                       finally { setScannerBusy(false); }
                     }}
-                    className="w-full py-2 bg-[#15803d] hover:bg-[#126b33] disabled:opacity-50 text-white font-bold text-xs rounded-xl cursor-pointer"
+                    className="w-full py-2 bg-[#15803d] hover:bg-[#126b33] btn-inert text-white font-bold text-xs rounded-xl cursor-pointer"
                   >
                     {scannerBusy ? 'Working…' : 'Let this student scan meals'}
                   </button>
@@ -837,7 +849,7 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({ isSu
               <button
                 type="submit"
                 disabled={addLoading}
-                className="flex-1 py-2.5 bg-[#F47A35] hover:bg-[#F68C51] text-[#2D1A0E] font-bold text-sm rounded-xl disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                className="flex-1 py-2.5 bg-[#F47A35] hover:bg-[#F68C51] text-[#2D1A0E] font-bold text-sm rounded-xl btn-inert flex items-center justify-center gap-2 cursor-pointer"
               >
                 {addLoading ? (
                   <><span className="material-symbols-outlined animate-spin text-[18px]">refresh</span> Creating…</>
