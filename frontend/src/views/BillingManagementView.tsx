@@ -19,7 +19,11 @@ const FIELDS = [
   {key: 'opening_stock_value',     no: 1, label: 'Opening Stock',           hint: 'Last month’s closing stock value', sign: '+' as const, kind: null},
   {key: 'purchases_value',         no: 2, label: 'Purchases',               hint: 'Groceries, fish, meat, milk and the rest', sign: '+' as const, kind: 'PURCHASE'},
   {key: 'closing_stock_value',     no: 3, label: 'Closing Stock',           hint: 'Physical stock value at month end',   sign: '-' as const, kind: null},
-  {key: 'operational_expenses',    no: 4, label: 'Operating Expenses',      hint: 'Gas, electricity, water, repairs',    sign: '+' as const, kind: 'OPERATIONAL'},
+  // Nothing new is filed as OPERATIONAL since the Ledger merged that tab into
+  // Purchases, so for a current month this line is 0 and is hidden. It stays in
+  // the list because months published BEFORE the merge have a real figure here,
+  // and their statement has to keep adding up.
+  {key: 'operational_expenses',    no: 4, label: 'Operating Expenses',      hint: 'Gas, electricity, water, repairs (now logged under Purchases)', sign: '+' as const, kind: 'OPERATIONAL'},
   {key: 'administrative_expenses', no: 5, label: 'Administrative Expenses', hint: 'Wages, allowance, stationery, misc',  sign: '+' as const, kind: 'ADMINISTRATIVE'},
 ] as const;
 
@@ -120,6 +124,8 @@ export const BillingManagementView: React.FC = () => {
     ledger.filter(e => e.kind === kind && (e.entry_date || '').startsWith(monthPrefix));
 
   const num = (key: string) => Number(figures[key] || 0);
+  /** Lines worth showing: all of them, minus a zero Operating Expenses. */
+  const shownFields = FIELDS.filter(f => f.key !== 'operational_expenses' || num(f.key) > 0);
   const foodCost = num('opening_stock_value') + num('purchases_value') - num('closing_stock_value');
   const actualCost = summary
     ? Number(summary.grand_total_expense)
@@ -372,7 +378,7 @@ export const BillingManagementView: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#EFDCB4]">
-                  {FIELDS.map(f => {
+                  {shownFields.map(f => {
                     const detail = entriesFor(f.kind);
                     const negative = f.sign === '-';
                     return (
@@ -527,7 +533,7 @@ export const BillingManagementView: React.FC = () => {
             </button>
           </div>
 
-          {FIELDS.map(f => {
+          {shownFields.map(f => {
             const detail = entriesFor(f.kind);
             const negative = f.sign === '-';
             return (
@@ -616,7 +622,7 @@ export const BillingManagementView: React.FC = () => {
               Actual Expenditure Calculation (1 + 2 − 3 + 4 + 5)
             </h4>
             <div className="bg-[#FDF7EA] p-4 rounded-xl border border-[#E3CB9B] space-y-2 text-xs">
-              {FIELDS.map(f => (
+              {shownFields.map(f => (
                 <div key={f.key} className="flex justify-between items-center gap-3">
                   <span className="text-[#6B4A28]">
                     {f.no}. {f.sign === '-' ? 'Less ' : 'Add '}{f.label}:
@@ -650,8 +656,8 @@ export const BillingManagementView: React.FC = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-xs font-semibold">
-              {FIELDS.map(f => (
+            <div className={`grid grid-cols-2 gap-3 text-xs font-semibold ${shownFields.length === 5 ? 'md:grid-cols-5' : 'md:grid-cols-4'}`}>
+              {shownFields.map(f => (
                 <div key={f.key} className="bg-white/10 p-3 rounded-xl border border-white/15">
                   <span className="opacity-80 block text-[11px] uppercase">{f.no}. {f.label}</span>
                   <span className={`text-base font-bold mt-0.5 block ${f.sign === '-' ? 'text-[#fca5a5]' : ''}`}>

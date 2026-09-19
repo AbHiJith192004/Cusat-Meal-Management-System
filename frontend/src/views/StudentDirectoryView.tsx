@@ -53,6 +53,15 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({ isSu
   const [scannerDays, setScannerDays] = useState('7');
   const [scannerBusy, setScannerBusy] = useState(false);
   const [scannerError, setScannerError] = useState<string | null>(null);
+  // Membership is the one thing on this panel that changes what a student is
+  // CHARGED, so it is edited deliberately -- with a reason -- rather than by
+  // a dropdown that saves on change.
+  const [memberType, setMemberType] = useState('HOSTELLER');
+  const [memberCampus, setMemberCampus] = useState('MAIN_CAMPUS');
+  const [memberReason, setMemberReason] = useState('');
+  const [memberBusy, setMemberBusy] = useState(false);
+  const [memberError, setMemberError] = useState<string | null>(null);
+  const [memberSaved, setMemberSaved] = useState(false);
   const [addLoading, setAddLoading] = useState(false);
 
   const [newStudent, setNewStudent] = useState({
@@ -150,6 +159,34 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({ isSu
     setSetupResult(null);
     setSetupError(null);
     setScannerError(null);
+    setMemberType(String(student.category || 'HOSTELLER'));
+    setMemberCampus(String(student.campusLocation || 'MAIN_CAMPUS'));
+    setMemberReason('');
+    setMemberError(null);
+    setMemberSaved(false);
+  };
+
+  /** True once the admin has actually picked something different. */
+  const membershipDirty = Boolean(selectedStudent) && (
+    memberType !== String(selectedStudent?.category || 'HOSTELLER') ||
+    memberCampus !== String(selectedStudent?.campusLocation || 'MAIN_CAMPUS'));
+
+  const saveMembership = async () => {
+    if (!selectedStudent) return;
+    setMemberBusy(true); setMemberError(null); setMemberSaved(false);
+    try {
+      await adminApi.updateMembership(selectedStudent.id, {
+        student_type: memberType,
+        campus_location: memberCampus,
+        reason: memberReason.trim(),
+      });
+      setMemberSaved(true);
+      setMemberReason('');
+      setSelectedStudent({ ...selectedStudent, category: memberType as any, campusLocation: memberCampus as any });
+      await fetchStudents();
+    } catch (err: any) {
+      setMemberError(err.message || 'Could not change the membership.');
+    } finally { setMemberBusy(false); }
   };
 
   const handleAddSubmit = async (e: React.FormEvent) => {
@@ -451,6 +488,78 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({ isSu
                 <span className="text-xl font-black text-[#dc2626] block mt-0.5">{selectedStudent.mealsSkipped ?? 0}</span>
               </div>
             </div>
+
+            {/* Mess membership -- the only field here that changes a bill */}
+            <section className="p-4 rounded-xl border border-[#EFDCB4] bg-[#FDF7EA] space-y-2" aria-label="Mess membership">
+              <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#F47A35] block">
+                Mess membership
+              </span>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-bold text-[#6B4A28] mb-1" htmlFor="member-type">Category</label>
+                  <select
+                    id="member-type"
+                    value={memberType}
+                    onChange={e => { setMemberType(e.target.value); setMemberSaved(false); }}
+                    className="w-full p-2.5 bg-white border border-[#E3CB9B] rounded-xl text-sm font-bold text-[#2D1A0E] focus:outline-none focus:border-[#F47A35]"
+                  >
+                    <option value="HOSTELLER">Inmate (hosteller)</option>
+                    <option value="DAY_SCHOLAR">Day scholar</option>
+                    <option value="OUTMESS">Out-mess</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-[#6B4A28] mb-1" htmlFor="member-campus">Campus</label>
+                  <select
+                    id="member-campus"
+                    value={memberCampus}
+                    onChange={e => { setMemberCampus(e.target.value); setMemberSaved(false); }}
+                    className="w-full p-2.5 bg-white border border-[#E3CB9B] rounded-xl text-sm font-bold text-[#2D1A0E] focus:outline-none focus:border-[#F47A35]"
+                  >
+                    <option value="MAIN_CAMPUS">Main Campus</option>
+                    <option value="LAKESIDE_CAMPUS">Lakeside</option>
+                  </select>
+                </div>
+              </div>
+
+              <p className="text-[11px] font-semibold text-[#9B7B52]">
+                {memberType === 'OUTMESS'
+                  ? 'Out-mess students take no meals and are never billed or fined.'
+                  : memberCampus === 'LAKESIDE_CAMPUS'
+                  ? 'Lakeside is billed at its own rate.'
+                  : 'Counts towards the mess roll and is billed each month.'}
+                {' '}Published bills are not changed &mdash; this applies from the next calculation.
+              </p>
+
+              {membershipDirty && (
+                <>
+                  <label className="block text-xs font-bold text-[#6B4A28]" htmlFor="member-reason">
+                    Reason for the change (at least 5 characters)
+                  </label>
+                  <input
+                    id="member-reason"
+                    value={memberReason}
+                    onChange={e => setMemberReason(e.target.value)}
+                    placeholder="e.g. Moved off the mess from this month, confirmed with the warden"
+                    className="w-full p-2.5 bg-white border border-[#E3CB9B] rounded-xl text-sm font-medium focus:outline-none focus:border-[#F47A35]"
+                  />
+                  <button
+                    disabled={memberBusy || memberReason.trim().length < 5}
+                    onClick={saveMembership}
+                    className="w-full py-2 bg-[#F47A35] hover:bg-[#F68C51] disabled:opacity-50 text-[#2D1A0E] font-bold text-xs rounded-xl cursor-pointer"
+                  >
+                    {memberBusy ? 'Saving…' : 'Save membership change'}
+                  </button>
+                </>
+              )}
+              {memberSaved && (
+                <p role="status" className="text-xs font-bold" style={{ color: 'var(--green)' }}>
+                  Membership updated and recorded in the audit log.
+                </p>
+              )}
+              {memberError && <p role="alert" className="text-xs font-bold" style={{ color: 'var(--red)' }}>{memberError}</p>}
+            </section>
 
             {/* Account setup */}
             <section className="p-4 rounded-xl border border-[#EFDCB4] bg-[#FDF7EA] space-y-2" aria-label="Account setup">

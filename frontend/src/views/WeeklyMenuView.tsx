@@ -62,6 +62,12 @@ export const WeeklyMenuView: React.FC = () => {
   const days = Array.from({length: 7}, (_, i) => addDays(monday, i));
   const day = days[dayIndex];
   const todayIso = iso(new Date());
+  // A menu is a plan. Once the day has gone, rewriting it only makes the
+  // published record disagree with what students actually ate, so the server
+  // refuses it (MENU_DATE_IN_PAST) and the editor is not offered either.
+  // Today stays editable -- correcting this morning's menu before lunch is
+  // ordinary work.
+  const dayHasPassed = iso(day) < todayIso;
 
   const load = useCallback(async () => {
     setLoading(true); setError('');
@@ -227,7 +233,7 @@ export const WeeklyMenuView: React.FC = () => {
                 <h3 className="text-2xl font-extrabold text-[#2D1A0E]">{DAYS[dayIndex]} Menu Schedule</h3>
                 <p className="text-xs font-medium text-[#9B7B52] mt-0.5">
                   {day.toLocaleDateString('en-IN', {day: 'numeric', month: 'long', year: 'numeric'})}
-                  {iso(day) === todayIso ? ' · today' : ''}
+                  {iso(day) === todayIso ? ' · today' : dayHasPassed ? ' · already served' : ''}
                 </p>
               </div>
 
@@ -251,6 +257,15 @@ export const WeeklyMenuView: React.FC = () => {
                     Cancel
                   </button>
                 </div>
+              ) : dayHasPassed ? (
+                <span
+                  className="px-4 py-2 rounded-xl flex items-center gap-1.5 text-xs font-bold"
+                  style={{background: 'var(--card)', border: '1px solid var(--card-border)', color: 'var(--text-muted)'}}
+                  title="This day has already been served. A menu can only be set for today or a future day."
+                >
+                  <span className="material-symbols-outlined text-[16px]">lock</span>
+                  Already served
+                </span>
               ) : (
                 <button
                   onClick={startEditing}

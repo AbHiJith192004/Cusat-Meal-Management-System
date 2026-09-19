@@ -27,6 +27,21 @@ class LedgerCreate(BaseModel):
     reference: str | None = Field(None, max_length=120)
 
 
+class MembershipUpdate(BaseModel):
+    """Change what a student is, for billing purposes.
+
+    Both fields move money, which is why a reason is mandatory and the change
+    is audited: OUTMESS drops the student out of the billing cohort entirely
+    (see services/mess_membership.py) and LAKESIDE_CAMPUS carries a different
+    rate. Neither touches a bill that is already published -- those are
+    immutable snapshots -- so this only affects months still open.
+    """
+
+    student_type: Literal["HOSTELLER", "DAY_SCHOLAR", "OUTMESS"]
+    campus_location: Literal["MAIN_CAMPUS", "LAKESIDE_CAMPUS"]
+    reason: str = Field(min_length=5, max_length=500)
+
+
 class VoidRequest(BaseModel):
     reason: str = Field(min_length=5, max_length=500)
 

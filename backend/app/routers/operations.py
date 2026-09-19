@@ -15,12 +15,13 @@ from app.models.billing import BillingPeriod, StudentBillSnapshot
 from app.models.operations import (CommitteeAssignment, InventoryItem,
     InventoryMovement, LedgerEntry, MenuPublication, PaymentSubmission)
 from app.models.notification import Notification
+from app.models.student import StudentProfile
 from app.models.user import User
 from app.repositories.audit_repo import AuditRepository
 from app.schemas.common import success_response
 from app.schemas.operations import (BulkAttendanceCreate, CommitteeCreate,
-    InventoryAdjust, InventoryCreate, LedgerCreate, MenuUpsert, PaymentCreate,
-    PaymentReview, VoidRequest)
+    InventoryAdjust, InventoryCreate, LedgerCreate, MembershipUpdate, MenuUpsert,
+    PaymentCreate, PaymentReview, VoidRequest)
 from app.security.dependencies import AdminUser, CurrentUser
 from app.services.billing_lock import lock_open_period
 from app.utils.exceptions import ConflictException, NotFoundException, ValidationException
@@ -66,6 +67,15 @@ async def publish_menu(body: MenuUpsert, admin: AdminUser,
     meal = meal_type.upper()
     if meal not in {"BREAKFAST", "LUNCH", "DINNER"}:
         raise ValidationException(message="Invalid meal type.")
+    # A menu is a plan. Once the day has passed, rewriting it changes the
+    # record of what was served without changing what anyone ate -- it makes
+    # the published history disagree with the meal students actually had, and
+    # there is no purpose it serves. Today stays editable, because correcting
+    # this morning's menu before lunch is ordinary.
+    if menu_date < today_ist():
+        raise ValidationException(
+            message="That day has already passed. A menu can only be set for today or a future day.",
+            code="MENU_DATE_IN_PAST")
     row = await db.scalar(select(MenuPublication).where(
         MenuPublication.menu_date == menu_date, MenuPublication.meal_type == meal).with_for_update())
     before = row.items if row else None
@@ -244,6 +254,45 @@ async def revoke_committee(body: VoidRequest, admin: AdminUser,
     await AuditRepository(db).log(admin.id, "COMMITTEE_REVOKED", "committee_assignment", row.id,
                                    {"student_id": str(student_id), "reason": row.revoke_reason})
     return success_response(data={"id": str(row.id), "revoked_at": row.revoked_at.isoformat()})
+
+
+@router.patch("/admin/students/{student_id}/membership")
+async def update_membership(body: MembershipUpdate, admin: AdminUser,
+    student_id: Annotated[uuid.UUID, Path()],
+    db: AsyncSession = Depends(get_db, scope="function")):
+    """Change a student's mess membership category and campus.
+
+    Both fields decide money. OUTMESS removes the student from the billing
+    cohort altogether, and the campus carries a different rate, so the change
+    is audited with the reason that justified it and the before/after values.
+
+    Published months are not touched: a student bill snapshot is immutable
+    once published, so this only changes what the NEXT calculation does. That
+    is deliberate -- correcting somebody's category should not silently
+    restate a bill they have already been given and may have paid.
+    """
+    user = await db.scalar(select(User).where(User.id == student_id, User.role == "STUDENT"))
+    if not user:
+        raise NotFoundException(message="Student not found.")
+    profile = await db.scalar(
+        select(StudentProfile).where(StudentProfile.user_id == student_id).with_for_update())
+    if not profile:
+        raise NotFoundException(message="That student has no profile record to change.")
+
+    before = {"student_type": profile.student_type, "campus_location": profile.campus_location}
+    after = {"student_type": body.student_type, "campus_location": body.campus_location}
+    if before == after:
+        raise ValidationException(message="That is already this student's membership.")
+
+    profile.student_type = body.student_type
+    profile.campus_location = body.campus_location
+    await db.flush()
+    await AuditRepository(db).log(admin.id, "STUDENT_MEMBERSHIP_CHANGED", "student_profile",
+                                  profile.id, {"student_id": str(student_id),
+                                               "registration_number": user.registration_number,
+                                               "before": before, "after": after,
+                                               "reason": body.reason.strip()})
+    return success_response(data={"student_id": str(student_id), **after})
 
 
 @router.post("/admin/attendance/bulk-mark")

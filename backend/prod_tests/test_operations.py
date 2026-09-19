@@ -31,7 +31,12 @@ async def test_operational_workflows_persist_validate_and_audit(client):
         json={'items': ['Rice', 'Dal'], 'notes': 'Vegetarian'}, headers=h)
     assert menu.status_code == 200, menu.text
     listed = await client.get(f'/api/v1/menus?start_date={day}&end_date={day}', headers=headers(student))
-    assert listed.status_code == 200 and listed.json()['data'][0]['items'] == ['Rice', 'Dal']
+    # Pick the row this test wrote. data[0] used to be assumed to be it, but the
+    # listing orders by (date, meal_type) and says nothing about how many meals
+    # another test may have published for today -- DINNER sorts before LUNCH.
+    assert listed.status_code == 200
+    lunch = next(m for m in listed.json()['data'] if m['meal_type'] == 'LUNCH')
+    assert lunch['items'] == ['Rice', 'Dal']
 
     ledger = await client.post('/api/v1/admin/ledger', json={'entry_date': str(day),
         'kind': 'PURCHASE', 'category': 'Rice', 'description': 'Monthly rice delivery',
@@ -415,3 +420,76 @@ async def test_import_rejects_a_sheet_whose_headings_do_not_match(client):
         headers=headers(super_admin))
     assert response.status_code == 422
     assert 'missing required columns' in response.text.lower()
+
+
+@pytest.mark.asyncio
+async def test_a_menu_cannot_be_written_for_a_day_that_has_passed(client):
+    """Today and tomorrow are plans; yesterday is a record of what was served.
+
+    Rewriting a past day makes the published history disagree with the meal
+    students actually ate, and nothing is gained by allowing it.
+    """
+    admin = await user('ADMIN')
+    h = headers(admin)
+    today = now_ist().date()
+
+    ok = await client.put(f'/api/v1/admin/menus/{today}/DINNER',
+                          json={'items': ['Chapati', 'Curry'], 'notes': None}, headers=h)
+    assert ok.status_code == 200, ok.text
+
+    ahead = await client.put(f'/api/v1/admin/menus/{today + timedelta(days=3)}/DINNER',
+                             json={'items': ['Rice', 'Sambar'], 'notes': None}, headers=h)
+    assert ahead.status_code == 200, ahead.text
+
+    past = await client.put(f'/api/v1/admin/menus/{today - timedelta(days=1)}/DINNER',
+                            json={'items': ['Rewritten'], 'notes': None}, headers=h)
+    assert past.status_code == 422
+    assert past.json()['error']['code'] == 'MENU_DATE_IN_PAST'
+
+    # ... and nothing was written for that day.
+    async with async_session_factory() as db:
+        assert await db.scalar(select(func.count()).select_from(MenuPublication).where(
+            MenuPublication.menu_date == today - timedelta(days=1),
+            MenuPublication.meal_type == 'DINNER')) == 0
+
+
+@pytest.mark.asyncio
+async def test_membership_change_is_audited_and_rejects_a_no_op(client):
+    """Category and campus both move money, so the reason is kept with them."""
+    admin, student = await user('ADMIN'), await user()
+    async with async_session_factory() as db:
+        db.add(StudentProfile(user_id=student.id, mess_id=f'M-{uuid.uuid4().hex[:8]}',
+                              date_of_birth=date(2004, 5, 17), student_type='HOSTELLER',
+                              campus_location='MAIN_CAMPUS'))
+        await db.commit()
+
+    url = f'/api/v1/admin/students/{student.id}/membership'
+    body = {'student_type': 'OUTMESS', 'campus_location': 'LAKESIDE_CAMPUS',
+            'reason': 'Moved off the mess from this month, confirmed with the warden'}
+
+    changed = await client.patch(url, json=body, headers=headers(admin))
+    assert changed.status_code == 200, changed.text
+    assert changed.json()['data']['student_type'] == 'OUTMESS'
+
+    async with async_session_factory() as db:
+        profile = await db.scalar(select(StudentProfile).where(StudentProfile.user_id == student.id))
+        assert profile.student_type == 'OUTMESS'
+        assert profile.campus_location == 'LAKESIDE_CAMPUS'
+        entry = await db.scalar(select(AuditLog).where(AuditLog.action == 'STUDENT_MEMBERSHIP_CHANGED',
+                                                       AuditLog.actor_id == admin.id))
+        assert entry is not None
+        assert entry.metadata_['before']['student_type'] == 'HOSTELLER'
+        assert entry.metadata_['after']['campus_location'] == 'LAKESIDE_CAMPUS'
+        assert 'warden' in entry.metadata_['reason']
+
+    # Re-sending the same values is a mistake, not a change.
+    again = await client.patch(url, json=body, headers=headers(admin))
+    assert again.status_code == 422
+
+    # A reason is not optional.
+    assert (await client.patch(url, headers=headers(admin), json={
+        'student_type': 'HOSTELLER', 'campus_location': 'MAIN_CAMPUS', 'reason': 'x',
+    })).status_code == 422
+
+    # Students cannot reclassify themselves.
+    assert (await client.patch(url, json=body, headers=headers(student))).status_code == 403

@@ -2,6 +2,13 @@ import React, {FormEvent, useCallback, useEffect, useMemo, useState} from 'react
 import {adminApi} from '../services/api';
 import { Modal } from '../components/Modal';
 
+/**
+ * OPERATIONAL is still a valid kind on the server and older entries keep it --
+ * it is why LABELS below still names it -- but nothing new is filed under it.
+ * Gas and electricity are purchases as far as the mess is concerned, and two
+ * tabs that behaved identically only made staff guess which one to use. The
+ * monthly total is unaffected either way: Billing adds all three kinds.
+ */
 const KINDS = ['PURCHASE', 'OPERATIONAL', 'ADMINISTRATIVE'] as const;
 type Kind = typeof KINDS[number];
 
@@ -13,24 +20,36 @@ const LABELS: Record<Kind, string> = {
 
 const TABS: ReadonlyArray<{id: Kind; label: string; icon: string}> = [
   {id: 'PURCHASE',       label: 'Purchases',      icon: 'shopping_cart'},
-  {id: 'OPERATIONAL',    label: 'Operational',    icon: 'local_gas_station'},
   {id: 'ADMINISTRATIVE', label: 'Administrative', icon: 'work'},
 ];
 
-/** Suggested categories per kind. Any other text is accepted too. */
+/**
+ * The starting list. Gas, electricity and the rest live under Purchases now
+ * that the tabs are merged. The dropdown also offers every category already
+ * used in the ledger, so "adding" one is simply using it once -- there is no
+ * separate catalogue to maintain and nothing to keep in sync.
+ */
 const SUGGESTIONS: Record<Kind, string[]> = {
-  PURCHASE: ['Grocery', 'Vegetables', 'Fish', 'Meat', 'Milk', 'Egg'],
-  OPERATIONAL: ['Gas', 'Electricity', 'Water', 'Repairs', 'Cleaning'],
-  ADMINISTRATIVE: ['Staff wages', 'Cook wages', 'Office', 'Licences'],
+  PURCHASE: [
+    'Grocery', 'Vegetables', 'Fruits', 'Fish', 'Meat', 'Chicken', 'Egg', 'Milk',
+    'Bread', 'Rice', 'Oil', 'Spices', 'Tea & Coffee', 'Snacks',
+    'Gas', 'Electricity', 'Water', 'Cleaning supplies', 'Repairs', 'Equipment', 'Transport',
+  ],
+  OPERATIONAL: ['Gas', 'Electricity', 'Water', 'Repairs', 'Cleaning supplies'],
+  ADMINISTRATIVE: [
+    'Staff wages', 'Cook wages', 'Committee allowance', 'Stationery',
+    'Office', 'Licences', 'Bank charges', 'Miscellaneous',
+  ],
 };
 
 /** Category pill colours, matching the ledger's long-standing palette. */
 const CATEGORY_TONE: Array<[RegExp, string]> = [
-  [/grocer|vegetab/i, '#2563eb'],
-  [/gas|electric|fuel/i, '#ea580c'],
+  [/grocer|vegetab|fruit|rice|bread|spice|oil/i, '#2563eb'],
+  [/gas|electric|fuel|water|repair|equip|transport|clean/i, '#ea580c'],
   [/fish/i, '#0284c7'],
   [/meat|chicken/i, '#dc2626'],
-  [/milk|egg/i, '#16a34a'],
+  [/milk|egg|tea|coffee|snack/i, '#16a34a'],
+  [/wage|allowance|station|office|licen|bank/i, '#7c3aed'],
 ];
 const toneFor = (category: string) =>
   (CATEGORY_TONE.find(([re]) => re.test(category || '')) || [null, '#7c3aed'])[1] as string;
@@ -56,6 +75,8 @@ export const LedgerView: React.FC = () => {
   const [showExport, setShowExport] = useState(false);
   const [voiding, setVoiding] = useState<any | null>(null);
   const [voidReason, setVoidReason] = useState('');
+  const [addingCategory, setAddingCategory] = useState(false);
+  const [newCategory, setNewCategory] = useState('');
   const [form, setForm] = useState({
     entry_date: new Date().toISOString().slice(0, 10),
     category: 'Grocery', description: '',
@@ -115,6 +136,36 @@ export const LedgerView: React.FC = () => {
         || (e.vendor || '').toLowerCase().includes(q)
         || (e.reference || '').toLowerCase().includes(q));
   }, [entries, tab, search]);
+
+  /**
+   * What the dropdown offers: the starting list for this kind, plus every
+   * category already used in the ledger. A category "added" here is simply one
+   * that has been used once -- it reappears on its own next month, with no
+   * catalogue to maintain and nothing that can fall out of sync with the data.
+   */
+  const categoryOptions = useMemo(() => {
+    const used = entries.filter(e => e.kind === tab).map(e => String(e.category || '').trim());
+    const seen = new Set<string>();
+    const all = [...SUGGESTIONS[tab], ...used, form.category].filter(Boolean);
+    return all.filter(c => {
+      const key = c.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }).sort((a, b) => a.localeCompare(b));
+  }, [entries, tab, form.category]);
+
+  const commitNewCategory = () => {
+    const name = newCategory.trim();
+    if (name.length < 2) { setError('A category name needs at least two characters.'); return; }
+    // Title-case the first letter so "fish" and "Fish" do not become two
+    // entries in a dropdown built from what has been used.
+    const formatted = name.charAt(0).toUpperCase() + name.slice(1);
+    setForm({...form, category: formatted});
+    setAddingCategory(false);
+    setNewCategory('');
+    setError('');
+  };
 
   const total = shown.reduce((sum, e) => sum + Number(e.amount || 0), 0);
   const average = shown.length ? Math.round(total / shown.length) : 0;
@@ -182,7 +233,7 @@ export const LedgerView: React.FC = () => {
             {TABS.map(t => (
               <button
                 key={t.id}
-                onClick={() => { setTab(t.id); setForm(f => ({...f, category: SUGGESTIONS[t.id][0]})); }}
+                onClick={() => { setTab(t.id); setAddingCategory(false); setForm(f => ({...f, category: SUGGESTIONS[t.id][0]})); }}
                 className={`shrink-0 lg:flex-1 py-2.5 px-3.5 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-2 whitespace-nowrap transition-colors cursor-pointer ${
                   tab === t.id ? 'bg-[#F47A35] text-[#2D1A0E]' : 'text-[#9B7B52] hover:bg-[#F7EEDA] hover:text-[#2D1A0E]'
                 }`}
@@ -227,19 +278,53 @@ export const LedgerView: React.FC = () => {
 
                 <div>
                   <label className="block text-xs font-bold text-[#6B4A28] mb-1" htmlFor="ledger-category">Category</label>
-                  <input
-                    id="ledger-category"
-                    list="ledger-category-options"
-                    value={form.category}
-                    onChange={e => setForm({...form, category: e.target.value})}
-                    required
-                    maxLength={80}
-                    placeholder="Grocery, Gas, Fish…"
-                    className="w-full p-2.5 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-sm font-bold text-[#2D1A0E] focus:outline-none focus:border-[#F47A35]"
-                  />
-                  <datalist id="ledger-category-options">
-                    {SUGGESTIONS[tab].map(c => <option key={c} value={c} />)}
-                  </datalist>
+                  {addingCategory ? (
+                    <div className="flex gap-1.5">
+                      <input
+                        id="ledger-category"
+                        autoFocus
+                        value={newCategory}
+                        onChange={e => setNewCategory(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter') { e.preventDefault(); commitNewCategory(); }
+                          if (e.key === 'Escape') { setAddingCategory(false); setNewCategory(''); }
+                        }}
+                        maxLength={80}
+                        placeholder="New category name"
+                        className="w-full p-2.5 bg-white border border-[#F47A35] rounded-xl text-sm font-bold text-[#2D1A0E] focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={commitNewCategory}
+                        className="px-2.5 py-2 bg-[#15803d] hover:bg-[#126b33] text-white text-xs font-bold rounded-xl whitespace-nowrap cursor-pointer"
+                      >
+                        Add
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => { setAddingCategory(false); setNewCategory(''); }}
+                        title="Cancel"
+                        aria-label="Cancel adding a category"
+                        className="px-2.5 py-2 bg-[#F7EEDA] hover:bg-[#EFDCB4] text-[#6B4A28] text-xs font-bold rounded-xl cursor-pointer"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  ) : (
+                    <select
+                      id="ledger-category"
+                      value={form.category}
+                      onChange={e => {
+                        if (e.target.value === '__ADD__') { setAddingCategory(true); setNewCategory(''); }
+                        else setForm({...form, category: e.target.value});
+                      }}
+                      required
+                      className="w-full p-2.5 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-sm font-bold text-[#2D1A0E] focus:outline-none focus:border-[#F47A35] cursor-pointer"
+                    >
+                      {categoryOptions.map(c => <option key={c} value={c}>{c}</option>)}
+                      <option value="__ADD__">+ Add a new category…</option>
+                    </select>
+                  )}
                 </div>
 
                 <div>

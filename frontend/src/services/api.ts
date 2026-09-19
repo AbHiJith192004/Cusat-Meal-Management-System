@@ -256,6 +256,17 @@ export const adminApi = {
 
   getStudentDetail: (id: string) => request<any>(`/admin/students/${id}`),
 
+  /**
+   * Change what a student is for billing. Both fields move money -- OUTMESS
+   * leaves the billing cohort entirely and the campus carries a different
+   * rate -- so the server demands a reason and audits the before/after.
+   */
+  updateMembership: (studentId: string, data: {
+    student_type: string; campus_location: string; reason: string;
+  }) => request<any>(`/admin/students/${studentId}/membership`, {
+    method: 'PATCH', body: JSON.stringify(data),
+  }),
+
   resetAttendance: (registration_number: string, reason: string, meal_type?: string) => {
     const params = new URLSearchParams({ registration_number, reason });
     if (meal_type) params.append('meal_type', meal_type);
