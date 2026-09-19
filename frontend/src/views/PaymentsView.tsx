@@ -1,5 +1,6 @@
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {adminApi} from '../services/api';
+import { Modal } from '../components/Modal';
 
 type Status = 'PENDING' | 'VERIFIED' | 'REJECTED';
 
@@ -162,7 +163,9 @@ export const PaymentsView: React.FC = () => {
             {label: 'Submissions', value: String(counts.total), icon: 'groups', tone: '#F47A35'},
             {label: 'Verified', value: String(counts.verified), icon: 'check_circle', tone: '#16a34a'},
             {label: 'Awaiting review', value: String(counts.pending), icon: 'pending_actions', tone: '#ea580c'},
-            {label: 'Collected', value: money(counts.collected), icon: 'account_balance', tone: '#2D1A0E'},
+            {label: 'Collected', value: Number(counts.collected).toLocaleString('en-IN',
+              {style: 'currency', currency: 'INR', maximumFractionDigits: 0}),
+             icon: 'account_balance', tone: '#2D1A0E'},
           ].map(card => (
             <div key={card.label} className="bg-white p-4 rounded-2xl border border-[#EFDCB4] shadow-xs flex items-center gap-3">
               <div
@@ -305,7 +308,7 @@ export const PaymentsView: React.FC = () => {
 
       {/* ── Review confirmation ──────────────────────────────────── */}
       {reviewing && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <Modal open scrim={false}><div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
             <h3 className="text-xl font-bold text-[#2D1A0E]">
               {reviewing.decision === 'VERIFIED' ? 'Verify this payment?' : 'Reject this payment?'}
@@ -359,7 +362,7 @@ export const PaymentsView: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
+        </div></Modal>
       )}
     </div>
   );

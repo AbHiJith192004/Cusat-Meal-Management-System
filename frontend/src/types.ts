@@ -64,7 +64,12 @@ export interface StudentRecord {
   attendancePct: number;
   fines: number;
   phone?: string;
-  category?: 'Hosteller' | 'Day Scholar';
+  /**
+   * The server's StudentType, verbatim. This used to be the display strings
+   * 'Hosteller' | 'Day Scholar', which no API ever returns and which left no
+   * room for OUTMESS at all -- the label is applied where it is shown.
+   */
+  category?: 'HOSTELLER' | 'DAY_SCHOLAR' | 'OUTMESS';
   campusLocation?: 'MAIN_CAMPUS' | 'LAKESIDE_CAMPUS';
   mealsDone?: number;
   mealsSkipped?: number;

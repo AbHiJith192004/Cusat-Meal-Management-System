@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { studentApi } from '../services/api';
 import { ChefMascot, ART_CREDIT } from '../components/FoodIllustrations';
+import { Modal } from '../components/Modal';
 
 interface ProfileViewProps {
   studentName: string;
@@ -399,7 +400,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       </p>
 
       {/* ── Mess rules and support ───────────────────────────────── */}
-      {showSupport && (
+      <Modal open={showSupport} onClose={() => setShowSupport(false)} scrim={false}>
+        {showSupport && (
         <div
           className="fixed inset-0 z-60 flex items-center justify-center p-5"
           style={{ background: 'rgba(45,26,14,0.4)', backdropFilter: 'blur(4px)' }}
@@ -427,10 +429,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             </button>
           </div>
         </div>
-      )}
+        )}
+      </Modal>
 
       {/* ── Sign-out confirmation ────────────────────────────────── */}
-      {showLogout && (
+      <Modal open={showLogout} onClose={() => setShowLogout(false)} scrim={false}>
+        {showLogout && (
         <div
           className="fixed inset-0 z-60 flex items-center justify-center p-5"
           style={{ background: 'rgba(45,26,14,0.4)', backdropFilter: 'blur(4px)' }}
@@ -462,7 +466,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             </div>
           </div>
         </div>
-      )}
+        )}
+      </Modal>
     </main>
   );
 };

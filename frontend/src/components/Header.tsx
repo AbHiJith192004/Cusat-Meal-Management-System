@@ -24,7 +24,7 @@ const PAGE_META: Partial<Record<ActiveTab, { title: string; sub: string }>> = {
   'admin-ledger':    { title: 'Ledger',            sub: 'Purchases, expenses and reconciliation' },
   'admin-payments':  { title: 'Payments',          sub: 'Collections and pending dues' },
   'admin-menu':      { title: 'Weekly Menu',      sub: 'Plan and publish the mess menu' },
-  'admin-operations': { title: 'Operations',        sub: 'Finance, inventory, access, and payments' },
+  'admin-operations': { title: 'Operations',        sub: 'Committee access and bulk attendance' },
 };
 
 /**

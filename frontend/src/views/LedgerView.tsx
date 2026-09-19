@@ -1,5 +1,6 @@
 import React, {FormEvent, useCallback, useEffect, useMemo, useState} from 'react';
 import {adminApi} from '../services/api';
+import { Modal } from '../components/Modal';
 
 const KINDS = ['PURCHASE', 'OPERATIONAL', 'ADMINISTRATIVE'] as const;
 type Kind = typeof KINDS[number];
@@ -412,7 +413,7 @@ export const LedgerView: React.FC = () => {
 
       {/* ── Void confirmation ────────────────────────────────────── */}
       {voiding && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <Modal open scrim={false}><div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
             <h3 className="text-xl font-bold text-[#2D1A0E]">Void this entry?</h3>
             <p className="text-sm text-[#5C3D1E]">
@@ -458,12 +459,12 @@ export const LedgerView: React.FC = () => {
               </button>
             </div>
           </div>
-        </div>
+        </div></Modal>
       )}
 
       {/* ── Export ───────────────────────────────────────────────── */}
       {showExport && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <Modal open scrim={false}><div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl space-y-4">
             <h3 className="text-xl font-bold text-[#2D1A0E]">Export {monthLabel}</h3>
             <p className="text-sm text-[#5C3D1E]">
@@ -496,7 +497,7 @@ export const LedgerView: React.FC = () => {
               Cancel
             </button>
           </div>
-        </div>
+        </div></Modal>
       )}
     </div>
   );

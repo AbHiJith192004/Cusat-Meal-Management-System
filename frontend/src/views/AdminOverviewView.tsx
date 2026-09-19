@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { adminApi, menuApi } from '../services/api';
+import { Modal } from '../components/Modal';
 
 type MealKey = 'breakfast' | 'lunch' | 'dinner';
 type TileKey = 'total' | 'served' | 'skipped' | 'pending' | 'fined' | 'not_eligible';
@@ -451,9 +452,9 @@ export function AdminOverviewView() {
       </div>
 
       {/* ── Metric drill-down ────────────────────────────────────── */}
-      {drill && (
-        <div className="modal-scrim animate-fade-in">
-          <div className="modal-panel max-w-3xl space-y-4">
+      <Modal open={Boolean(drill)} onClose={() => setDrill(null)} panelClassName="max-w-3xl space-y-4">
+        {drill && (
+          <>
 
             <div className="flex justify-between items-start gap-3 pb-4 border-b border-[#EFDCB4]">
               <div className="min-w-0">
@@ -554,9 +555,9 @@ export function AdminOverviewView() {
                 Done / Close
               </button>
             </div>
-          </div>
-        </div>
-      )}
+          </>
+        )}
+      </Modal>
     </div>
   );
 }

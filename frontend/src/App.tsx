@@ -37,6 +37,11 @@ export function App() {
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [checkingSession, setCheckingSession] = useState<boolean>(true);
   const [canScan, setCanScan] = useState(false);
+  // The server's own word on the role. 'admin' above only says which shell to
+  // render; this says what the account is actually allowed to do, so
+  // Super-Admin-only controls are not offered to a plain admin who would then
+  // be refused by the API.
+  const [serverRole, setServerRole] = useState<string>('STUDENT');
 
   // Helper to change tab & persist in localStorage
   const handleTabChange = (tab: ActiveTab) => {
@@ -66,6 +71,7 @@ export function App() {
           const profile = await studentApi.getProfile();
           const verifiedRole: UserRole = ["ADMIN", "SUPER_ADMIN"].includes(profile.role) ? "admin" : "student";
           setCanScan(Boolean(profile.capabilities?.attendance_scanner));
+          setServerRole(profile.role || 'STUDENT');
           setUserRole(verifiedRole);
           setCurrentTab(verifiedRole === "admin" ? "admin-dashboard" : "home");
           setStudentInfo((prev) => ({
@@ -135,7 +141,15 @@ export function App() {
       }
       handleTabChange('home');
     } else {
-      const adminDisplayName = regNo.toUpperCase() === 'SADMIN001' ? 'Super Warden (Super Admin)' : name || 'Mess Admin';
+      let adminRole = 'ADMIN';
+      try {
+        const profile = await studentApi.getProfile();
+        adminRole = profile.role || 'ADMIN';
+        setServerRole(adminRole);
+      } catch (e) {
+        setServerRole('ADMIN');
+      }
+      const adminDisplayName = name || (adminRole === 'SUPER_ADMIN' ? 'Super Warden' : 'Mess Admin');
       setStudentInfo({
         name: adminDisplayName,
         regNo: regNo,
@@ -162,6 +176,8 @@ export function App() {
     ['messconnect_role', 'messconnect_tab', 'access_token'].forEach(key => localStorage.removeItem(key));
     setIsLoggedIn(false);
     setUnreadAlertsCount(0);
+    setServerRole('STUDENT');
+    setCanScan(false);
     setUserRole('student');
     setCurrentTab('home');
     setIsLoginOpen(true);
@@ -271,7 +287,7 @@ export function App() {
           <>
             {(currentTab === 'admin-dashboard' || currentTab === 'home') && <AdminOverviewView />}
             {currentTab === 'admin-students' && (
-              <StudentDirectoryView />
+              <StudentDirectoryView isSuperAdmin={serverRole === 'SUPER_ADMIN'} />
             )}
             {currentTab === 'admin-scanner' && (
               <AdminScannerView />
@@ -288,7 +304,7 @@ export function App() {
             )}
             {currentTab === 'profile' && (
               <ProfileView
-                userRole={studentInfo.regNo?.toUpperCase() === 'SADMIN001' ? 'super_admin' : 'admin'}
+                userRole={serverRole === 'SUPER_ADMIN' ? 'super_admin' : 'admin'}
                 studentName={studentInfo.name || 'Admin'}
                 regNo={studentInfo.regNo || 'ADMIN001'}
                 avatar={studentInfo.avatar}

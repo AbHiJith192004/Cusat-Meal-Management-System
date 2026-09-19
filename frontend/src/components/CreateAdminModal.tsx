@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { superAdminApi } from '../services/api';
+import { Modal } from './Modal';
 
 interface CreateAdminModalProps {
   isOpen: boolean;
@@ -64,11 +65,12 @@ export const CreateAdminModal: React.FC<CreateAdminModalProps> = ({ isOpen, onCl
   };
 
   return (
+    <Modal open scrim={false}>
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4 animate-fade-in">
-      <div className="bg-white rounded-2xl max-w-md w-full p-6 sm:p-8 space-y-5 border border-[#c3c6d7] shadow-2xl relative">
+      <div className="bg-white rounded-2xl max-w-md w-full p-6 sm:p-8 space-y-5 border border-[#E3CB9B] shadow-2xl relative">
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-[#737686] hover:text-[#151c27] transition-colors"
+          className="absolute top-4 right-4 text-[#9B7B52] hover:text-[#2D1A0E] transition-colors"
         >
           <span className="material-symbols-outlined text-[20px]">close</span>
         </button>
@@ -77,15 +79,15 @@ export const CreateAdminModal: React.FC<CreateAdminModalProps> = ({ isOpen, onCl
           <div className="w-12 h-12 rounded-full bg-[#F47A35]/10 text-[#D45E1A] flex items-center justify-center mx-auto mb-2">
             <span className="material-symbols-outlined text-[28px]">admin_panel_settings</span>
           </div>
-          <h2 className="text-2xl font-bold text-[#151c27]">Create Admin Account</h2>
-          <p className="text-xs text-[#434655]">
+          <h2 className="text-2xl font-bold text-[#2D1A0E]">Create Admin Account</h2>
+          <p className="text-xs text-[#6B4A28]">
             Super Admin Authorization — Provision new mess staff & warden accounts
           </p>
         </div>
 
         {issued && (
           <div className="space-y-3">
-            <div className="p-3 rounded-xl text-xs font-semibold flex items-center gap-2 bg-[#6cf8bb] text-[#00714d]">
+            <div className="p-3 rounded-xl text-xs font-semibold flex items-center gap-2 bg-[#D9EFDF] text-[#087443]">
               <span className="material-symbols-outlined text-[18px]">check_circle</span>
               <span>
                 Account created for {issued.name} ({issued.regNo}).
@@ -97,14 +99,14 @@ export const CreateAdminModal: React.FC<CreateAdminModalProps> = ({ isOpen, onCl
                 <span className="material-symbols-outlined text-[16px]">key</span>
                 One-time setup code
               </p>
-              <p className="text-[11px] text-[#434655] leading-relaxed">
+              <p className="text-[11px] text-[#6B4A28] leading-relaxed">
                 Give this to {issued.name} in person, after checking their identity. They enter it
                 on the activation screen and choose their own password. It is shown{' '}
                 <strong>only now</strong> and cannot be recovered — if it is lost, create a fresh
                 code rather than reusing this one.
               </p>
               <div className="flex items-center gap-2">
-                <code className="flex-1 p-2.5 bg-white border border-[#c3c6d7] rounded-lg text-[11px] font-mono break-all text-[#151c27] select-all">
+                <code className="flex-1 p-2.5 bg-white border border-[#E3CB9B] rounded-lg text-[11px] font-mono break-all text-[#2D1A0E] select-all">
                   {issued.code}
                 </code>
                 <button
@@ -123,7 +125,7 @@ export const CreateAdminModal: React.FC<CreateAdminModalProps> = ({ isOpen, onCl
                   {copied ? 'Copied' : 'Copy'}
                 </button>
               </div>
-              <p className="text-[11px] text-[#737686]">
+              <p className="text-[11px] text-[#9B7B52]">
                 Expires {new Date(issued.expiresAt).toLocaleString()}
               </p>
             </div>
@@ -135,7 +137,7 @@ export const CreateAdminModal: React.FC<CreateAdminModalProps> = ({ isOpen, onCl
                   setIssued(null);
                   setCopied(false);
                 }}
-                className="flex-1 py-2.5 border border-[#c3c6d7] text-[#434655] font-semibold text-sm rounded-xl hover:bg-[#f0f3ff] transition-colors cursor-pointer"
+                className="flex-1 py-2.5 border border-[#E3CB9B] text-[#6B4A28] font-semibold text-sm rounded-xl hover:bg-[#FDF7EA] transition-colors cursor-pointer"
               >
                 Create another
               </button>
@@ -146,7 +148,7 @@ export const CreateAdminModal: React.FC<CreateAdminModalProps> = ({ isOpen, onCl
                   setCopied(false);
                   onClose();
                 }}
-                className="flex-1 py-2.5 bg-[#151c27] text-white font-semibold text-sm rounded-xl hover:bg-[#434655] transition-colors cursor-pointer"
+                className="flex-1 py-2.5 bg-[#2D1A0E] text-white font-semibold text-sm rounded-xl hover:bg-[#6B4A28] transition-colors cursor-pointer"
               >
                 Done
               </button>
@@ -158,7 +160,7 @@ export const CreateAdminModal: React.FC<CreateAdminModalProps> = ({ isOpen, onCl
           <div
             className={`p-3 rounded-xl text-xs font-semibold flex items-center gap-2 ${
               message.type === 'success'
-                ? 'bg-[#6cf8bb] text-[#00714d]'
+                ? 'bg-[#D9EFDF] text-[#087443]'
                 : 'bg-[#ffdad6] text-[#93000a]'
             }`}
           >
@@ -176,7 +178,7 @@ export const CreateAdminModal: React.FC<CreateAdminModalProps> = ({ isOpen, onCl
           hidden={issued !== null}
         >
           <div>
-            <label className="block text-xs font-semibold text-[#434655] mb-1">Full Name *</label>
+            <label className="block text-xs font-semibold text-[#6B4A28] mb-1">Full Name *</label>
             <input
               type="text"
               required
@@ -184,12 +186,12 @@ export const CreateAdminModal: React.FC<CreateAdminModalProps> = ({ isOpen, onCl
               onChange={(e) => setName(e.target.value)}
               placeholder="Enter Full Name"
               autoComplete="off"
-              className="w-full p-2.5 bg-[#f0f3ff] border border-[#c3c6d7] rounded-xl text-sm font-medium outline-none text-[#151c27]"
+              className="w-full p-2.5 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-sm font-medium outline-none text-[#2D1A0E]"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-[#434655] mb-1">Admin ID / Reg No *</label>
+            <label className="block text-xs font-semibold text-[#6B4A28] mb-1">Admin ID / Reg No *</label>
             <input
               type="text"
               required
@@ -197,16 +199,16 @@ export const CreateAdminModal: React.FC<CreateAdminModalProps> = ({ isOpen, onCl
               onChange={(e) => setRegNo(e.target.value)}
               placeholder="Enter Admin ID"
               autoComplete="off"
-              className="w-full p-2.5 bg-[#f0f3ff] border border-[#c3c6d7] rounded-xl text-sm font-medium outline-none text-[#151c27]"
+              className="w-full p-2.5 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-sm font-medium outline-none text-[#2D1A0E]"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-[#434655] mb-1">Role Type</label>
+            <label className="block text-xs font-semibold text-[#6B4A28] mb-1">Role Type</label>
             <select
               value={role}
               onChange={(e) => setRole(e.target.value as any)}
-              className="w-full p-2.5 bg-[#f0f3ff] border border-[#c3c6d7] rounded-xl text-sm font-medium outline-none text-[#151c27]"
+              className="w-full p-2.5 bg-[#FDF7EA] border border-[#E3CB9B] rounded-xl text-sm font-medium outline-none text-[#2D1A0E]"
             >
               <option value="ADMIN">Mess Admin / Warden</option>
               <option value="SUPER_ADMIN">Super Admin</option>
@@ -230,5 +232,6 @@ export const CreateAdminModal: React.FC<CreateAdminModalProps> = ({ isOpen, onCl
         </form>
       </div>
     </div>
+    </Modal>
   );
 };

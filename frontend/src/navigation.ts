@@ -47,7 +47,7 @@ export const ADMIN_GROUPS: NavGroup[] = [
       { id: 'admin-scanner',   label: 'QR Scanner',  short: 'Scan',     icon: 'qr_code_scanner' },
       { id: 'admin-menu',      label: 'Weekly Menu', short: 'Menu',     icon: 'restaurant_menu' },
       { id: 'admin-students',  label: 'Students',    short: 'Students', icon: 'group' },
-      { id: 'admin-operations', label: 'Operations', short: 'More', icon: 'inventory_2' },
+      { id: 'admin-operations', label: 'Operations', short: 'Ops', icon: 'settings_suggest' },
     ],
   },
   {
