@@ -78,6 +78,20 @@ SETUP_ACCOUNT_RATE_LIMIT = RateLimitConfig(max_requests=5, window_seconds=900)
 DOB_ACTIVATION_ACCOUNT_LIMIT = RateLimitConfig(max_requests=5, window_seconds=3600)
 
 
+# Per-account ceiling on QR pass issuance. The Mess Pass screen asks for a
+# fresh token every 60 seconds, so a student sitting on that screen for a whole
+# serving window needs well under 100 an hour; 120 leaves room for refreshes,
+# a second device and switching between meals.
+#
+# This is not about abuse so much as a runaway client: each token costs four
+# database round trips (window, eligibility, selection, existing attendance),
+# and a tab left open in a reload loop -- or a few dozen of them across the
+# hostel -- is enough to put real load on the pool during the exact minutes
+# the scanner needs it. The limit turns that into one student's error instead
+# of everyone's slow queue.
+QR_TOKEN_ACCOUNT_LIMIT = RateLimitConfig(max_requests=120, window_seconds=3600)
+
+
 def get_client_ip(request: Request) -> str:
     """Use the ingress-provided client address only with explicit opt-in.
 

@@ -211,16 +211,27 @@ export const adminApi = {
     if (query) params.append('query', query);
     return request<any[]>(`/admin/students?${params.toString()}`);
   },
+  /**
+   * The whole roll, walked a page at a time because the server caps per_page
+   * at 100. The page ceiling used to be 10, which silently returned the first
+   * 1,000 students and no indication that more existed -- a directory that
+   * quietly loses people is worse than one that refuses. It now walks far
+   * enough for any realistic roll and throws if it somehow does not finish.
+   */
   getAllStudents: async (query?: string) => {
+    const PER_PAGE = 100;
+    const MAX_PAGES = 100;
     const all: any[] = [];
-    for (let page = 1; page <= 10; page++) {
-      const params = new URLSearchParams({page:String(page), per_page:'100'});
+    for (let page = 1; page <= MAX_PAGES; page++) {
+      const params = new URLSearchParams({page: String(page), per_page: String(PER_PAGE)});
       if (query) params.set('query', query);
       const rows = await request<any[]>(`/admin/students?${params}`);
       all.push(...rows);
-      if (rows.length < 100) break;
+      if (rows.length < PER_PAGE) return all;
     }
-    return all;
+    throw new Error(
+      `The student roll is larger than ${MAX_PAGES * PER_PAGE} records, which this screen cannot page through. ` +
+      'Use the search box to narrow it down.');
   },
   getStudentOptions: () => request<any[]>('/admin/student-options'),
 

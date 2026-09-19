@@ -15,7 +15,6 @@ export type ActiveTab =
   | 'admin-menu'
   | 'admin-ledger'
   | 'admin-payments'
-  | 'admin-operations'
   | 'admin-billing';
 
 export interface MealOption {

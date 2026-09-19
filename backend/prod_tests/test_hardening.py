@@ -541,3 +541,42 @@ async def test_dob_activation_spends_an_outstanding_setup_code(client):   # noqa
                                      'setup_code': issued['setup_code'],
                                      'password': 'someone-elses-passphrase'})
         assert stale.status_code == 401, 'a setup code outlived the activation it was for'
+
+
+@pytest.mark.asyncio
+async def test_liveness_never_depends_on_the_database(client, monkeypatch):
+    """Liveness must answer 200 while the database is unreachable.
+
+    The platform KILLS a container whose liveness probe fails. Both probes
+    used to point at /health, which answers 503 when Postgres is down, so a
+    database blip would have restarted every web container -- unable to help
+    the database, and actively harmful, because the restarts all reconnect at
+    once against the pool that was already saturated.
+
+    This test simulates the outage at the session boundary, so it fails if
+    anyone gives /health/live a database dependency or re-points the platform's
+    liveness probe back at /health.
+    """
+    alive = await client.get('/health/live')
+    assert alive.status_code == 200
+    assert alive.json()['data']['status'] == 'alive'
+
+    ready = await client.get('/health')
+    assert ready.status_code == 200
+    assert ready.json()['data']['database'] == 'connected'
+
+    class DeadSession:
+        async def __aenter__(self): return self
+        async def __aexit__(self, *exc): return False
+        async def execute(self, *a, **kw): raise OSError('database is unreachable')
+        async def commit(self): raise OSError('database is unreachable')
+        async def rollback(self): return None
+
+    monkeypatch.setattr('app.database.async_session_factory', lambda: DeadSession())
+
+    # Readiness reports the outage, so the load balancer withholds traffic ...
+    assert (await client.get('/health')).status_code == 503
+    # ... while liveness keeps the container alive to recover on its own.
+    still_alive = await client.get('/health/live')
+    assert still_alive.status_code == 200
+    assert still_alive.json()['data']['status'] == 'alive'

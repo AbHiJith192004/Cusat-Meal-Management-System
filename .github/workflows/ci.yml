@@ -2,9 +2,16 @@ name: Production checks
 on: [push, pull_request]
 permissions:
   contents: read
+# A rapid series of pushes used to run the whole matrix once per commit, and
+# only the last answer matters. Older runs on the same ref are cancelled.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   verify:
     runs-on: ubuntu-latest
+    # Nothing here legitimately takes ten minutes; a job that does is wedged.
+    timeout-minutes: 20
     services:
       postgres:
         image: postgres:16
@@ -51,3 +58,40 @@ jobs:
       - run: npm ci && npm run lint && npm run build && npm audit --audit-level=moderate
         working-directory: frontend
       - run: docker build -t messconnect:ci .
+
+      # Building the image is not evidence that it RUNS. A green build with a
+      # container that will not boot is exactly how the production startup and
+      # static-delivery failures reached a deploy before. This starts the real
+      # image against the CI database and asks it the two questions the
+      # platform asks: readiness (which touches Postgres) and liveness (which
+      # must answer even when Postgres is unreachable). It also checks the
+      # frontend is actually being served, since the image bakes it in.
+      - name: Smoke-test the production image
+        run: |
+          set -euo pipefail
+          docker run -d --name mc_smoke --network host \
+            -e DATABASE_URL='postgresql+asyncpg://test:test@localhost:5432/messconnect_test' \
+            -e JWT_SECRET_KEY="$JWT_SECRET_KEY" \
+            -e QR_SECRET_KEY="$QR_SECRET_KEY" \
+            -e APP_ENV=production -e ALLOW_TEST_MODE=false -e PORT=8080 \
+            messconnect:ci
+          for i in $(seq 1 30); do
+            if curl -fsS http://localhost:8080/health/live >/dev/null 2>&1; then break; fi
+            if [ "$i" = 30 ]; then
+              echo "::error::container never became live"; docker logs mc_smoke; exit 1
+            fi
+            sleep 2
+          done
+          curl -fsS http://localhost:8080/health | tee /dev/stderr | grep -q '"database":"connected"'
+          curl -fsS http://localhost:8080/ | grep -qi '<div id="root"' \
+            || { echo "::error::frontend not served from the image"; exit 1; }
+          # Liveness must not depend on the database: stop Postgres and it
+          # should still answer, while readiness turns 503.
+          docker stop "$(docker ps -q --filter ancestor=postgres:16)" >/dev/null
+          sleep 3
+          curl -fsS http://localhost:8080/health/live >/dev/null \
+            || { echo "::error::liveness failed without the database"; exit 1; }
+          code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/health)
+          [ "$code" = 503 ] || { echo "::error::readiness returned $code, expected 503"; exit 1; }
+          docker logs mc_smoke | tail -20
+          docker rm -f mc_smoke >/dev/null

@@ -7,6 +7,7 @@ from app.database import get_db
 from app.schemas.attendance import QRVerifyRequest, QRConfirmRequest
 from app.schemas.common import success_response
 from app.security.dependencies import CurrentUser, ScannerUser
+from app.security.rate_limiter import QR_TOKEN_ACCOUNT_LIMIT, check_shared_rate_limit
 from app.services.qr_service import QRService
 from app.utils.enums import MealType
 from app.utils.exceptions import ValidationException
@@ -42,6 +43,10 @@ async def generate_qr_code(
     mt = meal_type.upper()
     if mt not in [MealType.BREAKFAST.value, MealType.LUNCH.value, MealType.DINNER.value]:
         raise ValidationException(message="Invalid meal_type")
+
+    # Keyed on the account, not the IP: the whole hostel shares one NAT
+    # address, so a per-IP limit here would lock out everyone at once.
+    await check_shared_rate_limit(f"qr-token:{current_user.id}", QR_TOKEN_ACCOUNT_LIMIT)
 
     qr_service = QRService(db)
     token, expires_at, validity = await qr_service.generate_qr_token(current_user.id, mt)

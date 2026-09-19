@@ -15,6 +15,9 @@
 name: messconnect
 region: blr
 
+# Deployment and domain failures are loud; the ones that matter in production
+# are quiet. A restart loop, a wedged container or sustained CPU saturation
+# otherwise show up only as students saying the app "isn't working".
 alerts:
   - rule: DEPLOYMENT_FAILED
   - rule: DOMAIN_FAILED
@@ -93,6 +96,19 @@ services:
       - key: TRUST_PROXY_HEADERS
         scope: RUN_TIME
         value: "true"
+    alerts:
+      - rule: CPU_UTILIZATION
+        operator: GREATER_THAN
+        value: 85
+        window: TEN_MINUTES
+      - rule: MEM_UTILIZATION
+        operator: GREATER_THAN
+        value: 85
+        window: TEN_MINUTES
+      - rule: RESTART_COUNT
+        operator: GREATER_THAN
+        value: 3
+        window: TEN_MINUTES
     health_check:
       initial_delay_seconds: 20
       period_seconds: 10
@@ -101,13 +117,20 @@ services:
       failure_threshold: 5
       http_path: /health
       port: 8080
+    # Liveness asks only whether the PROCESS is alive, and must not touch the
+    # database. A failing liveness probe gets the container KILLED, so wiring
+    # it to /health -- which answers 503 while Postgres is unreachable -- meant
+    # a database blip would restart every web container, which cannot help the
+    # database and makes it worse: the restarted containers all reconnect at
+    # once against the pool that was already saturated. Readiness above still
+    # uses /health, so a sick database withholds traffic instead.
     liveness_health_check:
       initial_delay_seconds: 30
       period_seconds: 30
       timeout_seconds: 5
       success_threshold: 1
       failure_threshold: 5
-      http_path: /health
+      http_path: /health/live
       port: 8080
     termination:
       drain_seconds: 20

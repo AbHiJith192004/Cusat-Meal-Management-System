@@ -12,7 +12,6 @@ import { StudentBillView } from './views/StudentBillView';
 const AdminOverviewView = lazy(() => import('./views/AdminOverviewView').then(module => ({ default: module.AdminOverviewView })));
 const BillingManagementView = lazy(() => import('./views/BillingManagementView').then(module => ({ default: module.BillingManagementView })));
 const AdminScannerView = lazy(() => import('./views/AdminScannerView').then(module => ({ default: module.AdminScannerView })));
-const AdminOperationsView = lazy(() => import('./views/AdminOperationsView').then(module => ({ default: module.AdminOperationsView })));
 const WeeklyMenuView = lazy(() => import('./views/WeeklyMenuView').then(module => ({ default: module.WeeklyMenuView })));
 const LedgerView = lazy(() => import('./views/LedgerView').then(module => ({ default: module.LedgerView })));
 const PaymentsView = lazy(() => import('./views/PaymentsView').then(module => ({ default: module.PaymentsView })));
@@ -298,7 +297,6 @@ export function App() {
             {currentTab === 'admin-menu' && <WeeklyMenuView />}
             {currentTab === 'admin-ledger' && <LedgerView />}
             {currentTab === 'admin-payments' && <PaymentsView />}
-            {currentTab === 'admin-operations' && <AdminOperationsView />}
             {currentTab === 'alerts' && (
               <AlertsView onUnreadChange={setUnreadAlertsCount} />
             )}
