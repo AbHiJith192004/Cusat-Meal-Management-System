@@ -148,7 +148,8 @@ const Privacy = () => (
       <p>
         Passwords are stored hashed with Argon2 and are never readable, by staff or by anyone else.
         Traffic is encrypted in transit, the database accepts connections only from the application,
-        meal passes are signed and expire in sixty seconds, and administrative actions are logged.
+        meal passes are signed and expire within a couple of minutes, and administrative actions
+        are logged.
         No system is perfect; if a breach affects you, the mess office will tell you.
       </p>
     </Section>
@@ -192,7 +193,7 @@ const Terms = () => (
 
     <Section title="Attendance and your pass">
       <p>
-        Your pass is a signed code that changes every sixty seconds and can be used once. A
+        Your pass is a signed code that expires within a couple of minutes and can be used once. A
         screenshot will not work. Present it yourself at the dining hall; letting someone else eat
         on your pass is a misuse of the account.
       </p>

@@ -187,7 +187,7 @@ export const StudentHomeView: React.FC<StudentHomeViewProps> = ({ studentName, o
             Ready to scan
           </p>
           <p className="text-[13px] font-semibold mt-1 mb-4" style={{ color: 'var(--text-muted)' }}>
-            A single-use QR valid for 60 seconds at the dining hall entrance.
+            A single-use QR, valid briefly, shown at the dining hall entrance.
           </p>
           <button onClick={() => onNavigate('qr')} className="btn-primary w-full">
             Open mess pass

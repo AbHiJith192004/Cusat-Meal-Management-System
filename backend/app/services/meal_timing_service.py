@@ -65,6 +65,44 @@ class MealTimingService:
         # suspend mess cuts entirely, e.g. during exam weeks.
         return value
 
+    async def get_qr_validity_seconds(self) -> int:
+        """How long an issued meal pass stays valid.
+
+        The setting row wins when it is present and sane; otherwise the
+        environment value (QR_VALIDITY_SECONDS, itself defaulting to 60). That
+        order keeps any deployment that sets the variable working exactly as
+        before while making the row the operational control once the mess
+        office uses it.
+
+        Garbage falls back rather than raising: this is on the path that issues
+        every student's pass, and a typo in a settings row must not stop the
+        dining hall working.
+        """
+        fallback = get_settings().QR_VALIDITY_SECONDS
+        # Deliberately NOT _get_val: that substitutes DEFAULT_SETTINGS when the
+        # row is absent, which would make "no row" indistinguishable from
+        # "row says 60" and quietly override a deployment that sets
+        # QR_VALIDITY_SECONDS in its environment. Absent means absent here.
+        setting = await self.settings_repo.get_by_key("qr_validity_seconds")
+        if setting is None:
+            return fallback
+        raw = setting.value
+        try:
+            value = int(str(raw).strip())
+        except (TypeError, ValueError):
+            logger.warning(
+                "qr_validity_seconds is not a number (%r); using %d", raw, fallback
+            )
+            return fallback
+        # Mirrors the bounds settings_validation enforces on the way in. A row
+        # written before that guard existed could still be outside them.
+        if not 15 <= value <= 120:
+            logger.warning(
+                "qr_validity_seconds %d is outside 15-120; using %d", value, fallback
+            )
+            return fallback
+        return value
+
     async def get_cutoff_datetime(self, target_date: date) -> datetime:
         """Calculate the cutoff datetime for a target meal date.
         

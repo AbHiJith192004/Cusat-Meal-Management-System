@@ -27,9 +27,7 @@ const MEAL_LABEL: Record<MealKey, string> = {
  * The rules that are not times of day.
  *
  * Every key here is one the application actually reads at runtime -- checked,
- * not assumed. `qr_validity_seconds` is deliberately absent: it is seeded and
- * has a default, but QRService reads QR_VALIDITY_SECONDS from the environment
- * instead, so a field for it would be a control that changes nothing.
+ * not assumed, because a field wired to nothing is worse than no field.
  */
 interface RuleField {
   key: string;
@@ -69,6 +67,15 @@ const RULE_FIELDS: RuleField[] = [
     suffix: 'per month',
   },
   {
+    key: 'qr_validity_seconds',
+    label: 'How long a meal pass stays valid',
+    help: 'The pass expires after this and cannot be reused. Raise it if the queue is slow; keep it short, because nobody checks a face at the door and a longer pass is a longer window to forward a screenshot to a friend.',
+    kind: 'int',
+    min: 15,
+    max: 120,
+    suffix: 'seconds',
+  },
+  {
     key: 'fine_amount',
     label: 'Missed-meal fine',
     help: 'Charged by the nightly reconciliation when a student opted in and did not come. Applies from the next run, not retrospectively.',
@@ -82,6 +89,7 @@ const RULE_DEFAULTS: Array<[string, string]> = [
   ['selection_cutoff_time', '21:00'],
   ['selection_cutoff_advance_days', '1'],
   ['max_monthly_mess_cuts', '10'],
+  ['qr_validity_seconds', '60'],
   ['fine_amount', '30.00'],
 ];
 

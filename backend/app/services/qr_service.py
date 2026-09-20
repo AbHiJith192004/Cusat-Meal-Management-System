@@ -68,7 +68,7 @@ class QRService:
             raise AttendanceAlreadyRecordedException()
 
         # Generate JWT token
-        validity = settings.QR_VALIDITY_SECONDS
+        validity = await self.timing_service.get_qr_validity_seconds()
         expires_at = now + timedelta(seconds=validity)
         jti = str(uuid.uuid4())
 

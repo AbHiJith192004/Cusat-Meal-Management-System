@@ -31,6 +31,10 @@ const MEALS: MealType[] = ['Breakfast', 'Lunch', 'Dinner'];
 export const StudentQrView: React.FC<StudentQrViewProps> = ({ studentName, regNo, canScan = false }) => {
   const [activeSubView, setActiveSubView] = useState<'scanner' | 'pass'>('pass');
   const [secondsLeft, setSecondsLeft] = useState(60);
+  // The server states the pass lifetime with every token, so the instructions
+  // below say the real number instead of a hardcoded 60 that the mess office
+  // can now change from Settings.
+  const [validity, setValidity] = useState<number | null>(null);
   const [mealType, setMealType] = useState<MealType>(() => LABEL[pickCurrentMeal()]);
   // The office's real serving windows. This screen used to print its own
   // ("12:30 PM – 2:00 PM" for a lunch the mess serves 12:00–14:30), so a
@@ -54,6 +58,7 @@ export const StudentQrView: React.FC<StudentQrViewProps> = ({ studentName, regNo
       const res = await attendanceApi.getQrToken(type);
       setQrToken(res.qr_token);
       setSecondsLeft(res.validity_seconds || 60);
+      if (res.validity_seconds) setValidity(res.validity_seconds);
     } catch (err: any) {
       const msg = err.message || '';
       if (msg.includes('already') || msg.includes('recorded')) {
@@ -365,7 +370,9 @@ export const StudentQrView: React.FC<StudentQrViewProps> = ({ studentName, regNo
             >
               <li>1. Pick the meal you are collecting.</li>
               <li>2. Show the code to the scanner at the entrance.</li>
-              <li>3. It expires after 60 seconds and cannot be reused.</li>
+              <li>
+                3. It expires after {validity ?? 60} seconds and cannot be reused.
+              </li>
             </ol>
             <p className="text-[12px] font-semibold mt-3" style={{ color: 'var(--text-muted)' }}>
               Screenshots will not work — each code is signed and single-use.

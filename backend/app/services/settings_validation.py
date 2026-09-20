@@ -97,8 +97,11 @@ def validate_settings(incoming: dict[str, str], stored: dict[str, str]) -> None:
             _int_key(key, value, "Maximum monthly mess cuts", 0, 31)
         elif key == "qr_validity_seconds":
             # Below ~15s a student cannot get the phone out of their pocket in
-            # time; far above a minute the pass stops being short-lived.
-            _int_key(key, value, "Pass validity in seconds", 15, 300)
+            # time. The ceiling is 2 minutes: nobody sees a face at the door
+            # (a deliberate trade for queue speed), so the pass's short life is
+            # what stops a screenshot being forwarded to a friend. Five minutes
+            # would be generous to the queue and generous to that too.
+            _int_key(key, value, "Pass validity in seconds", 15, 120)
         elif key == "fine_amount":
             _money_key(key, value, "The missed-meal fine")
 

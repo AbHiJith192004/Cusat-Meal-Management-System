@@ -570,6 +570,22 @@ async def test_meal_window_settings_reject_anything_the_app_cannot_parse(client)
         assert (await put(('fine_amount', '-5'))).status_code == 422
         assert (await put(('selection_cutoff_time', '9pm'))).status_code == 422
         assert (await put(('qr_validity_seconds', '2'))).status_code == 422
+        # Two minutes is the ceiling: nobody checks a face at the door, so the
+        # pass's short life is what stops a forwarded screenshot working.
+        assert (await put(('qr_validity_seconds', '300'))).status_code == 422
+
+        # And the value reaches a real pass, which is the whole point -- the row
+        # existed for months while QRService read the environment instead.
+        # Lunch is opened to the whole day first: a pass is only issued inside
+        # the serving window, and this must not pass or fail on the clock the
+        # suite happens to run at. Both settings are restored in `finally`.
+        assert (await put(('meal_window_lunch_start', '00:00'),
+                          ('meal_window_lunch_end', '23:59'),
+                          ('qr_validity_seconds', '90'))).status_code == 200
+        pass_now = await client.get('/api/v1/attendance/qr?meal_type=LUNCH',
+                                    headers=headers(student))
+        assert pass_now.status_code == 200, pass_now.text
+        assert pass_now.json()['data']['validity_seconds'] == 90
 
         # A key this guard does not know is still passed through, as before.
         assert (await put(('some_future_setting', 'anything at all'))).status_code == 200
