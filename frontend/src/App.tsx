@@ -312,7 +312,9 @@ export function App() {
               <StudentDirectoryView isSuperAdmin={serverRole === 'SUPER_ADMIN'} />
             )}
             {currentTab === 'admin-scanner' && (
-              <AdminScannerView />
+              <AdminScannerView
+                canMarkManually={serverRole === 'ADMIN' || serverRole === 'SUPER_ADMIN'}
+              />
             )}
             {currentTab === 'admin-billing' && (
               <BillingManagementView />

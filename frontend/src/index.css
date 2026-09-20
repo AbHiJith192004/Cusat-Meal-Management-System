@@ -752,7 +752,15 @@ button:disabled.btn-inert {
   display: flex;
   flex-direction: column;
   width: 100%;
+  /* `vh` on iOS Safari measures the viewport with the URL bar HIDDEN, so while
+     the bar is showing, 92vh is taller than what the student can actually see
+     and the bottom of the sheet sits underneath it -- reported from a phone
+     where the last section ran off under the address bar. `dvh` tracks the
+     visible viewport instead. The `vh` line stays first as the fallback for
+     browsers older than iOS 15.4 / Chrome 108, which simply keep the old
+     behaviour rather than losing the max-height entirely. */
   max-height: 92vh;
+  max-height: 92dvh;
   /* `overflow: hidden` CLIPPED any dialog taller than max-height, with no way
      to reach the rest: on a 375x812 phone the student Quick View overflowed by
      46px, which put Close and "Reset Today's Attendance" below the panel edge
@@ -774,7 +782,9 @@ button:disabled.btn-inert {
   .modal-panel {
     border-radius: 16px;
     padding: 24px;
+    /* Same iOS/iPadOS reason as the phone rule above. */
     max-height: 85vh;
+    max-height: 85dvh;
   }
 }
 
@@ -837,7 +847,10 @@ button:disabled.btn-inert {
   position: relative;
   overflow: hidden;
   background: #2A2622;
+  /* dvh so the camera box does not grow taller than the visible page on a
+     phone and push the controls beneath it below the fold. */
   height: 52vh;
+  height: 52dvh;
   min-height: 280px;
 }
 

@@ -359,6 +359,28 @@ export const adminApi = {
   assignCommittee: (data: any) => request<any>('/admin/committee/promote', {method: 'POST', body: JSON.stringify(data)}),
   revokeCommittee: (studentId: string, reason: string) => request<any>(`/admin/committee/revoke/${studentId}`, {method: 'POST', body: JSON.stringify({reason})}),
   bulkAttendance: (data: any) => request<any>('/admin/attendance/bulk-mark', {method: 'POST', body: JSON.stringify(data)}),
+
+  /** Active students only, name-sorted -- the picker for marking attendance by hand. */
+  getStudentOptions: () =>
+    request<Array<{id: string; name: string; registration_number: string}>>('/admin/student-options'),
+
+  /**
+   * Record a meal for a student who could not present a pass.
+   *
+   * ADMIN and SUPER_ADMIN only: a committee student with scanner access is
+   * refused by the server, which is why the form is not offered to them.
+   * The reason is mandatory and lands in the audit log beside the row.
+   */
+  recordManualAttendance: (payload: {
+    student_id: string;
+    meal_date: string;
+    meal_type: 'BREAKFAST' | 'LUNCH' | 'DINNER';
+    reason: string;
+  }) =>
+    request<any>('/admin/attendance/manual', {
+      method: 'POST',
+      body: JSON.stringify({...payload, attendance_type: 'MANUAL'}),
+    }),
   getPayments: (status?: string) => request<any[]>(`/admin/payments${status ? `?status=${status}` : ''}`),
   reviewPayment: (id: string, decision: 'VERIFIED' | 'REJECTED', note: string) =>
     request<any>(`/admin/payments/${id}/review`, {method: 'POST', body: JSON.stringify({decision, note})}),
