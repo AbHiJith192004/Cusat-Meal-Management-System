@@ -58,6 +58,10 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({ isSu
   const [memberCampus, setMemberCampus] = useState('MAIN_CAMPUS');
   const [memberReason, setMemberReason] = useState('');
   const [memberBusy, setMemberBusy] = useState(false);
+  const [suspendReason, setSuspendReason] = useState('');
+  const [suspendBusy, setSuspendBusy] = useState(false);
+  const [suspendError, setSuspendError] = useState<string | null>(null);
+  const [suspendSaved, setSuspendSaved] = useState<string | null>(null);
   const [memberError, setMemberError] = useState<string | null>(null);
   const [memberSaved, setMemberSaved] = useState(false);
   const [addLoading, setAddLoading] = useState(false);
@@ -143,7 +147,8 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({ isSu
     const matchesStatus =
       statusFilter === 'All' ||
       (statusFilter === 'Active' && student.accountStatus === 'ACTIVE') ||
-      (statusFilter === 'Pending' && student.accountStatus === 'PENDING');
+      (statusFilter === 'Pending' && student.accountStatus === 'PENDING') ||
+      (statusFilter === 'Suspended' && student.accountStatus === 'SUSPENDED');
 
     const matchesCategory = categoryFilter === 'ALL' || student.category === categoryFilter;
 
@@ -161,12 +166,34 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({ isSu
     setMemberReason('');
     setMemberError(null);
     setMemberSaved(false);
+    setSuspendReason('');
+    setSuspendError(null);
+    setSuspendSaved(null);
   };
 
   /** True once the admin has actually picked something different. */
   const membershipDirty = Boolean(selectedStudent) && (
     memberType !== String(selectedStudent?.category || 'HOSTELLER') ||
     memberCampus !== String(selectedStudent?.campusLocation || 'MAIN_CAMPUS'));
+
+  const suspended = selectedStudent?.accountStatus === 'SUSPENDED';
+
+  const setSuspension = async (suspend: boolean) => {
+    if (!selectedStudent) return;
+    setSuspendBusy(true); setSuspendError(null); setSuspendSaved(null);
+    try {
+      const res = await adminApi.setStudentSuspended(
+        selectedStudent.id, suspend, suspendReason.trim());
+      setSuspendSaved(suspend
+        ? 'Suspended. Any session they had open is already closed.'
+        : `Reinstated as ${res.account_status === 'ACTIVE' ? 'active' : 'pending activation'}.`);
+      setSuspendReason('');
+      setSelectedStudent({ ...selectedStudent, accountStatus: res.account_status as any });
+      await fetchStudents();
+    } catch (err: any) {
+      setSuspendError(err.message || 'Could not change the account status.');
+    } finally { setSuspendBusy(false); }
+  };
 
   const saveMembership = async () => {
     if (!selectedStudent) return;
@@ -221,6 +248,7 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({ isSu
     active: apiStudents.filter(s => s.accountStatus === 'ACTIVE').length,
     pending: apiStudents.filter(s => s.accountStatus === 'PENDING').length,
     outmess: apiStudents.filter(s => s.category === 'OUTMESS').length,
+    suspended: apiStudents.filter(s => s.accountStatus === 'SUSPENDED').length,
   };
 
   return (
@@ -265,6 +293,11 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({ isSu
             { label: 'Activated', value: counts.active, icon: 'verified_user', tone: '#16a34a' },
             { label: 'Not activated', value: counts.pending, icon: 'hourglass_top', tone: '#ea580c' },
             { label: 'Out-mess', value: counts.outmess, icon: 'no_meals', tone: '#6B7280' },
+            // Only once there is one. Activated + not activated would
+            // otherwise stop adding up to the roll with no tile explaining it.
+            ...(counts.suspended
+              ? [{ label: 'Suspended', value: counts.suspended, icon: 'block', tone: '#dc2626' }]
+              : []),
           ].map(card => (
             <div key={card.label} className="bg-white p-4 rounded-2xl border border-[#EFDCB4] shadow-xs flex items-center gap-3">
               <div
@@ -316,6 +349,7 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({ isSu
               <option value="All">All Statuses</option>
               <option value="Active">Account active</option>
               <option value="Pending">Activation pending</option>
+              <option value="Suspended">Suspended</option>
             </select>
           </div>
         </div>
@@ -550,6 +584,62 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({ isSu
                 </p>
               )}
               {memberError && <p role="alert" className="text-xs font-bold" style={{ color: 'var(--red)' }}>{memberError}</p>}
+            </section>
+
+            {/* Account access */}
+            <section
+              className="p-4 rounded-xl border space-y-2"
+              style={{
+                borderColor: suspended ? '#F6C8C3' : '#EFDCB4',
+                background: suspended ? '#FDECEA' : '#FDF7EA',
+              }}
+              aria-label="Account access"
+            >
+              <span
+                className="text-[11px] font-extrabold uppercase tracking-wider block"
+                style={{ color: suspended ? 'var(--red)' : '#F47A35' }}
+              >
+                Account access
+              </span>
+              <p className="text-[11px] font-semibold text-[#6B4A28]">
+                {suspended
+                  ? 'This student is suspended. They cannot sign in, activate, or be given a pass. Their meals are not collected and no new fines are raised.'
+                  : 'Suspending closes any session the student has open and blocks sign-in, activation and passes. It changes nothing that already happened \u2014 attendance, fines and published bills stay exactly as they are.'}
+              </p>
+
+              <label className="block text-xs font-bold text-[#6B4A28]" htmlFor="suspend-reason">
+                Reason (at least 5 characters)
+              </label>
+              <input
+                id="suspend-reason"
+                value={suspendReason}
+                onChange={e => setSuspendReason(e.target.value)}
+                placeholder={suspended
+                  ? 'e.g. Readmitted for the new term, confirmed with the warden'
+                  : 'e.g. Left the hostel on 12 September, confirmed with the warden'}
+                className="w-full p-2.5 bg-white border border-[#E3CB9B] rounded-xl text-sm font-medium focus:outline-none focus:border-[#F47A35]"
+              />
+              <button
+                disabled={suspendBusy || suspendReason.trim().length < 5}
+                onClick={() => void setSuspension(!suspended)}
+                className={suspendBusy || suspendReason.trim().length < 5
+                  ? 'w-full py-2 btn-inert font-bold text-xs rounded-xl'
+                  : suspended
+                  ? 'w-full py-2 bg-[#16a34a] hover:opacity-90 text-white font-bold text-xs rounded-xl cursor-pointer'
+                  : 'w-full py-2 bg-[#dc2626] hover:opacity-90 text-white font-bold text-xs rounded-xl cursor-pointer'}
+              >
+                {suspendBusy
+                  ? 'Saving\u2026'
+                  : suspended ? 'Reinstate this student' : 'Suspend this student'}
+              </button>
+              {suspendSaved && (
+                <p role="status" className="text-xs font-bold" style={{ color: 'var(--green)' }}>
+                  {suspendSaved} Recorded in the audit log.
+                </p>
+              )}
+              {suspendError && (
+                <p role="alert" className="text-xs font-bold" style={{ color: 'var(--red)' }}>{suspendError}</p>
+              )}
             </section>
 
             {/* Account setup */}

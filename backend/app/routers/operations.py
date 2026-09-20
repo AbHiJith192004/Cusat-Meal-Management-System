@@ -21,9 +21,10 @@ from app.repositories.audit_repo import AuditRepository
 from app.schemas.common import success_response
 from app.schemas.operations import (BulkAttendanceCreate, CommitteeCreate,
     InventoryAdjust, InventoryCreate, LedgerCreate, MembershipUpdate, MenuUpsert,
-    PaymentCreate, PaymentReview, VoidRequest)
+    PaymentCreate, PaymentReview, StatusUpdate, VoidRequest)
 from app.security.dependencies import AdminUser, CurrentUser
 from app.services.billing_lock import lock_open_period
+from app.utils.enums import AccountStatus
 from app.utils.exceptions import ConflictException, NotFoundException, ValidationException
 from app.utils.timezone import now_ist, today_ist
 
@@ -293,6 +294,60 @@ async def update_membership(body: MembershipUpdate, admin: AdminUser,
                                                "before": before, "after": after,
                                                "reason": body.reason.strip()})
     return success_response(data={"student_id": str(student_id), **after})
+
+
+@router.patch("/admin/students/{student_id}/status")
+async def update_student_status(body: StatusUpdate, admin: AdminUser,
+    student_id: Annotated[uuid.UUID, Path()],
+    db: AsyncSession = Depends(get_db, scope="function")):
+    """Suspend a student, or put a suspended one back.
+
+    Suspension was enforced long before anything could apply it: a suspended
+    account is refused at sign-in, refused when refreshing (which also revokes
+    the refresh token), and refused on every authenticated request. What was
+    missing was the write. This is it.
+
+    Reinstating returns the student to where they were, which is ACTIVE only
+    if they had actually activated. Somebody suspended while still PENDING has
+    no password, and marking them ACTIVE would claim an account that cannot be
+    signed in to is ready to use.
+
+    Suspending also bumps session_version, the same revoke-everything switch a
+    password reset uses. Without it a student already holding an access token
+    would keep working until it expired -- and a reinstated one would silently
+    resume an old session, which is not what "suspended, then allowed back"
+    should mean.
+
+    Students only. Suspending a colleague's admin account is a different
+    decision with a different blast radius, and this endpoint is not it.
+    """
+    user = await db.scalar(
+        select(User).where(User.id == student_id, User.role == "STUDENT").with_for_update())
+    if not user:
+        raise NotFoundException(message="Student not found.")
+
+    before = user.account_status
+    if body.suspend:
+        if before == AccountStatus.SUSPENDED.value:
+            raise ValidationException(message="That student is already suspended.")
+        after = AccountStatus.SUSPENDED.value
+        # Revoke every live session, not just refuse the next sign-in.
+        user.session_version += 1
+    else:
+        if before != AccountStatus.SUSPENDED.value:
+            raise ValidationException(message="That student is not suspended.")
+        after = (AccountStatus.ACTIVE.value if user.activated_at
+                 else AccountStatus.PENDING.value)
+
+    user.account_status = after
+    await db.flush()
+    await AuditRepository(db).log(
+        admin.id,
+        "STUDENT_SUSPENDED" if body.suspend else "STUDENT_REINSTATED",
+        "user", user.id,
+        {"student_id": str(student_id), "registration_number": user.registration_number,
+         "before": before, "after": after, "reason": body.reason.strip()})
+    return success_response(data={"student_id": str(student_id), "account_status": after})
 
 
 @router.post("/admin/attendance/bulk-mark")

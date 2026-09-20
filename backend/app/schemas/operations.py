@@ -42,6 +42,19 @@ class MembershipUpdate(BaseModel):
     reason: str = Field(min_length=5, max_length=500)
 
 
+class StatusUpdate(BaseModel):
+    """Suspend a student, or put them back.
+
+    The caller says which direction, not which status. The resulting status is
+    the server's to decide, because reinstating is not simply "set ACTIVE": a
+    student suspended before they ever activated has no password, and handing
+    them ACTIVE would describe an account nobody can sign in to as ready.
+    """
+
+    suspend: bool
+    reason: str = Field(min_length=5, max_length=500)
+
+
 class VoidRequest(BaseModel):
     reason: str = Field(min_length=5, max_length=500)
 

@@ -588,3 +588,85 @@ async def test_meal_window_settings_reject_anything_the_app_cannot_parse(client)
                 else:
                     await db.delete(row)
             await db.commit()
+
+
+@pytest.mark.asyncio
+async def test_suspending_a_student_locks_them_out_and_reinstating_respects_activation(client):
+    """SUSPENDED was enforced in three places and writable from none of them.
+
+    So this checks the enforcement actually engages, not merely that a column
+    changed: the student's existing token must stop working the moment they
+    are suspended.
+    """
+    admin, student = await user('ADMIN'), await user()
+    h = headers(admin)
+    token = headers(student)
+
+    # Works before.
+    assert (await client.get('/api/v1/me', headers=token)).status_code == 200
+
+    suspend = await client.patch(f'/api/v1/admin/students/{student.id}/status',
+                                 json={'suspend': True, 'reason': 'Left the hostel mid-term'},
+                                 headers=h)
+    assert suspend.status_code == 200, suspend.text
+    assert suspend.json()['data']['account_status'] == 'SUSPENDED'
+
+    # The token they were already holding is dead, not merely their next login.
+    denied = await client.get('/api/v1/me', headers=token)
+    assert denied.status_code == 403, denied.text
+    assert denied.json()['error']['code'] == 'ACCOUNT_SUSPENDED'
+
+    # Suspending twice is a no-op and says so rather than re-writing.
+    again = await client.patch(f'/api/v1/admin/students/{student.id}/status',
+                               json={'suspend': True, 'reason': 'Same reason again'}, headers=h)
+    assert again.status_code == 422
+
+    # A reason is mandatory, as it is for a membership change.
+    bare = await client.patch(f'/api/v1/admin/students/{student.id}/status',
+                              json={'suspend': False, 'reason': 'x'}, headers=h)
+    assert bare.status_code == 422
+
+    # This student never activated, so reinstating returns them to PENDING --
+    # ACTIVE would describe an account with no password as ready to use.
+    back = await client.patch(f'/api/v1/admin/students/{student.id}/status',
+                              json={'suspend': False, 'reason': 'Readmitted for the new term'},
+                              headers=h)
+    assert back.status_code == 200, back.text
+    assert back.json()['data']['account_status'] == 'PENDING'
+
+    # An activated student comes back ACTIVE instead.
+    active = await user()
+    async with async_session_factory() as db:
+        row = await db.get(User, active.id)
+        row.activated_at = now_ist()
+        await db.commit()
+    await client.patch(f'/api/v1/admin/students/{active.id}/status',
+                       json={'suspend': True, 'reason': 'Suspended pending review'}, headers=h)
+    restored = await client.patch(f'/api/v1/admin/students/{active.id}/status',
+                                  json={'suspend': False, 'reason': 'Review closed, no action'},
+                                  headers=h)
+    assert restored.json()['data']['account_status'] == 'ACTIVE'
+
+    # Reinstating someone who is not suspended is refused.
+    assert (await client.patch(f'/api/v1/admin/students/{active.id}/status',
+                               json={'suspend': False, 'reason': 'Already back again'},
+                               headers=h)).status_code == 422
+
+    # Both directions are audited with the before/after and the reason.
+    async with async_session_factory() as db:
+        logs = (await db.execute(select(AuditLog).where(
+            AuditLog.action.in_(['STUDENT_SUSPENDED', 'STUDENT_REINSTATED'])))).scalars().all()
+    mine = [x for x in logs if x.metadata_.get('student_id') == str(student.id)]
+    assert {x.action for x in mine} == {'STUDENT_SUSPENDED', 'STUDENT_REINSTATED'}
+    assert any(x.metadata_['reason'] == 'Left the hostel mid-term' for x in mine)
+
+    # An admin account cannot be suspended through the student endpoint.
+    other_admin = await user('ADMIN')
+    assert (await client.patch(f'/api/v1/admin/students/{other_admin.id}/status',
+                               json={'suspend': True, 'reason': 'Should not be possible here'},
+                               headers=h)).status_code == 404
+
+    # And a student cannot suspend anyone.
+    assert (await client.patch(f'/api/v1/admin/students/{active.id}/status',
+                               json={'suspend': True, 'reason': 'Student attempting this'},
+                               headers=headers(await user()))).status_code == 403

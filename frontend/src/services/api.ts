@@ -250,6 +250,18 @@ export const adminApi = {
     method: 'PATCH', body: JSON.stringify(data),
   }),
 
+  /**
+   * Suspend a student, or put a suspended one back.
+   *
+   * The caller says which direction; the server decides the resulting status,
+   * because reinstating someone who never activated must return them to
+   * PENDING rather than claim they are ready to sign in.
+   */
+  setStudentSuspended: (studentId: string, suspend: boolean, reason: string) =>
+    request<{student_id: string; account_status: string}>(
+      `/admin/students/${studentId}/status`,
+      {method: 'PATCH', body: JSON.stringify({suspend, reason})}),
+
   resetAttendance: (registration_number: string, reason: string, meal_type?: string) => {
     const params = new URLSearchParams({ registration_number, reason });
     if (meal_type) params.append('meal_type', meal_type);
