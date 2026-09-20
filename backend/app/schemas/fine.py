@@ -1,23 +1,5 @@
-from decimal import Decimal
-from datetime import date, datetime
-from uuid import UUID
-from pydantic import BaseModel, ConfigDict, Field
-
-
-
-class FineResponse(BaseModel):
-    id: UUID
-    student_id: UUID
-    meal_date: date
-    meal_type: str
-    amount: Decimal
-    status: str
-    created_at: datetime
-    waived_at: datetime | None = None
-    waived_by: UUID | None = None
-    waiver_reason: str | None = None
-
-    model_config = ConfigDict(from_attributes=True)
+from datetime import date
+from pydantic import BaseModel, Field
 
 
 class WaiveFineRequest(BaseModel):

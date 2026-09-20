@@ -1,11 +1,9 @@
 import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {adminApi} from '../services/api';
 import { Modal } from '../components/Modal';
+import {money, downloadCsv} from '../utils/format';
 
 type Status = 'PENDING' | 'VERIFIED' | 'REJECTED';
-
-const money = (v: string | number) =>
-  Number(v || 0).toLocaleString('en-IN', {style: 'currency', currency: 'INR', maximumFractionDigits: 2});
 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
                 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -15,21 +13,6 @@ const CATEGORY_LABEL: Record<string, string> = {
 };
 const CAMPUS_LABEL: Record<string, string> = {
   MAIN_CAMPUS: 'Main Campus', LAKESIDE_CAMPUS: 'Lakeside',
-};
-
-const downloadCsv = (filename: string, rows: string[][]) => {
-  const escape = (cell: string) => `"${String(cell ?? '').replace(/"/g, '""')}"`;
-  const csv = rows.map(r => r.map(escape).join(',')).join('\n');
-  // BOM so Excel opens the rupee sign and Malayalam names correctly.
-  const blob = new Blob(['\uFEFF' + csv], {type: 'text/csv;charset=utf-8;'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.setAttribute('download', filename);
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
 };
 
 const STATUS_PILL: Record<Status, string> = {

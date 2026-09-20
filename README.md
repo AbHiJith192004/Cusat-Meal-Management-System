@@ -1,6 +1,6 @@
 # CUSAT Meal Management System
 
-MessConnect is a hostel meal-management application for CUSAT. It combines a FastAPI API, PostgreSQL persistence, a React PWA, meal selection and menu publication, QR and bulk attendance, inventory and expense ledgers, committee scanner access, payment verification, monthly billing, and daily fine reconciliation.
+MessConnect is a hostel meal-management application for CUSAT. It combines a FastAPI API, PostgreSQL persistence, a React PWA, meal selection and menu publication, QR and bulk attendance, an expense ledger, committee scanner access, payment verification, monthly billing, and daily fine reconciliation.
 
 ## Repository layout
 
@@ -10,7 +10,7 @@ frontend/            React 19 and Vite PWA
 .do/app.yaml         DigitalOcean App Platform production specification
 Dockerfile           Combined production frontend/API image
 docker-compose.yml   Local PostgreSQL, API and frontend environment
-docs/                Deployment runbook and verification evidence
+docs/                Deployment runbook and billing export samples
 ```
 
 ## Local development
@@ -44,7 +44,11 @@ npm audit --audit-level=moderate
 
 Database-backed tests require a separate disposable PostgreSQL database through `TEST_DATABASE_URL`. The test safeguards reject production-like or non-test database targets.
 
-The Operations screen is the staff workspace for weekly menus, purchases and expenses, live inventory balances, time-limited committee assignments, atomic bulk attendance, and UTR payment review. Ledger totals can be copied into a monthly billing draft; published bill revisions and verified payments remain immutable.
+The admin panel is split into Overview, QR Scanner, Weekly Menu and Students, with Ledger, Billing and Payments under Finance. Ledger totals can be copied into a monthly billing draft; published bill revisions and verified payments remain immutable.
+
+The inventory and committee endpoints are still served by the API but have no
+screen in the current admin panel. See "Remaining technical debt" in the audit
+notes before building on them.
 
 ## Production deployment
 

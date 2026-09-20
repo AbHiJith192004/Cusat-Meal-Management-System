@@ -3,19 +3,6 @@ from pydantic import BaseModel, Field
 from app.utils.enums import Role
 
 
-class ImportRowError(BaseModel):
-    row: int
-    registration_number: str | None = None
-    error: str
-
-
-class ImportSummaryResponse(BaseModel):
-    total_rows: int
-    imported_count: int
-    skipped_count: int
-    errors: list[ImportRowError]
-
-
 class CreateAdminRequest(BaseModel):
     """No password field on purpose.
 

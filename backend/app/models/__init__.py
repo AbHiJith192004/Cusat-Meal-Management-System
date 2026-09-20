@@ -1,6 +1,6 @@
 """SQLAlchemy ORM models."""
 from app.models.base import Base
-from app.models.user import User, RefreshToken
+from app.models.user import User, RefreshToken, AuthRateLimit
 from app.models.student import StudentProfile
 from app.models.meal import MealSelection
 from app.models.attendance import Attendance
@@ -18,6 +18,7 @@ __all__ = [
     "Base",
     "User",
     "RefreshToken",
+    "AuthRateLimit",
     "StudentProfile",
     "MealSelection",
     "Attendance",

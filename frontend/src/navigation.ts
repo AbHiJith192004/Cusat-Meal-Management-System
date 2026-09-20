@@ -86,9 +86,6 @@ const BAR_IDS: Record<UserRole, ActiveTab[]> = {
   ],
 };
 
-const allEntries = (role: UserRole): NavEntry[] =>
-  groupsFor(role).flatMap(g => g.items);
-
 /**
  * Alerts and Profile stay in STUDENT_GROUPS/ADMIN_GROUPS for the desktop
  * sidebar (which has no top-header icons of its own), but the mobile header

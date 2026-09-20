@@ -56,7 +56,6 @@ export function App() {
   const [currentTab, setCurrentTab] = useState<ActiveTab>(() => requestedTab());
   const [studentInfo, setStudentInfo] = useState(INITIAL_STUDENT);
   const [unreadAlertsCount, setUnreadAlertsCount] = useState(0);
-  const [isLoginOpen, setIsLoginOpen] = useState<boolean>(false);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [checkingSession, setCheckingSession] = useState<boolean>(true);
   const [canScan, setCanScan] = useState(false);
@@ -82,9 +81,6 @@ export function App() {
       // cookie for a new one instead - same outcome, but the token is never
       // readable by script.
       const token = getAuthToken() ?? ((await restoreSession()) ? getAuthToken() : null);
-
-      const savedRole = (localStorage.getItem('messconnect_role') as UserRole) || 'student';
-      const savedTab = (localStorage.getItem('messconnect_tab') as ActiveTab) || (savedRole === 'admin' ? 'admin-dashboard' : 'home');
 
       if (token) {
         try {
@@ -117,12 +113,10 @@ export function App() {
           // Token expired or invalid — clear session
           ['messconnect_role', 'messconnect_tab', 'access_token'].forEach(key => localStorage.removeItem(key));
           setIsLoggedIn(false);
-          setIsLoginOpen(true);
         }
       } else {
         // No saved token — show login screen
         setIsLoggedIn(false);
-        setIsLoginOpen(true);
       }
       setCheckingSession(false);
     };
@@ -209,7 +203,6 @@ export function App() {
     setCanScan(false);
     setUserRole('student');
     setCurrentTab('home');
-    setIsLoginOpen(true);
   };
 
   // Show loading spinner while checking token

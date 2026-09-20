@@ -60,7 +60,6 @@ export const MealPlanningView: React.FC = () => {
       dinner: { status: 'CONFIRMED' },
     };
 
-  const todayStr = new Date().toISOString().split('T')[0];
   // isLocked means the choice genuinely cannot be changed -- the cutoff has
   // passed, or the day has not loaded. A request being in flight is not that,
   // and must not be conflated with it.

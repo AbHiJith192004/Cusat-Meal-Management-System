@@ -78,7 +78,8 @@ services:
       db:
         condition: service_healthy
 
-  # Development frontend only. Production on Render uses the root Dockerfile.
+  # Development frontend only (Vite dev server). Production builds the
+  # frontend into the API image via the root Dockerfile; see .do/app.yaml.
   # 3. React frontend
   frontend:
     build:

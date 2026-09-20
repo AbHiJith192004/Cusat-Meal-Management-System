@@ -1,13 +1,14 @@
 ---
-status: database_created_app_not_yet_created
-updated: 2026-09-18
+status: app_deployed_and_serving
+updated: 2026-09-20
 branch: main
 provider: digitalocean
 region: blr
 estimated_monthly_usd_before_tax: 40.45
 estimated_monthly_inr_after_18_percent_tax: 4573
 planned_provider_change: hetzner_vps_after_first_month
-live_changes: messconnect-db cluster created 2026-09-17, billing
+live_changes: messconnect-db cluster created 2026-09-17, app created and
+  serving (verified 2026-09-20: /health 200, /health/live 200)
 ---
 
 # DigitalOcean production deployment

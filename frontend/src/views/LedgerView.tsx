@@ -1,6 +1,7 @@
 import React, {FormEvent, useCallback, useEffect, useMemo, useState} from 'react';
 import {adminApi} from '../services/api';
 import { Modal } from '../components/Modal';
+import {money} from '../utils/format';
 
 /**
  * OPERATIONAL is still a valid kind on the server and older entries keep it --
@@ -53,9 +54,6 @@ const CATEGORY_TONE: Array<[RegExp, string]> = [
 ];
 const toneFor = (category: string) =>
   (CATEGORY_TONE.find(([re]) => re.test(category || '')) || [null, '#7c3aed'])[1] as string;
-
-const money = (v: string | number) =>
-  Number(v || 0).toLocaleString('en-IN', {style: 'currency', currency: 'INR', maximumFractionDigits: 2});
 
 const thisMonth = () => {
   const d = new Date();

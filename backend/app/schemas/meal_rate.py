@@ -1,21 +1,8 @@
 from datetime import date
 from decimal import Decimal
 from typing import Optional
-from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
-
-
-class DailyMealRateResponse(BaseModel):
-    id: Optional[UUID] = None
-    rate_date: date
-    breakfast_rate: Decimal = Field(default=Decimal("30.00"))
-    lunch_rate: Decimal = Field(default=Decimal("50.00"))
-    dinner_rate: Decimal = Field(default=Decimal("40.00"))
-    daily_total: Decimal = Field(default=Decimal("120.00"))
-    notes: Optional[str] = None
-
-    model_config = ConfigDict(from_attributes=True)
 
 
 class SetMealRateRequest(BaseModel):

@@ -17,38 +17,7 @@ export type ActiveTab =
   | 'admin-payments'
   | 'admin-billing';
 
-export interface MealOption {
-  id: 'breakfast' | 'lunch' | 'dinner';
-  name: string;
-  time: string;
-  status: 'confirmed' | 'skipped';
-  isVegOnly?: boolean;
-  items: string[];
-  icon: string;
-}
-
-export interface DayMealPlan {
-  date: string; // YYYY-MM-DD
-  dayName: string; // Mon, Tue, Wed...
-  dayNum: number; // 14, 15, 16...
-  isPast?: boolean;
-  isToday?: boolean;
-  meals: {
-    breakfast: MealOption;
-    lunch: MealOption;
-    dinner: MealOption;
-  };
-}
-
 export type CommitteeDuration = 'MEAL' | 'DAY' | 'WEEK';
-
-export interface CommitteeMemberRecord {
-  messId: string;
-  studentName: string;
-  duration: CommitteeDuration;
-  promotedAt: string;
-  expiresAt?: string;
-}
 
 export interface StudentRecord {
   id: string;

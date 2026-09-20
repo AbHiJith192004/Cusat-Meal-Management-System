@@ -4,7 +4,6 @@ import chefSrc from '../assets/food/chef.webp';
 import breakfastSrc from '../assets/food/breakfast.webp';
 import lunchSrc from '../assets/food/lunch.webp';
 import dinnerSrc from '../assets/food/dinner.webp';
-import snacksSrc from '../assets/food/snacks.webp';
 import coffeeSrc from '../assets/food/coffee.webp';
 
 /* ───────────────────────────────────────────────────────────────────────────
@@ -33,7 +32,6 @@ const DIMS: Record<string, [number, number]> = {
   [breakfastSrc]: [440, 216],
   [lunchSrc]: [440, 278],
   [dinnerSrc]: [440, 260],
-  [snacksSrc]: [440, 290],
   [coffeeSrc]: [440, 313],
 };
 
@@ -84,11 +82,6 @@ export const DinnerCartoon: React.FC<IllustrationProps> = ({ size = 100, classNa
   <Art src={dinnerSrc} size={size} className={className} alt="Dinner" />
 );
 
-/** Snacks — waffle with ice cream */
-export const SnacksCartoon: React.FC<IllustrationProps> = ({ size = 100, className }) => (
-  <Art src={snacksSrc} size={size} className={className} alt="Snacks" />
-);
-
 /** Hero art on the home screen */
 export const DosaCartoon: React.FC<IllustrationProps> = ({ size = 140, className }) => (
   <Art src={lunchSrc} size={size} className={className} alt="Breakfast Dosa" />
@@ -118,43 +111,6 @@ export const ChefMascot: React.FC<{ size?: number; wave?: boolean; className?: s
 /** Empty states — a cup of coffee and biscuits. */
 export const EmptyPlateCartoon: React.FC<IllustrationProps> = ({ size = 80, className }) => (
   <Art src={coffeeSrc} size={size} className={className} />
-);
-
-/** Favourite toggle. */
-export const FavoriteHeartButton: React.FC<{ isFav: boolean; onClick: () => void; size?: number }> = ({
-  isFav,
-  onClick,
-  size = 32,
-}) => (
-  <button
-    onClick={onClick}
-    aria-label={isFav ? 'Remove from favourites' : 'Add to favourites'}
-    aria-pressed={isFav}
-    style={{
-      width: size,
-      height: size,
-      background: 'none',
-      border: 'none',
-      cursor: 'pointer',
-      padding: 0,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-    }}
-  >
-    <svg
-      width={size * 0.8}
-      height={size * 0.8}
-      viewBox="0 0 24 24"
-      fill={isFav ? '#F47A35' : 'none'}
-      stroke={isFav ? '#F47A35' : '#C4A882'}
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" />
-    </svg>
-  </button>
 );
 
 /** Accent dot colour per meal — used where desktop drops the pastel fills. */

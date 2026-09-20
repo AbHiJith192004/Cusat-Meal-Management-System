@@ -27,7 +27,7 @@ const API_BASE_URL = getApiBaseUrl();
  */
 let authToken: string | null = null;
 
-export const setAuthToken = (token: string | null) => {
+const setAuthToken = (token: string | null) => {
   authToken = token;
   // Clear any token left behind by a previous version of the app.
   try {
@@ -120,14 +120,6 @@ export const authApi = {
     return res;
   },
 
-  refresh: async () => {
-    const res = await request<{ access_token: string; expires_in: number }>('/auth/refresh', {
-      method: 'POST',
-    });
-    setAuthToken(res.access_token);
-    return res;
-  },
-
   logout: async () => {
     try {
       await request<{ message: string }>('/auth/logout', { method: 'POST' });
@@ -205,12 +197,6 @@ export const adminApi = {
     if (mealDate) params.append('meal_date', mealDate);
     return request<any[]>(`/admin/dashboard/students-by-status?${params.toString()}`);
   },
-
-  getStudents: (query?: string, page: number = 1) => {
-    const params = new URLSearchParams({ page: String(page), per_page: '100' });
-    if (query) params.append('query', query);
-    return request<any[]>(`/admin/students?${params.toString()}`);
-  },
   /**
    * The whole roll, walked a page at a time because the server caps per_page
    * at 100. The page ceiling used to be 10, which silently returned the first
@@ -233,7 +219,6 @@ export const adminApi = {
       `The student roll is larger than ${MAX_PAGES * PER_PAGE} records, which this screen cannot page through. ` +
       'Use the search box to narrow it down.');
   },
-  getStudentOptions: () => request<any[]>('/admin/student-options'),
 
   createStudent: (data: {
     name: string;
@@ -254,8 +239,6 @@ export const adminApi = {
       method: 'POST', body: JSON.stringify({reason}),
     }),
 
-  getStudentDetail: (id: string) => request<any>(`/admin/students/${id}`),
-
   /**
    * Change what a student is for billing. Both fields move money -- OUTMESS
    * leaves the billing cohort entirely and the campus carries a different
@@ -274,46 +257,6 @@ export const adminApi = {
       method: 'DELETE',
     });
   },
-
-  recordManualAttendance: (
-    student_id: string,
-    meal_date: string,
-    meal_type: string,
-    attendance_type: string,
-    reason: string
-  ) =>
-    request<any>('/admin/attendance/manual', {
-      method: 'POST',
-      body: JSON.stringify({ student_id, meal_date, meal_type, attendance_type, reason }),
-    }),
-
-  listFines: (status?: string) => {
-    const q = status ? `?status=${status}` : '';
-    return request<any[]>(`/admin/fines${q}`);
-  },
-
-  waiveFine: (fine_id: string, reason: string) =>
-    request<any>(`/admin/fines/${fine_id}/waive`, {
-      method: 'POST',
-      body: JSON.stringify({ reason }),
-    }),
-
-  reconcileFines: (target_date: string, meal_type?: string) =>
-    request<any>('/admin/fines/reconcile', {
-      method: 'POST',
-      body: JSON.stringify({ target_date, meal_type }),
-    }),
-
-  declareHoliday: (date: string, meal_type: string | null, reason: string) =>
-    request<any>('/admin/holidays', {
-      method: 'POST',
-      body: JSON.stringify({ date, meal_type, reason }),
-    }),
-
-  deleteHoliday: (holiday_id: string) =>
-    request<any>(`/admin/holidays/${holiday_id}`, {
-      method: 'DELETE',
-    }),
 
   /**
    * Download a monthly report.
@@ -358,23 +301,6 @@ export const adminApi = {
       body: JSON.stringify({ month, year, reason }),
     }),
 
-  listStockCounts: (month: number, year: number) =>
-    request<any>(`/admin/stocks?month=${month}&year=${year}`),
-
-  updatePhysicalStock: (payload: {
-    month: number;
-    year: number;
-    item_id: string;
-    item_name?: string;
-    unit?: string;
-    physical_closing_qty: number;
-    unit_cost?: number;
-  }) =>
-    request<any>('/admin/stocks/update-physical', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    }),
-
   downloadReportFile: async (year: number, month: number, format: 'excel' | 'pdf') => {
     const token = getAuthToken();
     if (!token) {
@@ -384,15 +310,13 @@ export const adminApi = {
     const url = `${API_BASE_URL}/admin/reports/monthly?year=${year}&month=${month}&format=${format}`;
 
     let response: Response | undefined;
-    let lastNetworkError: unknown;
 
     // Retry transient network failures only - never an auth failure.
     for (let attempt = 0; attempt <= 2; attempt++) {
       try {
         response = await fetch(url, { headers: { Authorization: `Bearer ${token}` } });
         break;
-      } catch (netErr) {
-        lastNetworkError = netErr;
+      } catch {
         if (attempt < 2) {
           await new Promise((resolve) => setTimeout(resolve, 2500));
         }
@@ -425,17 +349,12 @@ export const adminApi = {
     window.URL.revokeObjectURL(downloadUrl);
   },
 
-  getAuditLogs: (page: number = 1) => request<any[]>(`/admin/audit?page=${page}`),
-
   publishMenu: (date: string, mealType: string, items: string[], notes?: string) =>
     request<any>(`/admin/menus/${date}/${mealType}`, {method: 'PUT', body: JSON.stringify({items, notes})}),
   getLedger: (kind?: string) => request<any>(`/admin/ledger${kind ? `?kind=${kind}` : ''}`),
   getLedgerPeriodSummary: (month: number, year: number) => request<any>(`/admin/ledger/period-summary?month=${month}&year=${year}`),
   createLedger: (data: any) => request<any>('/admin/ledger', {method: 'POST', body: JSON.stringify(data)}),
   voidLedger: (id: string, reason: string) => request<any>(`/admin/ledger/${id}/void`, {method: 'POST', body: JSON.stringify({reason})}),
-  getInventory: () => request<any[]>('/admin/inventory'),
-  createInventory: (data: any) => request<any>('/admin/inventory', {method: 'POST', body: JSON.stringify(data)}),
-  adjustInventory: (id: string, data: any) => request<any>(`/admin/inventory/${id}/adjust`, {method: 'POST', body: JSON.stringify(data)}),
   getCommittee: () => request<any[]>('/admin/committee'),
   assignCommittee: (data: any) => request<any>('/admin/committee/promote', {method: 'POST', body: JSON.stringify(data)}),
   revokeCommittee: (studentId: string, reason: string) => request<any>(`/admin/committee/revoke/${studentId}`, {method: 'POST', body: JSON.stringify({reason})}),
@@ -475,13 +394,5 @@ export const superAdminApi = {
     }>('/super-admin/admins', {
       method: 'POST',
       body: JSON.stringify({ registration_number, name, role }),
-    }),
-
-  getSettings: () => request<any[]>('/super-admin/settings'),
-
-  updateSettings: (settings: { key: string; value: string }[]) =>
-    request<any>('/super-admin/settings', {
-      method: 'PUT',
-      body: JSON.stringify({ settings }),
     }),
 };

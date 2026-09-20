@@ -1,32 +1,4 @@
-from typing import Any, Generic, TypeVar
-from pydantic import BaseModel, ConfigDict
-
-T = TypeVar("T")
-
-
-class ErrorDetail(BaseModel):
-    """Error detail in API response."""
-    code: str
-    message: str
-    details: Any | None = None
-
-
-class PaginationMeta(BaseModel):
-    """Pagination metadata."""
-    page: int
-    per_page: int
-    total: int
-    total_pages: int
-
-
-class APIResponse(BaseModel, Generic[T]):
-    """Standard API response envelope."""
-    success: bool
-    data: T | None = None
-    error: ErrorDetail | None = None
-    meta: PaginationMeta | None = None
-    
-    model_config = ConfigDict(from_attributes=True)
+from typing import Any
 
 
 def success_response(

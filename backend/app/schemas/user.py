@@ -1,17 +1,5 @@
-from pydantic import BaseModel, ConfigDict, Field
-from uuid import UUID
+from pydantic import BaseModel, Field
 from typing import Optional, Literal
-
-
-class UserBriefResponse(BaseModel):
-    """Brief user info for lists."""
-    id: UUID
-    registration_number: str
-    name: str
-    role: str
-    account_status: str
-    
-    model_config = ConfigDict(from_attributes=True)
 
 
 class CreateStudentRequest(BaseModel):
