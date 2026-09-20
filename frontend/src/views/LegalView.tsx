@@ -184,8 +184,8 @@ const Terms = () => (
 
     <Section title="Opting out of meals">
       <Bullets items={[
-        <>Opt-outs for the next day close at <strong>9 PM</strong>. After the cutoff the day is fixed, because the kitchen has already bought and prepared for it.</>,
-        <>A student may take up to <strong>10 mess cuts in a month</strong>.</>,
+        <>Opt-outs for the next day close at the cutoff time shown in the app. After the cutoff the day is fixed, because the kitchen has already bought and prepared for it.</>,
+        <>A student may take up to the monthly mess cut limit set by the mess office, which is shown on the Meal Schedule screen.</>,
         <>A day only counts as a mess cut when all three meals are opted out. Skipping one or two meals still counts as an opted-in day for billing.</>,
       ]} />
     </Section>

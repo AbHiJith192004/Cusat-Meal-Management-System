@@ -150,7 +150,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   rows.push(
     {
       icon: 'lock_clock',
-      label: '9 PM cutoff reminders',
+      label: 'Cutoff reminders',
       sub: 'Nudge before opt-outs lock for the next day',
       toggle: true,
     },
@@ -306,7 +306,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                       type="checkbox"
                       checked={notifications}
                       onChange={toggleReminders}
-                      aria-label="9 PM cutoff reminders"
+                      aria-label="Cutoff reminders"
                     />
                     <div className="stitch-toggle-track" />
                     <div className="stitch-toggle-thumb" />
@@ -372,8 +372,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               Mess rules and support
             </h3>
             <ul className="mt-3 space-y-2 text-[13px] font-semibold" style={{ color: 'var(--text-body)' }}>
-              <li>Opt-outs for the next day close at 9 PM.</li>
-              <li>A student may take up to 10 mess cuts per month.</li>
+              <li>Opt-outs for the next day close at the cutoff time shown on your Meal Schedule.</li>
+              <li>The monthly mess cut limit is shown on your Meal Schedule.</li>
               <li>Bills are published monthly; pay and submit the bank UTR from My Bill.</li>
             </ul>
             <p className="mt-4 text-[12.5px] font-bold" style={{ color: 'var(--text-muted)' }}>

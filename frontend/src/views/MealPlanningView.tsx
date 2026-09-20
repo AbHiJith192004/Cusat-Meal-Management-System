@@ -63,6 +63,15 @@ export const MealPlanningView: React.FC = () => {
   // isLocked means the choice genuinely cannot be changed -- the cutoff has
   // passed, or the day has not loaded. A request being in flight is not that,
   // and must not be conflated with it.
+  // The real cutoff, from the server, instead of a hardcoded "9 PM" that
+  // would start lying the moment the office changes the setting.
+  const cutoffClock = activePlan.cutoff_at
+    // en-IN renders "pm"; the rest of the app writes "PM".
+    ? new Date(activePlan.cutoff_at)
+        .toLocaleTimeString('en-IN', {hour: 'numeric', minute: '2-digit', hour12: true})
+        .toUpperCase()
+    : null;
+  const messCutLimit = activePlan.max_monthly_mess_cuts ?? null;
   const isLocked = loading || !activePlan.cutoff_at
     || Date.now() >= new Date(activePlan.cutoff_at).getTime();
   // A full-day save rewrites all three rows and then reloads them, so while it
@@ -143,13 +152,17 @@ export const MealPlanningView: React.FC = () => {
               Monthly Mess Cut Policy
             </span>
             <span className="text-[11px] sm:text-xs font-semibold block mt-0.5" style={{ color: 'var(--text-muted)' }}>
-              Note: A student can take up to a maximum of <strong>10 mess cuts per month</strong>.
+              {messCutLimit === null
+                ? 'Note: the monthly mess cut limit is set by the mess office.'
+                : <>Note: A student can take up to a maximum of <strong>{messCutLimit} mess cuts per month</strong>.</>}
             </span>
           </div>
         </div>
         <div className="flex items-center gap-2 self-start sm:self-auto px-3 py-1.5 rounded-xl border bg-[#FDF7EA] border-[#E3CB9B]">
           <span className="text-[10px] font-black uppercase text-[#9B7B52]">Policy:</span>
-          <span className="text-xs font-black text-[#F47A35] font-mono">Max 10 Cuts / Month</span>
+          <span className="text-xs font-black text-[#F47A35] font-mono">
+            {messCutLimit === null ? 'Monthly limit' : `Max ${messCutLimit} Cuts / Month`}
+          </span>
         </div>
       </div>
 
@@ -267,7 +280,7 @@ export const MealPlanningView: React.FC = () => {
           {isLocked ? (
             <span className="flex items-center gap-1.5">
               <span className="material-symbols-outlined" style={{ fontSize: 16 }}>lock</span>
-              Locked — the 9 PM cutoff has passed
+              {cutoffClock ? `Locked — the ${cutoffClock} cutoff has passed` : 'Locked — the cutoff has passed'}
             </span>
           ) : (
             `${confirmedCount} of 3 meals confirmed`
@@ -384,7 +397,7 @@ export const MealPlanningView: React.FC = () => {
           className="lg:hidden text-[11px] font-semibold text-center mt-4"
           style={{ color: 'var(--text-muted)' }}
         >
-          Opt-outs close at 9:00 PM the night before.
+          {cutoffClock ? `Opt-outs close at ${cutoffClock} the night before.` : 'Opt-outs close the night before.'}
         </p>
       )}
     </main>

@@ -23,6 +23,68 @@ const MEAL_LABEL: Record<MealKey, string> = {
   breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner',
 };
 
+/**
+ * The rules that are not times of day.
+ *
+ * Every key here is one the application actually reads at runtime -- checked,
+ * not assumed. `qr_validity_seconds` is deliberately absent: it is seeded and
+ * has a default, but QRService reads QR_VALIDITY_SECONDS from the environment
+ * instead, so a field for it would be a control that changes nothing.
+ */
+interface RuleField {
+  key: string;
+  label: string;
+  help: string;
+  kind: 'time' | 'int' | 'money';
+  min?: number;
+  max?: number;
+  /** Rendered before the input, e.g. the rupee sign. */
+  prefix?: string;
+  suffix?: string;
+}
+
+const RULE_FIELDS: RuleField[] = [
+  {
+    key: 'selection_cutoff_time',
+    label: 'Opt-out cutoff',
+    help: 'After this time a student can no longer change the day below, because the kitchen has already bought for it.',
+    kind: 'time',
+  },
+  {
+    key: 'selection_cutoff_advance_days',
+    label: 'Days ahead the cutoff applies',
+    help: '1 means the cutoff for tomorrow is tonight. 0 would close a day only once it has already begun.',
+    kind: 'int',
+    min: 0,
+    max: 7,
+    suffix: 'days',
+  },
+  {
+    key: 'max_monthly_mess_cuts',
+    label: 'Mess cuts allowed per month',
+    help: 'A day only counts as a mess cut when all three meals are opted out. 0 suspends mess cuts entirely.',
+    kind: 'int',
+    min: 0,
+    max: 31,
+    suffix: 'per month',
+  },
+  {
+    key: 'fine_amount',
+    label: 'Missed-meal fine',
+    help: 'Charged by the nightly reconciliation when a student opted in and did not come. Applies from the next run, not retrospectively.',
+    kind: 'money',
+    prefix: '\u20b9',
+  },
+];
+
+/** Mirrors the backend's DEFAULT_SETTINGS for these keys. */
+const RULE_DEFAULTS: Array<[string, string]> = [
+  ['selection_cutoff_time', '21:00'],
+  ['selection_cutoff_advance_days', '1'],
+  ['max_monthly_mess_cuts', '10'],
+  ['fine_amount', '30.00'],
+];
+
 type Draft = Record<string, string>;
 
 /** "12:00–14:30 IST" (what the API stores per key) -> "12:00". */
@@ -58,6 +120,11 @@ export const SettingsView: React.FC = () => {
         if (!byKey[keyFor(meal, 'start')]) byKey[keyFor(meal, 'start')] = fallback[0];
         if (!byKey[keyFor(meal, 'end')]) byKey[keyFor(meal, 'end')] = fallback[1];
       });
+      // Same reasoning for the rules: these mirror the server's own
+      // DEFAULT_SETTINGS, which is what it uses when the row is missing.
+      RULE_DEFAULTS.forEach(([key, value]) => {
+        if (byKey[key] === undefined) byKey[key] = value;
+      });
       setStored(byKey);
       setDraft(byKey);
     } catch (err: any) {
@@ -75,10 +142,17 @@ export const SettingsView: React.FC = () => {
     setSaveError(null);
   };
 
-  /** Only the windows that actually moved are sent. */
+  /** Only the settings that actually moved are sent. */
+  const EDITABLE = useMemo(
+    () => [
+      ...MEAL_ORDER.flatMap(m => [keyFor(m, 'start'), keyFor(m, 'end')]),
+      ...RULE_FIELDS.map(f => f.key),
+    ],
+    [],
+  );
   const changed = useMemo(
-    () => Object.keys(draft).filter(k => k.startsWith('meal_window_') && draft[k] !== stored[k]),
-    [draft, stored],
+    () => EDITABLE.filter(k => draft[k] !== undefined && draft[k] !== stored[k]),
+    [EDITABLE, draft, stored],
   );
 
   /** Per-meal complaint, or null. Mirrors what the server will say. */
@@ -92,7 +166,28 @@ export const SettingsView: React.FC = () => {
     return null;
   };
 
-  const problems = MEAL_ORDER.map(m => [m, problemFor(m)] as const).filter(([, p]) => p);
+  /** Same rules the server enforces, answered without a round trip. */
+  const ruleProblem = (field: RuleField): string | null => {
+    const raw = (draft[field.key] ?? '').trim();
+    if (field.kind === 'time') {
+      return minutes(raw) === null ? 'Must be a time like 21:00.' : null;
+    }
+    if (raw === '') return 'Cannot be empty.';
+    if (field.kind === 'int') {
+      if (!/^\d+$/.test(raw)) return 'Must be a whole number.';
+      const n = Number(raw);
+      if (field.min !== undefined && n < field.min) return `Cannot be below ${field.min}.`;
+      if (field.max !== undefined && n > field.max) return `Cannot be above ${field.max}.`;
+      return null;
+    }
+    if (!/^\d+(\.\d{1,2})?$/.test(raw)) return 'Must be an amount like 30.00.';
+    return null;
+  };
+
+  const problems = [
+    ...MEAL_ORDER.map(m => problemFor(m)),
+    ...RULE_FIELDS.map(f => ruleProblem(f)),
+  ].filter(Boolean);
   const canSave = changed.length > 0 && problems.length === 0 && !saving;
 
   const save = async () => {
@@ -227,6 +322,88 @@ export const SettingsView: React.FC = () => {
                   </div>
                 );
               })}
+            </div>
+
+            {/* ── Rules ─────────────────────────────────────────────── */}
+            <div className="mt-6 pt-5" style={{ borderTop: '1px solid var(--card-border)' }}>
+              <div className="flex items-start gap-2.5 mb-4">
+                <span className="material-symbols-outlined" style={{ fontSize: 22, color: 'var(--orange-ink)' }}>
+                  rule
+                </span>
+                <div>
+                  <h2 className="font-display text-[17px] font-bold" style={{ color: 'var(--text-dark)' }}>
+                    Opt-outs, mess cuts and fines
+                  </h2>
+                  <p className="text-[13px] mt-0.5" style={{ color: 'var(--text-body)' }}>
+                    These decide when a student can still change their mind, how many days they may
+                    skip, and what a missed meal costs. Changes apply from the next calculation;
+                    bills already published are not recalculated.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                {RULE_FIELDS.map(field => {
+                  const problem = ruleProblem(field);
+                  const moved = draft[field.key] !== stored[field.key];
+                  return (
+                    <div
+                      key={field.key}
+                      className="rounded-xl p-4"
+                      style={{
+                        background: 'var(--orange-soft)',
+                        border: `1px solid ${problem ? '#F6C8C3' : 'var(--orange-light)'}`,
+                      }}
+                    >
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <label
+                          htmlFor={`setting-${field.key}`}
+                          className="font-display text-[15px] font-bold"
+                          style={{ color: 'var(--text-dark)' }}
+                        >
+                          {field.label}
+                        </label>
+                        {moved && !problem && (
+                          <span className="text-[12px] font-bold" style={{ color: 'var(--text-muted)' }}>
+                            unsaved
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[12.5px] mb-2.5" style={{ color: 'var(--text-body)' }}>
+                        {field.help}
+                      </p>
+
+                      <div className="flex items-center gap-2">
+                        {field.prefix && (
+                          <span className="text-[15px] font-bold" style={{ color: 'var(--text-dark)' }}>
+                            {field.prefix}
+                          </span>
+                        )}
+                        <input
+                          id={`setting-${field.key}`}
+                          type={field.kind === 'time' ? 'time' : 'text'}
+                          inputMode={field.kind === 'time' ? undefined : 'decimal'}
+                          value={draft[field.key] ?? ''}
+                          onChange={e => set(field.key, e.target.value)}
+                          className="stitch-input"
+                          style={{ fontSize: '0.9rem', maxWidth: field.kind === 'time' ? 160 : 130 }}
+                        />
+                        {field.suffix && (
+                          <span className="text-[12.5px] font-semibold" style={{ color: 'var(--text-muted)' }}>
+                            {field.suffix}
+                          </span>
+                        )}
+                      </div>
+
+                      {problem && (
+                        <p className="text-[12px] font-bold mt-2" style={{ color: 'var(--red)' }}>
+                          {problem}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
 
             {saveError && (

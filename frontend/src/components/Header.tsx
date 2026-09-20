@@ -14,7 +14,7 @@ interface HeaderProps {
 
 const PAGE_META: Partial<Record<ActiveTab, { title: string; sub: string }>> = {
   'home':            { title: 'Home',              sub: 'Today at the mess' },
-  'calendar':        { title: 'Meal Schedule',     sub: 'Plan your meals and opt out before the 9 PM cutoff' },
+  'calendar':        { title: 'Meal Schedule',     sub: 'Plan your meals and opt out before the nightly cutoff' },
   'qr':              { title: 'Mess Pass',         sub: 'Show this at the dining hall entrance' },
   'alerts':          { title: 'Alerts',            sub: 'Announcements from the mess office' },
   'profile':         { title: 'Profile',           sub: 'Your account and dining preferences' },

@@ -538,6 +538,13 @@ async def test_meal_window_settings_reject_anything_the_app_cannot_parse(client)
         assert meals.status_code == 200, meals.text
         assert meals.json()['data'][0]['lunch']['time_window'] == '12:15\u201314:45 IST'
 
+        # The mess-cut limit rides along on the same payload so the meal
+        # planner can print the real number instead of a hardcoded 10.
+        assert (await put(('max_monthly_mess_cuts', '6'))).status_code == 200
+        again = await client.get(f'/api/v1/meals?start_date={day}&end_date={day}',
+                                 headers=headers(student))
+        assert again.json()['data'][0]['max_monthly_mess_cuts'] == '6'
+
         for bad in ('12.00', 'noon', '25:00', '12:60', '', '9'):
             rejected = await put(('meal_window_lunch_start', bad))
             assert rejected.status_code == 422, f'{bad!r} was accepted: {rejected.text}'

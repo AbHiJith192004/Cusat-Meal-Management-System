@@ -62,7 +62,10 @@ async def get_my_meals(
         # strptime's naive result never escapes: .time() keeps the clock time
         # only, and datetime.combine attaches IST.
         cutoff = datetime.combine(curr - timedelta(days=advance_days), datetime.strptime(cutoff_time, "%H:%M").time(), tzinfo=IST)  # noqa: DTZ007
-        day = {"meal_date": curr.isoformat(), "locked": now_ist() >= cutoff, "cutoff_at": cutoff.isoformat()}
+        day = {"meal_date": curr.isoformat(), "locked": now_ist() >= cutoff, "cutoff_at": cutoff.isoformat(),
+               # Global, but carried per day alongside the cutoff so the meal
+               # planner can state the real limit instead of a hardcoded 10.
+               "max_monthly_mess_cuts": setting_value("max_monthly_mess_cuts")}
         for mt in ("BREAKFAST", "LUNCH", "DINNER"):
             selection = selections.get((curr, mt))
             holiday = (curr, None) in holidays or (curr, mt) in holidays

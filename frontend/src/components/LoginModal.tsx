@@ -373,7 +373,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
           </h2>
           <ul className="mt-6 flex flex-col gap-3">
             {[
-              ['event_available', 'Opt out of meals before the 9 PM cutoff'],
+              ['event_available', 'Opt out of meals before the nightly cutoff'],
               ['confirmation_number', 'A signed QR pass instead of a paper register'],
               ['receipt_long', 'Monthly bills and fines reconciled automatically'],
             ].map(([icon, text]) => (
