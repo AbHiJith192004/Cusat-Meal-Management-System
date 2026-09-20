@@ -15,6 +15,7 @@ from app.repositories.user_repo import UserRepository
 from app.repositories.settings_repo import SystemSettingRepository
 from app.repositories.audit_repo import AuditRepository
 from app.security.jwt_handler import hash_refresh_token
+from app.services.settings_validation import validate_settings
 from app.utils.enums import Role, AccountStatus
 from app.utils.exceptions import ConflictException, ValidationException
 from app.utils.timezone import now_ist
@@ -201,7 +202,16 @@ class SuperAdminService:
     async def update_settings(
         self, settings_list: list[dict[str, str]], actor_id: uuid.UUID
     ) -> list[SystemSetting]:
-        """Batch update system settings."""
+        """Batch update system settings.
+
+        Validated first, and as a whole: a batch that would leave any known
+        setting unparseable is rejected entirely rather than applied halfway,
+        so a bad lunch end time cannot land while its start time is refused.
+        """
+        incoming = {item["key"]: item["value"] for item in settings_list}
+        stored = {s.key: s.value for s in await self.settings_repo.get_all_settings()}
+        validate_settings(incoming, stored)
+
         updated = []
         for item in settings_list:
             key, val = item["key"], item["value"]

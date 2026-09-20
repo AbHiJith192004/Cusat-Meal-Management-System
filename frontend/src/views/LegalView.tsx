@@ -75,10 +75,6 @@ const Privacy = () => (
         <><strong>An audit trail</strong> — a log of administrative actions taken on your record, such as issuing a setup code or correcting attendance, and which staff member took them.</>,
       ]} />
       <p>
-        A profile photo, if you add one, is stored only in your own browser on that device. It is
-        not uploaded and the mess office never receives it.
-      </p>
-      <p>
         The app does not collect location, contacts, or anything from your device beyond the camera
         while you are actively using the scanner, and it does not track you across other websites.
       </p>

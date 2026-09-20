@@ -8,6 +8,7 @@ interface BottomNavProps {
   userRole: UserRole;
   unreadAlertsCount?: number;
   canScan?: boolean;
+  isSuperAdmin?: boolean;
 }
 
 export const BottomNav: React.FC<BottomNavProps> = ({
@@ -16,13 +17,14 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   userRole,
   unreadAlertsCount = 0,
   canScan = false,
+  isSuperAdmin = false,
 }) => {
   const [moreOpen, setMoreOpen] = useState(false);
 
   const isStudent = userRole === 'student';
-  const tabs = barEntries(userRole, canScan);
-  const overflow = overflowGroups(userRole, canScan);
-  const moreActive = isOverflowTab(userRole, currentTab, canScan);
+  const tabs = barEntries(userRole, canScan, isSuperAdmin);
+  const overflow = overflowGroups(userRole, canScan, isSuperAdmin);
+  const moreActive = isOverflowTab(userRole, currentTab, canScan, isSuperAdmin);
 
   // Home and the admin overview share a slot, so treat them as one another's
   // fallback when the stored tab does not match the current role.

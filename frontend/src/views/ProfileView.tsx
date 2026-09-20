@@ -1,15 +1,14 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { studentApi } from '../services/api';
-import { ChefMascot, ART_CREDIT } from '../components/FoodIllustrations';
+import { ART_CREDIT } from '../components/FoodIllustrations';
+import { Avatar } from '../components/Avatar';
 import { Modal } from '../components/Modal';
 
 interface ProfileViewProps {
   studentName: string;
   regNo: string;
-  avatar: string;
   userRole?: 'student' | 'admin' | 'super_admin';
   onUpdateName: (name: string) => void;
-  onUpdateAvatar: (url: string) => void;
   onLogout: () => void;
 }
 
@@ -44,9 +43,7 @@ const STATUS_TONE: Record<string, { bg: string; fg: string }> = {
 export const ProfileView: React.FC<ProfileViewProps> = ({
   studentName,
   regNo,
-  avatar,
   userRole = 'student',
-  onUpdateAvatar,
   onLogout,
 }) => {
   const [notifications, setNotifications] = useState(
@@ -54,19 +51,20 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   );
   const [showLogout, setShowLogout] = useState(false);
   const [showSupport, setShowSupport] = useState(false);
-  const [currentAvatar, setCurrentAvatar] = useState(avatar);
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [stats, setStats] = useState<{ done: number; skipped: number; upcoming: number } | null>(null);
   const [error, setError] = useState('');
-  const fileRef = useRef<HTMLInputElement>(null);
 
   const isAdmin = userRole === 'admin' || userRole === 'super_admin';
 
   useEffect(() => {
-    const saved = localStorage.getItem('messconnect_avatar');
-    if (saved) {
-      setCurrentAvatar(saved);
-      onUpdateAvatar(saved);
+    // The photo feature is gone; clear the base64 copy it left in this
+    // browser rather than leaving a picture of the student in storage that
+    // nothing will ever read again.
+    try {
+      localStorage.removeItem('messconnect_avatar');
+    } catch {
+      /* storage unavailable - nothing to clean up */
     }
 
     let active = true;
@@ -90,19 +88,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       });
     return () => { active = false; };
   }, [isAdmin]);
-
-  const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => {
-      const b64 = ev.target?.result as string;
-      setCurrentAvatar(b64);
-      onUpdateAvatar(b64);
-      localStorage.setItem('messconnect_avatar', b64);
-    };
-    reader.readAsDataURL(file);
-  };
 
   const toggleReminders = () => {
     const next = !notifications;
@@ -177,12 +162,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     },
   );
 
-  const hasPhoto = Boolean(currentAvatar && currentAvatar.startsWith('data:'));
-
   return (
     <main className="page-container">
-      <input type="file" ref={fileRef} onChange={handleFile} accept="image/*" style={{ display: 'none' }} />
-
       <div className="lg:grid lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] lg:gap-6 lg:items-start">
         {/* ── Identity ───────────────────────────────────────────── */}
         <section
@@ -194,34 +175,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           }}
         >
           <div className="flex items-center gap-4 lg:flex-col lg:text-center">
-            <div className="relative shrink-0">
-              {hasPhoto ? (
-                <img
-                  src={currentAvatar}
-                  alt=""
-                  className="w-[72px] h-[72px] lg:w-24 lg:h-24 rounded-full object-cover"
-                  style={{ border: '2px solid var(--orange-light)' }}
-                />
-              ) : (
-                <div
-                  className="w-[72px] h-[72px] lg:w-24 lg:h-24 rounded-full flex items-center justify-center overflow-hidden"
-                  style={{ background: 'var(--bg)', border: '2px solid var(--orange-light)' }}
-                >
-                  <ChefMascot size={54} />
-                </div>
-              )}
-              <button
-                onClick={() => fileRef.current?.click()}
-                className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full flex items-center justify-center cursor-pointer"
-                style={{ background: 'var(--orange)', border: '2px solid var(--card)' }}
-                title="Choose a photo for this device"
-                aria-label="Choose a photo for this device"
-              >
-                <span className="material-symbols-outlined" style={{ fontSize: 14, color: '#fff' }}>
-                  photo_camera
-                </span>
-              </button>
-            </div>
+            <Avatar name={displayName} size={80} emphasis />
 
             <div className="flex-1 min-w-0 lg:mt-3">
               <h2

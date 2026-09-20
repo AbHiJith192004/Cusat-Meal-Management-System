@@ -401,6 +401,21 @@ export const notificationsApi = {
 
 // Super Admin API
 export const superAdminApi = {
+  /** Every system setting, as stored. Super Admin only. */
+  getSettings: () =>
+    request<Array<{id: string; key: string; value: string; description: string | null;
+                   updated_at: string | null}>>('/super-admin/settings'),
+
+  /**
+   * Write settings as one batch. The server validates the whole batch and
+   * rejects it entirely if any known key would be left unparseable, so a
+   * half-applied meal window cannot happen.
+   */
+  updateSettings: (settings: Array<{key: string; value: string}>) =>
+    request<{message: string}>('/super-admin/settings', {
+      method: 'PUT', body: JSON.stringify({settings}),
+    }),
+
   // No password argument: the creator does not choose the new administrator's
   // password. The response carries a one-time setup_code they redeem to set
   // their own, and it is never retrievable again.

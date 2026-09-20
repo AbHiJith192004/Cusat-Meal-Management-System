@@ -15,6 +15,7 @@ const AdminScannerView = lazy(() => import('./views/AdminScannerView').then(modu
 const WeeklyMenuView = lazy(() => import('./views/WeeklyMenuView').then(module => ({ default: module.WeeklyMenuView })));
 const LedgerView = lazy(() => import('./views/LedgerView').then(module => ({ default: module.LedgerView })));
 const PaymentsView = lazy(() => import('./views/PaymentsView').then(module => ({ default: module.PaymentsView })));
+const SettingsView = lazy(() => import('./views/SettingsView').then(module => ({ default: module.SettingsView })));
 import { StudentDirectoryView } from './views/StudentDirectoryView';
 import { ProfileView } from './views/ProfileView';
 import { AlertsView } from './views/AlertsView';
@@ -64,6 +65,7 @@ export function App() {
   // Super-Admin-only controls are not offered to a plain admin who would then
   // be refused by the API.
   const [serverRole, setServerRole] = useState<string>('STUDENT');
+  const isSuperAdmin = serverRole === 'SUPER_ADMIN';
 
   // Helper to change tab & persist in localStorage
   const handleTabChange = (tab: ActiveTab) => {
@@ -123,8 +125,6 @@ export function App() {
     checkSession();
   }, []);
 
-  const adminAvatar = '';
-
   const handleRoleChange = async (role: UserRole) => {
     setUserRole(role);
     localStorage.setItem('messconnect_role', role);
@@ -151,7 +151,6 @@ export function App() {
           regNo: profile.registration_number || regNo,
           hostel: 'CUSAT Hostel Mess 1',
           category: 'Hosteller',
-            avatar: profile.profile?.photo_url || '',
         });
       } catch (e) {
         setStudentInfo({
@@ -159,7 +158,6 @@ export function App() {
           regNo: regNo,
           hostel: 'CUSAT Hostel Mess 1',
           category: 'Hosteller',
-          avatar: '',
         });
       }
       handleTabChange('home');
@@ -178,7 +176,6 @@ export function App() {
         regNo: regNo,
         hostel: 'CUSAT Mess Administration',
         category: 'Hosteller',
-        avatar: '',
       });
       handleTabChange('admin-dashboard');
     }
@@ -186,10 +183,6 @@ export function App() {
 
   const handleUpdateStudentName = (newName: string) => {
     setStudentInfo((prev) => ({ ...prev, name: newName }));
-  };
-
-  const handleUpdateAvatar = (newAvatarUrl: string) => {
-    setStudentInfo((prev) => ({ ...prev, avatar: newAvatarUrl }));
   };
 
   const handleLogout = async () => {
@@ -251,6 +244,7 @@ export function App() {
         unreadAlertsCount={unreadAlertsCount}
         onLogout={handleLogout}
         canScan={canScan}
+        isSuperAdmin={isSuperAdmin}
       />
 
       <div className="app-main">
@@ -263,8 +257,7 @@ export function App() {
         setCurrentTab={handleTabChange}
         userRole={userRole}
         setUserRole={handleRoleChange}
-        studentAvatar={studentInfo.avatar}
-        adminAvatar={adminAvatar}
+        userName={studentInfo.name}
         unreadCount={unreadAlertsCount}
       />
 
@@ -296,9 +289,7 @@ export function App() {
                 userRole="student"
                 studentName={studentInfo.name}
                 regNo={studentInfo.regNo}
-                avatar={studentInfo.avatar}
                 onUpdateName={handleUpdateStudentName}
-                onUpdateAvatar={handleUpdateAvatar}
                 onLogout={handleLogout}
               />
             )}
@@ -309,11 +300,11 @@ export function App() {
           <>
             {(currentTab === 'admin-dashboard' || currentTab === 'home') && <AdminOverviewView />}
             {currentTab === 'admin-students' && (
-              <StudentDirectoryView isSuperAdmin={serverRole === 'SUPER_ADMIN'} />
+              <StudentDirectoryView isSuperAdmin={isSuperAdmin} />
             )}
             {currentTab === 'admin-scanner' && (
               <AdminScannerView
-                canMarkManually={serverRole === 'ADMIN' || serverRole === 'SUPER_ADMIN'}
+                canMarkManually={serverRole === 'ADMIN' || isSuperAdmin}
               />
             )}
             {currentTab === 'admin-billing' && (
@@ -322,17 +313,16 @@ export function App() {
             {currentTab === 'admin-menu' && <WeeklyMenuView />}
             {currentTab === 'admin-ledger' && <LedgerView />}
             {currentTab === 'admin-payments' && <PaymentsView />}
+            {currentTab === 'admin-settings' && isSuperAdmin && <SettingsView />}
             {currentTab === 'alerts' && (
               <AlertsView onUnreadChange={setUnreadAlertsCount} />
             )}
             {currentTab === 'profile' && (
               <ProfileView
-                userRole={serverRole === 'SUPER_ADMIN' ? 'super_admin' : 'admin'}
+                userRole={isSuperAdmin ? 'super_admin' : 'admin'}
                 studentName={studentInfo.name || 'Admin'}
                 regNo={studentInfo.regNo || 'ADMIN001'}
-                avatar={studentInfo.avatar}
                 onUpdateName={handleUpdateStudentName}
-                onUpdateAvatar={handleUpdateAvatar}
                 onLogout={handleLogout}
               />
             )}
@@ -348,6 +338,7 @@ export function App() {
           userRole={userRole}
           unreadAlertsCount={unreadAlertsCount}
           canScan={canScan}
+          isSuperAdmin={isSuperAdmin}
         />
       </div>
     </div>

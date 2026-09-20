@@ -40,6 +40,16 @@ export const STUDENT_GROUPS: NavGroup[] = [
   },
 ];
 
+/**
+ * Settings is Super Admin only, and the server agrees: the endpoints behind it
+ * are guarded by SuperAdminUser, so a plain admin shown this row would just
+ * collect a 403. It is appended rather than sitting in the list with a flag so
+ * that everything reading ADMIN_GROUPS keeps seeing only what it should.
+ */
+export const SETTINGS_ENTRY: NavEntry = {
+  id: 'admin-settings', label: 'Settings', short: 'Settings', icon: 'settings',
+};
+
 export const ADMIN_GROUPS: NavGroup[] = [
   {
     items: [
@@ -66,8 +76,12 @@ export const ADMIN_GROUPS: NavGroup[] = [
   },
 ];
 
-export const groupsFor = (role: UserRole, canScan = false): NavGroup[] => {
-  if (role !== 'student') return ADMIN_GROUPS;
+export const groupsFor = (role: UserRole, canScan = false, isSuperAdmin = false): NavGroup[] => {
+  if (role !== 'student') {
+    if (!isSuperAdmin) return ADMIN_GROUPS;
+    return ADMIN_GROUPS.map(g =>
+      g.heading === 'Account' ? { ...g, items: [...g.items, SETTINGS_ENTRY] } : g);
+  }
   if (!canScan) return STUDENT_GROUPS;
   return [{items:[...STUDENT_GROUPS[0].items,
     {id:'admin-scanner',label:'Committee Scanner',short:'Scan',icon:'qr_code_scanner'}]}, ...STUDENT_GROUPS.slice(1)];
@@ -99,8 +113,8 @@ const BOTTOM_NAV_EXCLUDE: Record<UserRole, ActiveTab[]> = {
 };
 
 /** Entries shown directly in the bottom bar, in bar order. */
-export const barEntries = (role: UserRole, canScan = false): NavEntry[] => {
-  const all = groupsFor(role, canScan).flatMap(g => g.items);
+export const barEntries = (role: UserRole, canScan = false, isSuperAdmin = false): NavEntry[] => {
+  const all = groupsFor(role, canScan, isSuperAdmin).flatMap(g => g.items);
   if (role === 'student' && canScan) return ['home','qr','admin-scanner','bill']
     .map(id => all.find(e => e.id === id)).filter((e): e is NavEntry => Boolean(e));
   return BAR_IDS[role]
@@ -109,16 +123,16 @@ export const barEntries = (role: UserRole, canScan = false): NavEntry[] => {
 };
 
 /** Everything that did not fit the bar, still grouped for the "More" sheet. */
-export const overflowGroups = (role: UserRole, canScan = false): NavGroup[] => {
+export const overflowGroups = (role: UserRole, canScan = false, isSuperAdmin = false): NavGroup[] => {
   const inBar = new Set(BAR_IDS[role]);
   const excluded = new Set(BOTTOM_NAV_EXCLUDE[role]);
   const scanBar = role === 'student' && canScan
     ? new Set<ActiveTab>(['home','qr','admin-scanner','bill']) : inBar;
-  return groupsFor(role, canScan)
+  return groupsFor(role, canScan, isSuperAdmin)
     .map(g => ({ heading: g.heading, items: g.items.filter(i => !scanBar.has(i.id) && !excluded.has(i.id)) }))
     .filter(g => g.items.length > 0);
 };
 
 /** True when the active tab lives behind "More", so that tab can be highlighted. */
-export const isOverflowTab = (role: UserRole, tab: ActiveTab, canScan = false): boolean =>
-  overflowGroups(role, canScan).some(g => g.items.some(i => i.id === tab));
+export const isOverflowTab = (role: UserRole, tab: ActiveTab, canScan = false, isSuperAdmin = false): boolean =>
+  overflowGroups(role, canScan, isSuperAdmin).some(g => g.items.some(i => i.id === tab));

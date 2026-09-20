@@ -15,7 +15,8 @@ export type ActiveTab =
   | 'admin-menu'
   | 'admin-ledger'
   | 'admin-payments'
-  | 'admin-billing';
+  | 'admin-billing'
+  | 'admin-settings';
 
 export type CommitteeDuration = 'MEAL' | 'DAY' | 'WEEK';
 
@@ -25,7 +26,6 @@ export interface StudentRecord {
   regNo: string;
   name: string;
   room: string;
-  avatar: string;
   lunchStatus: 'Confirmed' | 'Skipped';
   attendanceStatus: 'Present' | 'Absent' | 'Pending';
   accountStatus?: 'ACTIVE' | 'PENDING' | 'SUSPENDED' | 'INACTIVE';

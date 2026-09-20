@@ -1,13 +1,14 @@
 import React from 'react';
 import { ActiveTab, UserRole } from '../types';
+import { Avatar } from './Avatar';
 
 interface HeaderProps {
   currentTab: ActiveTab;
   setCurrentTab: (tab: ActiveTab) => void;
   userRole: UserRole;
   setUserRole: (role: UserRole) => void;
-  studentAvatar: string;
-  adminAvatar: string;
+  /** Shown as initials in the profile button. */
+  userName: string;
   unreadCount?: number;
 }
 
@@ -24,6 +25,7 @@ const PAGE_META: Partial<Record<ActiveTab, { title: string; sub: string }>> = {
   'admin-ledger':    { title: 'Ledger',            sub: 'Purchases, expenses and reconciliation' },
   'admin-payments':  { title: 'Payments',          sub: 'Collections and pending dues' },
   'admin-menu':      { title: 'Weekly Menu',      sub: 'Plan and publish the mess menu' },
+  'admin-settings':  { title: 'Settings',         sub: 'Meal serving windows' },
 };
 
 /**
@@ -35,15 +37,12 @@ export const Header: React.FC<HeaderProps> = ({
   currentTab,
   setCurrentTab,
   userRole,
-  studentAvatar,
-  adminAvatar,
+  userName,
   unreadCount = 0,
 }) => {
   const isStudent = userRole === 'student';
   const meta = PAGE_META[currentTab] ?? { title: 'MessConnect', sub: 'Hostel mess management' };
   const isHome = currentTab === 'home' || currentTab === 'admin-dashboard';
-  const avatar = isStudent ? studentAvatar : adminAvatar;
-  const hasPhoto = Boolean(avatar && avatar.startsWith('data:'));
 
   // Mobile shows the brand on home, the page name elsewhere.
   const mobileTitle = isHome ? 'CUSAT MessConnect' : meta.title;
@@ -118,11 +117,7 @@ export const Header: React.FC<HeaderProps> = ({
             title="Profile"
             aria-label="Profile"
           >
-            {hasPhoto ? (
-              <img src={avatar} alt="" className="w-full h-full object-cover" />
-            ) : (
-              <span className="material-symbols-outlined" style={{ fontSize: 20 }}>person</span>
-            )}
+            <Avatar name={userName} size={30} />
           </button>
         </div>
       </div>

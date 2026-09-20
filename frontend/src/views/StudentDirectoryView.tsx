@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { StudentRecord } from '../types';
 import { adminApi } from '../services/api';
 import { CreateAdminModal } from '../components/CreateAdminModal';
+import { Avatar } from '../components/Avatar';
 import { Modal } from '../components/Modal';
 
 interface StudentDirectoryViewProps {
@@ -26,9 +27,6 @@ const STATUS_PILL: Record<string, string> = {
   SUSPENDED: 'bg-[#dc2626]/10 text-[#dc2626] border-[#dc2626]/30',
   INACTIVE: 'bg-[#9B7B52]/10 text-[#6B4A28] border-[#9B7B52]/30',
 };
-
-const initials = (name: string) =>
-  name.split(/\s+/).slice(0, 2).map(part => part[0]).join('').toUpperCase();
 
 export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({ isSuperAdmin = false }) => {
   const requestSequence = useRef(0);
@@ -92,7 +90,6 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({ isSu
           regNo: s.registration_number,
           name: s.name,
           room: 'Hostel Block',
-          avatar: s.photo_url || '',
           lunchStatus: 'Confirmed',
           attendanceStatus: 'Pending',
           accountStatus: s.account_status,
@@ -378,16 +375,7 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({ isSu
                       className="hover:bg-[#FDF7EA] transition-colors cursor-pointer"
                     >
                       <td className="py-3 px-4">
-                        {row.avatar ? (
-                          <img src={row.avatar} alt="" className="w-10 h-10 rounded-full object-cover border border-[#E3CB9B]" />
-                        ) : (
-                          <span
-                            className="w-10 h-10 rounded-full bg-[#F47A35]/10 text-[#F47A35] font-bold text-xs flex items-center justify-center"
-                            aria-hidden="true"
-                          >
-                            {initials(row.name)}
-                          </span>
-                        )}
+                        <Avatar name={row.name} size={40} />
                       </td>
                       <td className="py-3 px-4 font-mono text-xs font-bold text-[#F47A35]">{row.messId}</td>
                       <td className="py-3 px-4 font-bold text-[#2D1A0E]">
@@ -436,16 +424,7 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({ isSu
           <>
             <div className="flex justify-between items-start gap-3 pb-4 border-b border-[#EFDCB4]">
               <div className="flex items-center gap-3 min-w-0">
-                {selectedStudent.avatar ? (
-                  <img src={selectedStudent.avatar} alt="" className="w-14 h-14 rounded-full object-cover border-2 border-[#F47A35]" />
-                ) : (
-                  <span
-                    className="w-14 h-14 shrink-0 rounded-full bg-[#F47A35]/10 text-[#F47A35] flex items-center justify-center text-lg font-bold"
-                    aria-hidden="true"
-                  >
-                    {initials(selectedStudent.name)}
-                  </span>
-                )}
+                <Avatar name={selectedStudent.name} size={56} emphasis />
                 <div className="min-w-0">
                   {/* Wraps rather than truncates: the name is the identifier on
                       this panel, and "ZZ TEST ACCOUNT - DELETE BEF..." tells an

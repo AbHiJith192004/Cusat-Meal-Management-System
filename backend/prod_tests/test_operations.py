@@ -493,3 +493,91 @@ async def test_membership_change_is_audited_and_rejects_a_no_op(client):
 
     # Students cannot reclassify themselves.
     assert (await client.patch(url, json=body, headers=headers(student))).status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_meal_window_settings_reject_anything_the_app_cannot_parse(client):
+    """The settings endpoint is now reachable from a screen, so it has to hold.
+
+    MealTimingService parses these with `map(int, value.split(':'))` inside
+    GET /api/v1/meals -- the call every student's home screen makes. A stored
+    "12.00" would raise there, so meal selection for the whole hostel depends
+    on nothing invalid getting written here.
+
+    System settings are global, so this restores every row it touched. An
+    earlier draft did not, left dinner ending at 06:00 behind, and the next
+    run failed on its own leftovers before reaching its first assertion.
+    """
+    from app.models.settings import SystemSetting
+
+    super_admin = await user('SUPER_ADMIN')
+    h = headers(super_admin)
+
+    def put(*pairs):
+        return client.put('/api/v1/super-admin/settings',
+                          json={'settings': [{'key': k, 'value': v} for k, v in pairs]},
+                          headers=h)
+
+    async with async_session_factory() as db:
+        before = {s.key: s.value for s in (await db.execute(select(SystemSetting))).scalars()}
+
+    try:
+        # A good change is applied and readable back.
+        ok = await put(('meal_window_lunch_start', '12:15'), ('meal_window_lunch_end', '14:45'))
+        assert ok.status_code == 200, ok.text
+        listed = await client.get('/api/v1/super-admin/settings', headers=h)
+        values = {s['key']: s['value'] for s in listed.json()['data']}
+        assert values['meal_window_lunch_start'] == '12:15'
+        assert values['meal_window_lunch_end'] == '14:45'
+
+        # ...and the students' own endpoint still parses, which is the point.
+        student = await user()
+        day = now_ist().date()
+        meals = await client.get(f'/api/v1/meals?start_date={day}&end_date={day}',
+                                 headers=headers(student))
+        assert meals.status_code == 200, meals.text
+        assert meals.json()['data'][0]['lunch']['time_window'] == '12:15\u201314:45 IST'
+
+        for bad in ('12.00', 'noon', '25:00', '12:60', '', '9'):
+            rejected = await put(('meal_window_lunch_start', bad))
+            assert rejected.status_code == 422, f'{bad!r} was accepted: {rejected.text}'
+
+        # An end before its start is refused even though both are valid clock
+        # times. Dinner has no stored row here, so this also proves the
+        # comparison resolves against the app's own DEFAULT_SETTINGS rather
+        # than skipping a window whose other end is absent.
+        inverted = await put(('meal_window_dinner_end', '06:00'))
+        assert inverted.status_code == 422, inverted.text
+        assert inverted.json()['error']['code'] == 'SETTING_WINDOW_INVERTED'
+
+        # A batch moving both ends together is fine.
+        both = await put(('meal_window_dinner_start', '05:00'), ('meal_window_dinner_end', '06:00'))
+        assert both.status_code == 200, both.text
+
+        # Nothing from a rejected batch is written: lunch start survived.
+        after = await client.get('/api/v1/super-admin/settings', headers=h)
+        assert {s['key']: s['value'] for s in after.json()['data']}['meal_window_lunch_start'] == '12:15'
+
+        # The other parsed settings are guarded too.
+        assert (await put(('max_monthly_mess_cuts', 'ten'))).status_code == 422
+        assert (await put(('fine_amount', '-5'))).status_code == 422
+        assert (await put(('selection_cutoff_time', '9pm'))).status_code == 422
+        assert (await put(('qr_validity_seconds', '2'))).status_code == 422
+
+        # A key this guard does not know is still passed through, as before.
+        assert (await put(('some_future_setting', 'anything at all'))).status_code == 200
+
+        # An ordinary admin cannot reach any of it.
+        plain = await user('ADMIN')
+        refused = await client.put('/api/v1/super-admin/settings',
+                                   json={'settings': [{'key': 'fine_amount', 'value': '40.00'}]},
+                                   headers=headers(plain))
+        assert refused.status_code == 403
+    finally:
+        async with async_session_factory() as db:
+            for row in (await db.execute(select(SystemSetting))).scalars():
+                if row.key in before:
+                    row.value = before[row.key]
+                else:
+                    await db.delete(row)
+            await db.commit()
