@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { adminApi, menuApi } from '../services/api';
 import { Modal } from '../components/Modal';
+import { parseWindow, formatWindow } from '../utils/mealWindows';
 
 type MealKey = 'breakfast' | 'lunch' | 'dinner';
 type TileKey = 'total' | 'served' | 'skipped' | 'pending' | 'fined' | 'not_eligible';
@@ -62,23 +63,9 @@ const TILES: ReadonlyArray<{
 ];
 
 /** "07:00–09:30 IST" -> minutes past midnight, so the card can say where we are. */
-const windowMinutes = (w?: string): [number, number] | null => {
-  const m = (w || '').match(/(\d{1,2}):(\d{2})\s*[–-]\s*(\d{1,2}):(\d{2})/);
-  if (!m) return null;
-  return [Number(m[1]) * 60 + Number(m[2]), Number(m[3]) * 60 + Number(m[4])];
-};
+const windowMinutes = parseWindow;
 
-const prettyWindow = (w?: string) => {
-  const parsed = windowMinutes(w);
-  if (!parsed) return 'Serving window not configured';
-  const fmt = (mins: number) => {
-    const h = Math.floor(mins / 60), mm = String(mins % 60).padStart(2, '0');
-    const suffix = h >= 12 ? 'PM' : 'AM';
-    const hh = h % 12 === 0 ? 12 : h % 12;
-    return `${hh}:${mm} ${suffix}`;
-  };
-  return `${fmt(parsed[0])} – ${fmt(parsed[1])}`;
-};
+const prettyWindow = (w?: string) => formatWindow(w) ?? 'Serving window not configured';
 
 /**
  * Currently Serving / Upcoming / Meal Over. The windows come from the server's

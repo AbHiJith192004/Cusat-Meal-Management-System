@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { mealApi } from '../services/api';
+import { currentMeal as pickCurrentMeal, isServingNow, type MealKey } from '../utils/mealWindows';
 import {
   DosaCartoon,
   LunchCartoon,
@@ -14,22 +15,12 @@ interface StudentHomeViewProps {
   onNavigate: (tab: any) => void;
 }
 
-type MealKey = 'breakfast' | 'lunch' | 'dinner';
-
 function getGreeting() {
   const h = new Date().getHours();
   if (h < 12) return 'Good Morning';
   if (h < 17) return 'Good Afternoon';
   if (h < 20) return 'Good Evening';
   return 'Good Night';
-}
-
-function getCurrentMealType(): MealKey {
-  const h = new Date().getHours();
-  // Before 11am — including the small hours — the next meal is breakfast.
-  if (h < 11) return 'breakfast';
-  if (h < 16) return 'lunch';
-  return 'dinner';
 }
 
 const MEAL_LABELS: Record<MealKey, string> = {
@@ -59,7 +50,6 @@ export const StudentHomeView: React.FC<StudentHomeViewProps> = ({ studentName, o
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
 
-  const currentMeal = getCurrentMealType();
   const firstName = studentName?.trim().split(' ')[0] || 'Student';
 
   useEffect(() => {
@@ -71,6 +61,25 @@ export const StudentHomeView: React.FC<StudentHomeViewProps> = ({ studentName, o
   }, []);
 
   const todayPlan = meals[0];
+
+  // Which meal to lead with, taken from the serving windows the server just
+  // sent rather than from hardcoded hours, so it follows the office's own
+  // settings. Before the request lands todayPlan is undefined and the helper
+  // uses its fallback, then this recomputes.
+  const currentMeal = useMemo(
+    () => pickCurrentMeal({
+      breakfast: todayPlan?.breakfast?.time_window,
+      lunch: todayPlan?.lunch?.time_window,
+      dinner: todayPlan?.dinner?.time_window,
+    }),
+    [todayPlan],
+  );
+
+  // "Currently Serving" was a fixed label. Now that the card can show the NEXT
+  // meal once this one has finished, saying it is being served would be a
+  // plain lie between 14:30 and 19:00.
+  const servingNow = isServingNow(todayPlan?.[currentMeal]?.time_window);
+
   const itemsFor = (type: MealKey) => {
     const plan = todayPlan?.[type];
     if (plan?.items?.length) return plan.items.join(', ');
@@ -109,7 +118,7 @@ export const StudentHomeView: React.FC<StudentHomeViewProps> = ({ studentName, o
       <div className="grid gap-4 lg:grid-cols-3 lg:gap-5 lg:items-start">
         {/* ── Currently serving ──────────────────────────────────── */}
         <section className="stitch-card-hero lg:col-span-2">
-          <p className="section-label">Currently Serving</p>
+          <p className="section-label">{servingNow ? 'Currently Serving' : 'Up Next'}</p>
 
           <div className="flex items-start justify-between gap-4 mt-2">
             <div className="min-w-0 flex-1">

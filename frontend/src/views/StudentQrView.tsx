@@ -1,6 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { attendanceApi } from '../services/api';
+import { attendanceApi, mealApi } from '../services/api';
+import {
+  currentMeal as pickCurrentMeal,
+  formatWindow,
+  FALLBACK_WINDOWS,
+  type MealKey,
+} from '../utils/mealWindows';
 import { ChefMascot } from '../components/FoodIllustrations';
 import { AdminScannerView } from './AdminScannerView';
 
@@ -13,18 +19,11 @@ interface StudentQrViewProps {
 
 type MealType = 'Breakfast' | 'Lunch' | 'Dinner';
 
-const getCurrentMealType = (): MealType => {
-  const now = new Date();
-  const m = now.getHours() * 60 + now.getMinutes();
-  if (m < 660) return 'Breakfast';
-  if (m < 900) return 'Lunch';
-  return 'Dinner';
+const KEY: Record<MealType, MealKey> = {
+  Breakfast: 'breakfast', Lunch: 'lunch', Dinner: 'dinner',
 };
-
-const MEAL_SCHEDULE: Record<MealType, string> = {
-  Breakfast: '7:30 AM – 9:30 AM',
-  Lunch: '12:30 PM – 2:00 PM',
-  Dinner: '7:30 PM – 9:30 PM',
+const LABEL: Record<MealKey, MealType> = {
+  breakfast: 'Breakfast', lunch: 'Lunch', dinner: 'Dinner',
 };
 
 const MEALS: MealType[] = ['Breakfast', 'Lunch', 'Dinner'];
@@ -32,7 +31,15 @@ const MEALS: MealType[] = ['Breakfast', 'Lunch', 'Dinner'];
 export const StudentQrView: React.FC<StudentQrViewProps> = ({ studentName, regNo, canScan = false }) => {
   const [activeSubView, setActiveSubView] = useState<'scanner' | 'pass'>('pass');
   const [secondsLeft, setSecondsLeft] = useState(60);
-  const [mealType, setMealType] = useState<MealType>(getCurrentMealType());
+  const [mealType, setMealType] = useState<MealType>(() => LABEL[pickCurrentMeal()]);
+  // The office's real serving windows. This screen used to print its own
+  // ("12:30 PM – 2:00 PM" for a lunch the mess serves 12:00–14:30), so a
+  // student read one set of times on the home screen and another on the pass
+  // they were holding in the queue. One extra GET on open buys the truth.
+  const [windows, setWindows] = useState<Partial<Record<MealKey, string>>>();
+  // Once the student picks a meal themselves, the windows arriving must not
+  // move it under their thumb.
+  const pickedByHand = useRef(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [qrToken, setQrToken] = useState<string | null>(null);
   const [isAlreadyRecorded, setIsAlreadyRecorded] = useState(false);
@@ -65,6 +72,24 @@ export const StudentQrView: React.FC<StudentQrViewProps> = ({ studentName, regNo
       setIsRefreshing(false);
     }
   };
+
+  useEffect(() => {
+    let cancelled = false;
+    mealApi.getMeals().then(days => {
+      const today = days?.[0];
+      if (cancelled || !today) return;
+      const live = {
+        breakfast: today.breakfast?.time_window,
+        lunch: today.lunch?.time_window,
+        dinner: today.dinner?.time_window,
+      };
+      setWindows(live);
+      if (!pickedByHand.current) setMealType(LABEL[pickCurrentMeal(live)]);
+    }).catch(() => {
+      // Keep the fallback windows; the pass itself does not depend on this.
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => { fetchQrToken(mealType); }, [mealType]);
 
@@ -173,11 +198,12 @@ export const StudentQrView: React.FC<StudentQrViewProps> = ({ studentName, regNo
                   key={m}
                   role="tab"
                   aria-selected={active}
-                  onClick={() => setMealType(m)}
+                  onClick={() => { pickedByHand.current = true; setMealType(m); }}
                   className="flex-1 py-2 rounded-full text-[13px] font-bold cursor-pointer text-center transition-colors lg:rounded-lg"
                   style={{
                     background: active ? 'var(--orange)' : 'var(--card)',
-                    color: active ? '#fff' : 'var(--text-body)',
+                    // Dark ink on the orange fill: white is 2.73:1 here, below AA.
+                    color: active ? 'var(--on-orange)' : 'var(--text-body)',
                     border: `1px solid ${active ? 'var(--orange)' : 'var(--line)'}`,
                     fontFamily: 'Nunito, sans-serif',
                   }}
@@ -308,7 +334,8 @@ export const StudentQrView: React.FC<StudentQrViewProps> = ({ studentName, regNo
               className="text-[13px] font-black"
               style={{ color: 'var(--text-dark)', fontVariantNumeric: 'tabular-nums' }}
             >
-              {MEAL_SCHEDULE[mealType]}
+              {formatWindow(windows?.[KEY[mealType]])
+                ?? formatWindow(FALLBACK_WINDOWS[KEY[mealType]])}
             </span>
           </div>
 

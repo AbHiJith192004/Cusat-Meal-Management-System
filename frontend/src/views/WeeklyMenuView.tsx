@@ -1,5 +1,6 @@
 import React, {useCallback, useEffect, useState} from 'react';
 import {adminApi, menuApi} from '../services/api';
+import { formatWindow } from '../utils/mealWindows';
 
 const MEALS = ['BREAKFAST', 'LUNCH', 'DINNER'] as const;
 type Meal = typeof MEALS[number];
@@ -35,16 +36,7 @@ const addDays = (d: Date, n: number) => {
 };
 
 /** "07:00–09:30 IST" as the server sends it -> "7:00 AM – 9:30 AM". */
-const prettyWindow = (w?: string) => {
-  const m = (w || '').match(/(\d{1,2}):(\d{2})\s*[–-]\s*(\d{1,2}):(\d{2})/);
-  if (!m) return null;
-  const fmt = (h: number, mm: string) => {
-    const suffix = h >= 12 ? 'PM' : 'AM';
-    const hh = h % 12 === 0 ? 12 : h % 12;
-    return `${hh}:${mm} ${suffix}`;
-  };
-  return `${fmt(Number(m[1]), m[2])} – ${fmt(Number(m[3]), m[4])}`;
-};
+const prettyWindow = formatWindow;
 
 export const WeeklyMenuView: React.FC = () => {
   const [monday, setMonday] = useState(() => weekStart(new Date()));
