@@ -276,13 +276,18 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({ isSu
                 Create Admin User
               </button>
             )}
-            <button
-              onClick={() => setShowAddModal(true)}
-              className="px-4 py-2 bg-[#F47A35] hover:bg-[#F68C51] text-[#2D1A0E] font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
-            >
-              <span className="material-symbols-outlined text-[16px]">person_add</span>
-              Add Student
-            </button>
+            {/* Super Admin only, to match POST /admin/students. A plain admin
+                used to see this and collect a 403 on submit; the Create Admin
+                button beside it was gated and this one was missed. */}
+            {isSuperAdmin && (
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="px-4 py-2 bg-[#F47A35] hover:bg-[#F68C51] text-[#2D1A0E] font-bold text-xs rounded-xl flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-[16px]">person_add</span>
+                Add Student
+              </button>
+            )}
           </div>
         </div>
 
