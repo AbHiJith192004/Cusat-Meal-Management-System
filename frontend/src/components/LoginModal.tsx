@@ -83,20 +83,14 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         // prefer it when present. Otherwise the student proves identity with
         // their date of birth -- only possible before the account has a
         // password; afterwards this route refuses and staff issue a code.
-        // Three ways in, in order of strength. A link carries a real one-use
-        // code and is strictly stronger than a birthday, so it wins when
-        // present. Otherwise take whichever the person actually filled in:
-        // students are given a date of birth to prove, administrators are
-        // handed a code and have no student profile to hold a date of birth
-        // at all -- before this they had nowhere on this screen to put it.
-        const typedCode = setupCode.trim();
-        if (fromLink || typedCode) await authApi.activate(trimmed, typedCode, password);
-        else if (dob) await authApi.activateWithDob(trimmed, dob, password);
-        else {
-          setErrorMsg('Enter your date of birth, or the setup code the mess office gave you.');
-          setLoading(false);
-          return;
-        }
+        //
+        // This screen deliberately asks for nothing else. It briefly offered a
+        // setup-code box beside the date of birth so a new administrator could
+        // finish here, and that put a field on every student's first-run
+        // screen that no student will ever use. Staff redeem a code through
+        // "Staff with a setup code?" below, which is the same endpoint.
+        if (fromLink) await authApi.activate(trimmed, setupCode, password);
+        else await authApi.activateWithDob(trimmed, dob, password);
       }
       await authApi.login(trimmed, password);
       let role: 'admin' | 'student' = 'student';
@@ -133,7 +127,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
       : mode === 'activate'
       ? fromLink
         ? 'Your account is ready. Choose a password to finish.'
-        : 'First-time setup. Confirm your date of birth, or enter a setup code, then choose a password.'
+        : 'First-time setup. Confirm your date of birth and choose a password.'
       : 'Meal planning and your dining pass, in one place.';
 
   const form = (
@@ -217,47 +211,23 @@ export const LoginModal: React.FC<LoginModalProps> = ({
           </div>
 
           {mode === 'activate' && !fromLink && (
-            <>
-              <div>
-                <label
-                  htmlFor="login-dob"
-                  className="block text-[12px] font-black mb-1.5"
-                  style={{ color: 'var(--text-body)' }}
-                >
-                  Date of birth
-                </label>
-                <input
-                  id="login-dob"
-                  type="date"
-                  value={dob}
-                  onChange={e => setDob(e.target.value)}
-                  className="stitch-input"
-                />
-              </div>
-
-              {/* Neither field is `required`: one or the other is enough, and
-                  the submit handler says so if both are empty. Students have
-                  a date of birth; staff accounts do not, and are given a code
-                  instead -- which had nowhere to go on this screen before. */}
-              <div>
-                <label
-                  htmlFor="login-activate-code"
-                  className="block text-[12px] font-black mb-1.5"
-                  style={{ color: 'var(--text-body)' }}
-                >
-                  Or a setup code from the mess office
-                </label>
-                <input
-                  id="login-activate-code"
-                  type="text"
-                  value={setupCode}
-                  onChange={e => setSetupCode(e.target.value)}
-                  autoComplete="one-time-code"
-                  placeholder="Staff accounts use this instead of a date of birth"
-                  className="stitch-input"
-                />
-              </div>
-            </>
+            <div>
+              <label
+                htmlFor="login-dob"
+                className="block text-[12px] font-black mb-1.5"
+                style={{ color: 'var(--text-body)' }}
+              >
+                Date of birth
+              </label>
+              <input
+                id="login-dob"
+                type="date"
+                required
+                value={dob}
+                onChange={e => setDob(e.target.value)}
+                className="stitch-input"
+              />
+            </div>
           )}
 
           {mode === 'reset' && (
@@ -358,6 +328,22 @@ export const LoginModal: React.FC<LoginModalProps> = ({
               className="btn-link text-[12.5px]"
             >
               Back to sign in
+            </button>
+          )}
+
+          {/* Staff accounts have no date of birth to confirm -- they are made
+              with a registration number and a name, and handed a one-use code.
+              This is a line of text rather than a second box on the form,
+              because every student sees this screen once and none of them has
+              a code. "Reset" posts to the same /auth/activate endpoint, so it
+              finishes a first activation just as well as it resets. */}
+          {mode === 'activate' && !fromLink && (
+            <button
+              onClick={() => { setMode('reset'); setErrorMsg(null); }}
+              className="block mx-auto mt-2.5 text-[11.5px] font-semibold cursor-pointer"
+              style={{ background: 'none', border: 'none', color: 'var(--text-muted)' }}
+            >
+              Staff with a setup code? Use it here
             </button>
           )}
         </div>
