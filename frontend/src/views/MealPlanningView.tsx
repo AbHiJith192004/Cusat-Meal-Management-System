@@ -135,6 +135,18 @@ export const MealPlanningView: React.FC = () => {
 
   const isFullDayCut = MEALS.every(m => (activePlan[m]?.status || 'CONFIRMED') === 'SKIPPED');
   const noService = MEALS.some(m => activePlan[m]?.status === 'NO_SERVICE');
+  const closedAllDay = MEALS.every(m => activePlan[m]?.status === 'NO_SERVICE');
+  // The office has to give a reason to close the mess, so there is one to show.
+  const closureReason = MEALS.map(m => activePlan[m]?.no_service_reason).find(Boolean) || null;
+  const closedMeals = MEALS.filter(m => activePlan[m]?.status === 'NO_SERVICE');
+  const closedMealCount = closedMeals.length;
+  // "Dinner is" / "Breakfast and dinner are" -- the sentence reads either way.
+  const closedMealNames = closedMeals.map(m => MEAL_LABELS[m]).join(' and ')
+    + (closedMealCount > 1 ? ' are' : ' is');
+  const dayIsClosed = (planDate: string) => {
+    const plan = mealPlans.find(p => p.meal_date === planDate);
+    return Boolean(plan) && MEALS.some(m => plan[m]?.status === 'NO_SERVICE');
+  };
 
   return (
     <main className="page-container">
@@ -197,6 +209,13 @@ export const MealPlanningView: React.FC = () => {
               >
                 {dayNum}, {dayName}
               </span>
+              {dayIsClosed(date) && (
+                <span
+                  className="material-symbols-outlined"
+                  style={{ fontSize: 13, marginLeft: 4, verticalAlign: 'middle', color: 'var(--red)' }}
+                  title="The mess is closed on this day"
+                >no_meals</span>
+              )}
             </button>
           );
         })}
@@ -206,25 +225,29 @@ export const MealPlanningView: React.FC = () => {
       <div
         className="p-4 rounded-2xl border mb-4 flex items-center justify-between gap-3 sm:gap-4 transition-all shadow-xs"
         style={{
-          background: isFullDayCut ? '#FFF0F0' : 'var(--card)',
-          borderColor: isFullDayCut ? '#F87171' : 'var(--line)',
+          background: noService ? '#FDECEA' : isFullDayCut ? '#FFF0F0' : 'var(--card)',
+          borderColor: noService ? '#F6C8C3' : isFullDayCut ? '#F87171' : 'var(--line)',
         }}
       >
         <div className="flex items-center gap-3 min-w-0">
           <span
             className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-lg shrink-0 ${
-              isFullDayCut ? 'bg-[#FEE2E2] text-[#DC2626]' : 'bg-[#FDF7EA] text-[#F47A35] border border-[#E3CB9B]'
+              noService || isFullDayCut ? 'bg-[#FEE2E2] text-[#DC2626]' : 'bg-[#FDF7EA] text-[#F47A35] border border-[#E3CB9B]'
             }`}
           >
-            {isFullDayCut ? '🚫' : '🍽️'}
+            {noService ? '🚫' : isFullDayCut ? '🚫' : '🍽️'}
           </span>
           <div className="min-w-0">
             <h4
               className="font-display text-[15px] font-extrabold flex flex-wrap items-center gap-2"
               style={{ color: 'var(--text-dark)' }}
             >
-              <span>Full-Day Mess Cut</span>
-              {isFullDayCut && (
+              <span>{noService ? (closedAllDay ? 'Mess Closed' : 'Mess Partly Closed') : 'Full-Day Mess Cut'}</span>
+              {noService ? (
+                <span className="px-2 py-0.5 bg-[#DC2626] text-white text-[10px] font-black rounded-full uppercase tracking-wider">
+                  {closedAllDay ? 'NO SERVICE' : 'SOME MEALS OFF'}
+                </span>
+              ) : isFullDayCut && (
                 <span className="px-2 py-0.5 bg-[#DC2626] text-white text-[10px] font-black rounded-full uppercase tracking-wider">
                   ALL MEALS SKIPPED
                 </span>
@@ -232,7 +255,16 @@ export const MealPlanningView: React.FC = () => {
             </h4>
             <p className="text-xs font-semibold truncate sm:whitespace-normal" style={{ color: 'var(--text-muted)' }}>
               {noService
-                ? 'The mess is not serving on this day, so there is nothing to opt out of.'
+                ? <>
+                    {closureReason
+                      ? <>The mess office has closed the mess on this day &mdash; <strong>{closureReason}</strong>. </>
+                      : 'The mess is not serving on this day. '}
+                    {closedAllDay
+                      ? 'You are not charged for it and there is nothing to opt out of.'
+                      : `${closedMealNames} not being served, so you are not charged for `
+                        + `${closedMealCount > 1 ? 'them' : 'it'}. The other meals are still yours to `
+                        + 'choose, but a full-day mess cut is not available on this day.'}
+                  </>
                 : isFullDayCut
                 ? 'Opted out of Breakfast, Lunch, and Dinner for this entire day.'
                 : 'Toggle ON to take a full-day mess cut (opts out of Breakfast, Lunch, and Dinner at once).'}
@@ -301,7 +333,13 @@ export const MealPlanningView: React.FC = () => {
           : MEALS.map(meal => {
               const Ill = MEAL_ILL[meal];
               const confirmed = (activePlan[meal]?.status || 'CONFIRMED') === 'CONFIRMED';
-              const menuText = activePlan[meal]?.items?.join(', ') || 'Menu details have not been published.';
+              // "Skipping" on a closed meal reads as a mess cut the student
+              // took, which is the opposite of what happened.
+              const mealClosed = activePlan[meal]?.status === 'NO_SERVICE';
+              const mealReason = activePlan[meal]?.no_service_reason;
+              const menuText = mealClosed
+                ? (mealReason ? `Not being served \u2014 ${mealReason}` : 'Not being served on this day.')
+                : activePlan[meal]?.items?.join(', ') || 'Menu details have not been published.';
 
               return (
                 <section
@@ -350,7 +388,7 @@ export const MealPlanningView: React.FC = () => {
                         fontFamily: 'Nunito, sans-serif',
                       }}
                     >
-                      {confirmed ? "I'm eating" : 'Skipping'}
+                      {mealClosed ? 'Mess closed' : confirmed ? "I'm eating" : 'Skipping'}
                     </span>
 
                     {savingMeal === meal ? (
@@ -363,6 +401,13 @@ export const MealPlanningView: React.FC = () => {
                           progress_activity
                         </span>
                         Saving…
+                      </span>
+                    ) : mealClosed ? (
+                      <span
+                        className="px-2 py-0.5 text-[10px] font-black rounded-full uppercase tracking-wider"
+                        style={{ background: '#FEE2E2', color: 'var(--red)' }}
+                      >
+                        No service
                       </span>
                     ) : isLocked ? (
                       <span
@@ -377,7 +422,7 @@ export const MealPlanningView: React.FC = () => {
                         <input
                           type="checkbox"
                           checked={confirmed}
-                          disabled={wholeDayBusy || activePlan[meal]?.status === "NO_SERVICE"}
+                          disabled={wholeDayBusy}
                           onChange={() => handleToggle(meal)}
                           aria-label={`${MEAL_LABELS[meal]} — ${confirmed ? 'eating' : 'skipping'}`}
                         />

@@ -32,7 +32,10 @@ async def get_my_meals(
     service = MealService(db)
     selections = {(m.meal_date, m.meal_type): m for m in
                   await service.meal_repo.get_student_meals_range(current_user.id, start, end)}
-    holidays = {(h.holiday_date, h.meal_type) for h in
+    # Keyed by (date, meal_type) with meal_type None for a whole-day closure,
+    # carrying the reason so the student is told why rather than just finding
+    # the day greyed out.
+    holidays = {(h.holiday_date, h.meal_type): h.reason for h in
                 await service.holiday_repo.get_in_range(start, end)}
     from app.models.operations import MenuPublication
     from sqlalchemy import select
@@ -70,10 +73,14 @@ async def get_my_meals(
                "max_monthly_mess_cuts": setting_value("max_monthly_mess_cuts")}
         for mt in ("BREAKFAST", "LUNCH", "DINNER"):
             selection = selections.get((curr, mt))
+            # A whole-day closure wins: if the kitchen is shut, that is the
+            # reason to show even when this meal also has a row of its own.
+            closed_reason = holidays.get((curr, None), holidays.get((curr, mt)))
             holiday = (curr, None) in holidays or (curr, mt) in holidays
             day[mt.lower()] = {
                 "id": str(selection.id) if selection else None,
                 "status": "NO_SERVICE" if holiday else (selection.status if selection else "CONFIRMED"),
+                "no_service_reason": closed_reason if holiday else None,
                 "time_window": window_for(mt, curr),
                 "items": menus[(curr, mt)].items if (curr, mt) in menus else [],
                 "menu_notes": menus[(curr, mt)].notes if (curr, mt) in menus else None,

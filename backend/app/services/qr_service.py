@@ -201,9 +201,18 @@ class QRService:
         user = await self.user_repo.get_by_id(student_id)
         if not user or user.account_status != "ACTIVE" or user.role != "STUDENT":
             raise QRInvalidException(message="Student account is not active.")
+        # The closure is checked before the serving window, and both refuse
+        # the same way. A student holding the phone up at 10am on a day the
+        # kitchen is shut was told "attendance cannot be recorded at this
+        # time", which reads as "you are early" and sends them back at noon
+        # to be refused again.
+        closures = await HolidayRepository(self.session).get_for_date(meal_date, meal_type)
+        if closures:
+            whole_day = next((c for c in closures if c.meal_type is None), None)
+            raise AttendanceUnavailableException(
+                message=f"The mess is closed for this meal: {(whole_day or closures[0]).reason}."
+            )
         if not await self.timing_service.is_within_meal_window(meal_type, meal_date, now_ist()):
-            raise AttendanceUnavailableException()
-        if await HolidayRepository(self.session).get_for_date(meal_date, meal_type):
             raise AttendanceUnavailableException()
         selection = await self.meal_repo.get_student_meal(student_id, meal_date, meal_type)
         if selection and selection.status == "SKIPPED":

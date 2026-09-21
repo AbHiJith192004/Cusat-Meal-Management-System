@@ -3,12 +3,13 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 import pytest
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 
 from app.database import async_session_factory
 from app.models.attendance import Attendance
 from app.models.audit import AuditLog
 from app.models.billing import BillingPeriod, StudentBillSnapshot
+from app.models.holiday import Holiday
 from app.models.meal import MealSelection
 from app.models.student import StudentProfile
 from app.models.operations import InventoryItem, LedgerEntry, MenuPublication, PaymentSubmission
@@ -691,3 +692,99 @@ async def test_suspending_a_student_locks_them_out_and_reinstating_respects_acti
     assert (await client.patch(f'/api/v1/admin/students/{active.id}/status',
                                json={'suspend': True, 'reason': 'Student attempting this'},
                                headers=headers(await user()))).status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_closing_the_mess_for_a_day_is_visible_cancellable_and_keeps_attendance_out(client):
+    """A mess closure, walked the way an admin actually walks it.
+
+    The machinery for this existed from the beginning and was unreachable.
+    Declaring a holiday cascaded every selection to NO_SERVICE, blocked the
+    scanner, suppressed the missed-meal fine and dropped the day out of the
+    billing denominator -- but nothing listed a closure, so the id the DELETE
+    needs could only be recovered by querying the database by hand, and no
+    screen called any of it.
+    """
+    admin, student = await user('ADMIN'), await user()
+    h, s = headers(admin), headers(student)
+    # A fixed far-future day. Every other test works near today, and a
+    # whole-day closure cascades to every selection sharing its date.
+    day = date(2031, 3, 17)
+    async with async_session_factory() as db:
+        await db.execute(delete(Holiday).where(Holiday.holiday_date == day))
+        await db.commit()
+
+    # The student opts out of breakfast first, so the revert at the end has
+    # something to restore that is not just "CONFIRMED".
+    assert (await client.put(f'/api/v1/meals/{day}/BREAKFAST',
+                             json={'status': 'SKIPPED'}, headers=s)).status_code == 200
+
+    declared = await client.post('/api/v1/admin/holidays', json={
+        'date': str(day), 'meal_type': None, 'reason': 'Kitchen closed for repairs'}, headers=h)
+    assert declared.status_code == 200, declared.text
+
+    # The student is told, and told why -- not left with a greyed-out day.
+    plan = await client.get(f'/api/v1/meals?start_date={day}&end_date={day}', headers=s)
+    assert plan.status_code == 200, plan.text
+    today_plan = plan.json()['data'][0]
+    for meal in ('breakfast', 'lunch', 'dinner'):
+        assert today_plan[meal]['status'] == 'NO_SERVICE'
+        assert today_plan[meal]['no_service_reason'] == 'Kitchen closed for repairs'
+
+    # ...and the closure can be found again, which is the part that was missing.
+    listed = await client.get(f'/api/v1/admin/holidays?start={day}&end={day}', headers=h)
+    assert listed.status_code == 200, listed.text
+    rows = listed.json()['data']
+    assert len(rows) == 1 and rows[0]['meal_type'] is None
+    assert rows[0]['reason'] == 'Kitchen closed for repairs'
+    assert rows[0]['declared_by'] == admin.name
+    holiday_id = rows[0]['id']
+
+    # Marking attendance by hand used to sail straight past the closure, which
+    # left attendance rows for a meal the bill says was never served.
+    manual = await client.post('/api/v1/admin/attendance/manual', json={
+        'student_id': str(student.id), 'meal_date': str(day), 'meal_type': 'LUNCH',
+        'attendance_type': 'MANUAL', 'reason': 'Ate at the counter'}, headers=h)
+    assert manual.status_code == 422, manual.text
+    assert 'closed' in manual.json()['error']['message'].lower()
+
+    # The pass says why rather than "attendance cannot be recorded at this
+    # time", which is also what being early says.
+    from app.services.qr_service import QRService
+    from app.utils.exceptions import AttendanceUnavailableException
+    async with async_session_factory() as db:
+        with pytest.raises(AttendanceUnavailableException) as refused:
+            await QRService(db)._check_eligibility(student.id, day, 'LUNCH')
+    assert 'Kitchen closed for repairs' in refused.value.message
+
+    # The dashboard counted closures as a literal zero before this.
+    dashboard = await client.get('/api/v1/admin/dashboard', headers=h)
+    assert dashboard.json()['data']['active_holidays_count'] >= 1
+
+    # Cancelling restores what each student had chosen, not a blanket opt-in.
+    assert (await client.delete(f'/api/v1/admin/holidays/{holiday_id}', headers=h)).status_code == 200
+    reopened = (await client.get(f'/api/v1/meals?start_date={day}&end_date={day}',
+                                 headers=s)).json()['data'][0]
+    assert reopened['breakfast']['status'] == 'SKIPPED'
+    assert reopened['lunch']['status'] == 'CONFIRMED'
+    assert reopened['breakfast']['no_service_reason'] is None
+    assert (await client.get(f'/api/v1/admin/holidays?start={day}&end={day}',
+                             headers=h)).json()['data'] == []
+
+    # A single sitting can be shut without touching the rest of the day.
+    one = await client.post('/api/v1/admin/holidays', json={
+        'date': str(day), 'meal_type': 'DINNER', 'reason': 'Hostel day feast outside'}, headers=h)
+    assert one.status_code == 200, one.text
+    partial = (await client.get(f'/api/v1/meals?start_date={day}&end_date={day}',
+                                headers=s)).json()['data'][0]
+    assert partial['dinner']['status'] == 'NO_SERVICE'
+    assert partial['dinner']['no_service_reason'] == 'Hostel day feast outside'
+    assert partial['lunch']['status'] == 'CONFIRMED'
+    assert partial['breakfast']['status'] == 'SKIPPED'
+
+    # Leave the shared database as it was found.
+    assert (await client.delete(
+        f"/api/v1/admin/holidays/{one.json()['data']['id']}", headers=h)).status_code == 200
+    async with async_session_factory() as db:
+        await db.execute(delete(MealSelection).where(MealSelection.meal_date == day))
+        await db.commit()

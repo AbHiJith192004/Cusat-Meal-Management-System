@@ -363,6 +363,18 @@ export const adminApi = {
 
   publishMenu: (date: string, mealType: string, items: string[], notes?: string) =>
     request<any>(`/admin/menus/${date}/${mealType}`, {method: 'PUT', body: JSON.stringify({items, notes})}),
+
+  // Mess closures. meal_type null shuts the whole day; a meal name shuts just
+  // that sitting. The server cascades the affected selections to NO_SERVICE
+  // and reverses them again if the closure is cancelled.
+  listHolidays: (start: string, end: string) =>
+    request<any[]>(`/admin/holidays?start=${start}&end=${end}`),
+  declareHoliday: (date: string, mealType: string | null, reason: string) =>
+    request<any>('/admin/holidays', {
+      method: 'POST', body: JSON.stringify({date, meal_type: mealType, reason}),
+    }),
+  cancelHoliday: (holidayId: string) =>
+    request<any>(`/admin/holidays/${holidayId}`, {method: 'DELETE'}),
   getLedger: (kind?: string) => request<any>(`/admin/ledger${kind ? `?kind=${kind}` : ''}`),
   getLedgerPeriodSummary: (month: number, year: number) => request<any>(`/admin/ledger/period-summary?month=${month}&year=${year}`),
   createLedger: (data: any) => request<any>('/admin/ledger', {method: 'POST', body: JSON.stringify(data)}),

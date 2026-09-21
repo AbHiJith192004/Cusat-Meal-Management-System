@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, timedelta
 from typing import Annotated
 from uuid import UUID
 
@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models.audit import AuditLog
+from app.models.holiday import Holiday
 from app.models.user import User
 from app.schemas.attendance import ManualAttendanceRequest
 from app.schemas.fine import WaiveFineRequest, ReconcileFinesRequest
@@ -123,13 +124,18 @@ async def get_admin_dashboard(
     fines_count_res = await db.execute(select(func.count()).where(Fine.status == "PENDING"))
     pending_fines_count = fines_count_res.scalar_one() or 0
 
+    # Closures still ahead of us. This was a hardcoded 0, which read as "the
+    # mess is never closed" on a dashboard whose whole job is to say otherwise.
+    upcoming_holidays = (await db.execute(select(func.count()).select_from(Holiday).where(
+        Holiday.holiday_date >= today))).scalar_one() or 0
+
     return success_response(
         data={
             "date": today.isoformat(),
             "total_students": total_students,
             "today_stats": today_stats,
             "pending_fines_count": pending_fines_count,
-            "active_holidays_count": 0,
+            "active_holidays_count": upcoming_holidays,
         }
     )
 
@@ -534,6 +540,47 @@ async def trigger_reconciliation(
     return success_response(
         data={"message": f"Reconciliation completed for {body.target_date.isoformat()}.", "fines_created": total_created}
     )
+
+
+@router.get("/holidays")
+async def list_holidays(
+    admin_user: AdminUser,
+    start: Annotated[date | None, Query(description="YYYY-MM-DD, defaults to the 1st of this month")] = None,
+    end: Annotated[date | None, Query(description="YYYY-MM-DD, defaults to 120 days after the start")] = None,
+    db: AsyncSession = Depends(get_db, scope="function"),
+):
+    """Closures already declared in a date range.
+
+    There was no way to read these back, so the only route to the id that
+    DELETE below needs was a hand-written query against the database. A
+    closure you cannot find is a closure you cannot cancel.
+    """
+    first = start or today_ist().replace(day=1)
+    last = end or (first + timedelta(days=120))
+    if last < first:
+        from app.utils.exceptions import ValidationException
+        raise ValidationException(message="The end date cannot be before the start date.")
+
+    rows = (await db.execute(
+        select(Holiday, User.name)
+        .join(User, User.id == Holiday.created_by)
+        .where(Holiday.holiday_date.between(first, last))
+        # Whole-day closures first within a date: they are the ones that
+        # subsume the per-meal rows listed under them.
+        .order_by(Holiday.holiday_date, Holiday.meal_type.nulls_first())
+    )).all()
+
+    return success_response(data=[
+        {
+            "id": str(holiday.id),
+            "holiday_date": holiday.holiday_date.isoformat(),
+            "meal_type": holiday.meal_type,
+            "reason": holiday.reason,
+            "declared_by": declared_by,
+            "created_at": holiday.created_at.isoformat() if holiday.created_at else None,
+        }
+        for holiday, declared_by in rows
+    ])
 
 
 @router.post("/holidays")

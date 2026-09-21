@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.attendance import Attendance
 from app.repositories.attendance_repo import AttendanceRepository
 from app.repositories.audit_repo import AuditRepository
+from app.repositories.holiday_repo import HolidayRepository
 from app.services.billing_lock import lock_open_period
 from app.utils.enums import AttendanceType
 from app.utils.exceptions import AttendanceAlreadyRecordedException, ValidationException
@@ -43,6 +44,17 @@ class AttendanceService:
         student = (await self.session.execute(select(User).where(User.id == student_id).with_for_update())).scalar_one_or_none()
         if not student or student.role != "STUDENT" or student.account_status != "ACTIVE":
             raise ValidationException(message="An active student account is required.")
+        # The QR path refuses a closed day; entering the same meal by hand has
+        # to refuse it too, or attendance exists for a meal that billing has
+        # already decided was never served.
+        if await HolidayRepository(self.session).get_for_date(meal_date, meal_type):
+            raise ValidationException(
+                message=(
+                    f"The mess is closed for {meal_type.lower()} on "
+                    f"{meal_date.isoformat()}. Reopen the day on the Weekly Menu "
+                    "screen before recording attendance for it."
+                ),
+            )
         existing = await self.attendance_repo.get_for_update(student_id, meal_date, meal_type)
         if existing:
             raise AttendanceAlreadyRecordedException()

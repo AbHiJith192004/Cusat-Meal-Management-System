@@ -80,11 +80,30 @@ export const StudentHomeView: React.FC<StudentHomeViewProps> = ({ studentName, o
   // plain lie between 14:30 and 19:00.
   const servingNow = isServingNow(todayPlan?.[currentMeal]?.time_window);
 
+  // A closed mess outranks the serving window: saying "Currently Serving
+  // Lunch" on a day the kitchen is shut is worse than saying nothing.
+  const ALL_MEALS: MealKey[] = ['breakfast', 'lunch', 'dinner'];
+  const isClosed = (meal: MealKey) => todayPlan?.[meal]?.status === 'NO_SERVICE';
+  const closedAllDay = Boolean(todayPlan) && ALL_MEALS.every(isClosed);
+  const closureReason =
+    ALL_MEALS.map(m => todayPlan?.[m]?.no_service_reason).find(Boolean) || null;
+
   const itemsFor = (type: MealKey) => {
     const plan = todayPlan?.[type];
+    if (plan?.status === 'NO_SERVICE') {
+      return plan.no_service_reason
+        ? `Not being served \u2014 ${plan.no_service_reason}`
+        : 'Not being served today.';
+    }
     if (plan?.items?.length) return plan.items.join(', ');
     return MEAL_FALLBACK[type];
   };
+
+  /** The hours, or the reason there are none. */
+  const windowFor = (type: MealKey) =>
+    isClosed(type)
+      ? 'No service'
+      : todayPlan?.[type]?.time_window || 'Serving window unavailable';
 
   const otherMeals = (['breakfast', 'lunch', 'dinner'] as MealKey[]).filter(m => m !== currentMeal);
   const HeroIllustration = currentMeal === 'breakfast' ? DosaCartoon : MEAL_ILLUSTRATION[currentMeal];
@@ -115,10 +134,39 @@ export const StudentHomeView: React.FC<StudentHomeViewProps> = ({ studentName, o
         </p>
       </div>
 
+      {/* The mess pass is the next thing most students tap, and it will be
+          refused all day, so say why before they try. */}
+      {closedAllDay && (
+        <div
+          role="status"
+          className="mb-4 lg:mb-5 flex items-start gap-3 p-3.5 sm:p-4 rounded-2xl border"
+          style={{ background: '#FDECEA', borderColor: '#F6C8C3' }}
+        >
+          <span
+            className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+            style={{ background: '#FEE2E2', color: 'var(--red)' }}
+          >
+            <span className="material-symbols-outlined" style={{ fontSize: 20 }}>no_meals</span>
+          </span>
+          <div className="min-w-0">
+            <p className="font-extrabold text-sm" style={{ color: 'var(--text-dark)' }}>
+              The mess is closed today
+            </p>
+            <p className="text-xs font-semibold mt-0.5" style={{ color: 'var(--text-body)' }}>
+              {closureReason ? `${closureReason}. ` : ''}
+              No meals are being served, your pass will not scan, and today is
+              left out of this month&rsquo;s bill.
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="grid gap-4 lg:grid-cols-3 lg:gap-5 lg:items-start">
         {/* ── Currently serving ──────────────────────────────────── */}
         <section className="stitch-card-hero lg:col-span-2">
-          <p className="section-label">{servingNow ? 'Currently Serving' : 'Up Next'}</p>
+          <p className="section-label">
+            {isClosed(currentMeal) ? 'Mess Closed' : servingNow ? 'Currently Serving' : 'Up Next'}
+          </p>
 
           <div className="flex items-start justify-between gap-4 mt-2">
             <div className="min-w-0 flex-1">
@@ -140,10 +188,10 @@ export const StudentHomeView: React.FC<StudentHomeViewProps> = ({ studentName, o
                 className="text-sm font-black whitespace-nowrap"
                 style={{ color: 'var(--text-dark)', fontVariantNumeric: 'tabular-nums' }}
               >
-                {todayPlan?.[currentMeal]?.time_window || 'Serving window unavailable'}
+                {windowFor(currentMeal)}
               </p>
               <p className="text-xs font-semibold mt-0.5" style={{ color: 'var(--text-muted)' }}>
-                Today&rsquo;s special
+                {isClosed(currentMeal) ? 'You are not charged for a closed meal' : 'Today\u2019s special'}
               </p>
             </div>
 
@@ -257,7 +305,7 @@ export const StudentHomeView: React.FC<StudentHomeViewProps> = ({ studentName, o
                           className="text-xs font-bold mt-0.5"
                           style={{ color: 'var(--text-muted)', fontVariantNumeric: 'tabular-nums' }}
                         >
-                          {todayPlan?.[meal]?.time_window || 'Serving window unavailable'}
+                          {windowFor(meal)}
                         </p>
                         <p className="text-[13px] font-semibold mt-1" style={{ color: 'var(--text-body)' }}>
                           {itemsFor(meal)}

@@ -1,6 +1,7 @@
 import React, {useCallback, useEffect, useState} from 'react';
 import {adminApi, menuApi} from '../services/api';
 import { formatWindow } from '../utils/mealWindows';
+import { MessClosurePanel, type Closure } from '../components/MessClosurePanel';
 
 const MEALS = ['BREAKFAST', 'LUNCH', 'DINNER'] as const;
 type Meal = typeof MEALS[number];
@@ -43,6 +44,7 @@ export const WeeklyMenuView: React.FC = () => {
   // Which weekday is open. Defaults to today when the current week is shown.
   const [dayIndex, setDayIndex] = useState(() => (new Date().getDay() + 6) % 7);
   const [rows, setRows] = useState<any[]>([]);
+  const [closures, setClosures] = useState<Closure[]>([]);
   const [windows, setWindows] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -60,6 +62,11 @@ export const WeeklyMenuView: React.FC = () => {
   // Today stays editable -- correcting this morning's menu before lunch is
   // ordinary work.
   const dayHasPassed = iso(day) < todayIso;
+  const closuresOn = (d: Date) => closures.filter(c => c.holiday_date === iso(d));
+  const dayClosures = closuresOn(day);
+  const closedAllDay = dayClosures.some(c => c.meal_type === null);
+  const mealIsClosed = (meal: Meal) =>
+    closedAllDay || dayClosures.some(c => c.meal_type === meal);
 
   const load = useCallback(async () => {
     setLoading(true); setError('');
@@ -67,12 +74,16 @@ export const WeeklyMenuView: React.FC = () => {
       // The serving hours live in the mess settings, so they are read rather
       // than printed from constants that would go stale the moment the times
       // are changed in Operations.
-      const [menu, dash] = await Promise.allSettled([
+      const [menu, dash, shut] = await Promise.allSettled([
         menuApi.list(iso(monday), iso(addDays(monday, 6))),
         adminApi.getDashboard(),
+        adminApi.listHolidays(iso(monday), iso(addDays(monday, 6))),
       ]);
       if (menu.status === 'rejected') throw menu.reason;
       setRows(Array.isArray(menu.value) ? menu.value : []);
+      // A failed closure lookup must not blank the menu: the week is still
+      // worth showing, it just cannot be marked as closed.
+      setClosures(shut.status === 'fulfilled' && Array.isArray(shut.value) ? shut.value : []);
       if (dash.status === 'fulfilled') {
         const stats = (dash.value as any)?.today_stats || {};
         setWindows({
@@ -205,6 +216,13 @@ export const WeeklyMenuView: React.FC = () => {
                 <span className="sm:hidden">{DAYS[idx].slice(0, 3)}</span>
                 <span className="hidden sm:inline">{DAYS[idx]}</span>
                 {iso(d) === todayIso && <span style={{marginLeft: 5, fontSize: 9}}>●</span>}
+                {closuresOn(d).length > 0 && (
+                  <span
+                    className="material-symbols-outlined align-middle"
+                    style={{marginLeft: 4, fontSize: 13, color: dayIndex === idx ? '#7F1D1D' : 'var(--red)'}}
+                    title="The mess is closed on this day"
+                  >no_meals</span>
+                )}
               </button>
             ))}
           </div>
@@ -217,6 +235,14 @@ export const WeeklyMenuView: React.FC = () => {
             <p role="status" className="px-3.5 py-3 rounded-xl text-xs font-bold"
                style={{background: 'var(--green-light)', border: '1px solid #A6DCBB', color: 'var(--green)'}}>{message}</p>
           )}
+
+          <MessClosurePanel
+            dateIso={iso(day)}
+            dayLabel={day.toLocaleDateString('en-IN', {weekday: 'long', day: 'numeric', month: 'long'})}
+            closures={dayClosures}
+            dayHasPassed={dayHasPassed}
+            onChanged={load}
+          />
 
           {/* Selected Day Menu Detail Card */}
           <div className="bg-white rounded-2xl border border-[#EFDCB4] p-4 sm:p-6 space-y-5 sm:space-y-6">
@@ -293,6 +319,14 @@ export const WeeklyMenuView: React.FC = () => {
                           </p>
                         </div>
                       </div>
+                      {mealIsClosed(meal) && (
+                        <span
+                          className="px-2 py-0.5 text-[10px] font-black rounded-full uppercase tracking-wider shrink-0"
+                          style={{background: '#FEE2E2', color: 'var(--red)'}}
+                        >
+                          Closed
+                        </span>
+                      )}
                     </div>
 
                     <div className="pt-2" style={{borderTop: `1px solid ${style.accent}1A`}}>
