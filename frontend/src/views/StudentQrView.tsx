@@ -4,7 +4,7 @@ import { attendanceApi, mealApi } from '../services/api';
 import {
   currentMeal as pickCurrentMeal,
   formatWindow,
-  FALLBACK_WINDOWS,
+  fallbackWindows,
   type MealKey,
 } from '../utils/mealWindows';
 import { ChefMascot } from '../components/FoodIllustrations';
@@ -340,7 +340,7 @@ export const StudentQrView: React.FC<StudentQrViewProps> = ({ studentName, regNo
               style={{ color: 'var(--text-dark)', fontVariantNumeric: 'tabular-nums' }}
             >
               {formatWindow(windows?.[KEY[mealType]])
-                ?? formatWindow(FALLBACK_WINDOWS[KEY[mealType]])}
+                ?? formatWindow(fallbackWindows()[KEY[mealType]])}
             </span>
           </div>
 

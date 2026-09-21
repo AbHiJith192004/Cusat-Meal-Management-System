@@ -8,13 +8,38 @@ from app.utils.timezone import now_ist, IST
 
 logger = logging.getLogger(__name__)
 
+# Weekends run later and shorter than weekdays -- the kitchen and the students
+# both start later on a Saturday. Only breakfast and lunch actually differ
+# today, but dinner carries its own weekend pair anyway so the office can move
+# one without the other later.
+WEEKEND_SUFFIX = "_weekend"
+
+
+def window_keys(meal: str, on_date: date) -> tuple[str, str]:
+    """The (start_key, end_key) that govern `meal` on `on_date`.
+
+    Saturday and Sunday use the weekend pair. This is the only place that
+    decides which set applies, so the settings screen, the validator, the
+    student's meal list and the fine reconciliation cannot drift apart on it.
+    """
+    suffix = WEEKEND_SUFFIX if on_date.weekday() >= 5 else ""
+    meal = meal.lower()
+    return f"meal_window_{meal}_start{suffix}", f"meal_window_{meal}_end{suffix}"
+
+
 DEFAULT_SETTINGS = {
-    "meal_window_breakfast_start": "07:00",
-    "meal_window_breakfast_end": "09:30",
-    "meal_window_lunch_start": "12:00",
-    "meal_window_lunch_end": "14:30",
-    "meal_window_dinner_start": "19:00",
-    "meal_window_dinner_end": "21:30",
+    "meal_window_breakfast_start": "07:15",
+    "meal_window_breakfast_end": "08:30",
+    "meal_window_lunch_start": "12:15",
+    "meal_window_lunch_end": "13:45",
+    "meal_window_dinner_start": "19:45",
+    "meal_window_dinner_end": "20:45",
+    "meal_window_breakfast_start_weekend": "08:30",
+    "meal_window_breakfast_end_weekend": "09:30",
+    "meal_window_lunch_start_weekend": "13:00",
+    "meal_window_lunch_end_weekend": "14:00",
+    "meal_window_dinner_start_weekend": "19:45",
+    "meal_window_dinner_end_weekend": "20:45",
     "selection_cutoff_time": "21:00",
     "selection_cutoff_advance_days": "1",
     "fine_amount": "30.00",
@@ -123,11 +148,18 @@ class MealTimingService:
         cutoff_dt = await self.get_cutoff_datetime(target_date)
         return now >= cutoff_dt
 
-    async def get_meal_window(self, meal_type: str) -> tuple[time, time]:
-        """Get (start_time, end_time) for a meal type."""
-        mt = meal_type.lower()
-        start_str = await self._get_val(f"meal_window_{mt}_start")
-        end_str = await self._get_val(f"meal_window_{mt}_end")
+    async def get_meal_window(self, meal_type: str, on_date: date) -> tuple[time, time]:
+        """(start_time, end_time) for a meal ON A PARTICULAR DATE.
+
+        The date is required, not optional with a today default: weekends have
+        their own windows, and a caller that forgot to pass the day it cares
+        about would silently judge a Saturday by the weekday times. The fine
+        reconciliation is exactly that caller -- it runs after midnight about
+        the day before.
+        """
+        start_key, end_key = window_keys(meal_type, on_date)
+        start_str = await self._get_val(start_key)
+        end_str = await self._get_val(end_key)
 
         sh, sm = map(int, start_str.split(":"))
         eh, em = map(int, end_str.split(":"))
@@ -149,6 +181,6 @@ class MealTimingService:
         if now.date() != target_date:
             return False
 
-        start_time, end_time = await self.get_meal_window(meal_type)
+        start_time, end_time = await self.get_meal_window(meal_type, target_date)
         cur_time = now.timetz()
         return start_time <= cur_time <= end_time

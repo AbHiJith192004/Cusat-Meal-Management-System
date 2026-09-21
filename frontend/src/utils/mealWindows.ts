@@ -11,7 +11,7 @@
  * `GET /api/v1/meals` returns each one as `time_window`, e.g. "12:00–14:30
  * IST", and that string is what these functions read.
  *
- * FALLBACK_WINDOWS exists only for the moment before that request lands, or if
+ * The fallbacks exist only for the moment before that request lands, or if
  * it fails. The values mirror DEFAULT_SETTINGS in
  * backend/app/services/meal_timing_service.py -- if you change them there,
  * change them here, though a running server will normally paper over any drift
@@ -22,12 +22,30 @@ export type MealKey = 'breakfast' | 'lunch' | 'dinner';
 
 export const MEAL_ORDER: MealKey[] = ['breakfast', 'lunch', 'dinner'];
 
-/** Mirrors the backend's DEFAULT_SETTINGS. Used only until the real ones load. */
-export const FALLBACK_WINDOWS: Record<MealKey, string> = {
-  breakfast: '07:00–09:30 IST',
-  lunch: '12:00–14:30 IST',
-  dinner: '19:00–21:30 IST',
+/**
+ * Mirrors the backend's DEFAULT_SETTINGS, used only until the real ones load.
+ *
+ * Weekends run later than the working week, so which set applies depends on
+ * the day. The server sends the right window per day on /api/v1/meals and
+ * that always wins; this only has to be sensible for the second before it
+ * arrives, and for the brief moment a screen has no data at all.
+ */
+export const FALLBACK_WEEKDAY: Record<MealKey, string> = {
+  breakfast: '07:15–08:30 IST',
+  lunch: '12:15–13:45 IST',
+  dinner: '19:45–20:45 IST',
 };
+
+export const FALLBACK_WEEKEND: Record<MealKey, string> = {
+  breakfast: '08:30–09:30 IST',
+  lunch: '13:00–14:00 IST',
+  dinner: '19:45–20:45 IST',
+};
+
+/** Saturday and Sunday get the later set. */
+export const fallbackWindows = (now: Date = new Date()): Record<MealKey, string> =>
+  now.getDay() === 0 || now.getDay() === 6 ? FALLBACK_WEEKEND : FALLBACK_WEEKDAY;
+
 
 /** "12:00–14:30 IST" -> [720, 870], as minutes past midnight. */
 export const parseWindow = (w?: string): [number, number] | null => {
@@ -76,7 +94,7 @@ export const currentMeal = (
   const minutes = now.getHours() * 60 + now.getMinutes();
   const spans = MEAL_ORDER.map(meal => ({
     meal,
-    span: parseWindow(windows?.[meal]) ?? parseWindow(FALLBACK_WINDOWS[meal])!,
+    span: parseWindow(windows?.[meal]) ?? parseWindow(fallbackWindows(now)[meal])!,
   }));
 
   const serving = spans.find(({ span }) => minutes >= span[0] && minutes <= span[1]);

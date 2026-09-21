@@ -47,13 +47,15 @@ async def get_my_meals(
     setting_value = lambda key: stored_settings.get(key, DEFAULT_SETTINGS[key])
     cutoff_time = setting_value("selection_cutoff_time")
     advance_days = int(setting_value("selection_cutoff_advance_days"))
-    meal_windows = {}
-    for meal_type in ("BREAKFAST", "LUNCH", "DINNER"):
-        key = meal_type.lower()
-        meal_windows[meal_type] = (
-            f"{setting_value(f'meal_window_{key}_start')}–"
-            f"{setting_value(f'meal_window_{key}_end')} IST"
-        )
+    # Weekends have their own windows, so this cannot be computed once for the
+    # whole range any more -- a week spans both. window_keys() decides which
+    # pair applies to a given day, and is the same function the validator and
+    # the fine reconciliation use.
+    from app.services.meal_timing_service import window_keys
+
+    def window_for(meal_type: str, day: date) -> str:
+        start_key, end_key = window_keys(meal_type, day)
+        return f"{setting_value(start_key)}–{setting_value(end_key)} IST"
     from datetime import datetime
     from app.utils.timezone import IST, now_ist
     result_days = []
@@ -72,7 +74,7 @@ async def get_my_meals(
             day[mt.lower()] = {
                 "id": str(selection.id) if selection else None,
                 "status": "NO_SERVICE" if holiday else (selection.status if selection else "CONFIRMED"),
-                "time_window": meal_windows[mt],
+                "time_window": window_for(mt, curr),
                 "items": menus[(curr, mt)].items if (curr, mt) in menus else [],
                 "menu_notes": menus[(curr, mt)].notes if (curr, mt) in menus else None,
             }

@@ -446,11 +446,16 @@ async def test_a_menu_cannot_be_written_for_a_day_that_has_passed(client):
     assert past.status_code == 422
     assert past.json()['error']['code'] == 'MENU_DATE_IN_PAST'
 
-    # ... and nothing was written for that day.
+    # ... and the refusal wrote nothing. Asserting a COUNT of zero for
+    # yesterday was wrong: this same test writes today/DINNER every run, so the
+    # day after any earlier run there is legitimately a row there and the
+    # assertion failed on its own history rather than on a defect. What
+    # actually matters is that the rejected content never landed.
     async with async_session_factory() as db:
-        assert await db.scalar(select(func.count()).select_from(MenuPublication).where(
+        row = await db.scalar(select(MenuPublication).where(
             MenuPublication.menu_date == today - timedelta(days=1),
-            MenuPublication.meal_type == 'DINNER')) == 0
+            MenuPublication.meal_type == 'DINNER'))
+        assert row is None or row.items != ['Rewritten']
 
 
 @pytest.mark.asyncio

@@ -109,22 +109,28 @@ def validate_settings(incoming: dict[str, str], stored: dict[str, str]) -> None:
     # to when a row is absent. Skipping the comparison for a missing row would
     # let an end time be set before the start the application is really using.
     effective = {**DEFAULT_SETTINGS, **stored, **incoming}
+    # Each meal has a weekday pair and a weekend pair, and each pair has to be
+    # the right way round on its own -- moving Saturday lunch must not be
+    # checked against the Monday start time.
     for meal in MEALS:
-        start_raw = effective.get(f"meal_window_{meal}_start")
-        end_raw = effective.get(f"meal_window_{meal}_end")
-        if start_raw is None or end_raw is None:
-            continue
-        start, end = _minutes(start_raw), _minutes(end_raw)
-        # A stored value could already be malformed from before this guard
-        # existed; do not block an edit that is on its way to fixing it.
-        if start is None or end is None:
-            continue
-        if start >= end:
-            raise ValidationException(
-                message=(
-                    f"{meal.capitalize()} would start at {start_raw} and end at {end_raw}. "
-                    "The end must be after the start."
-                ),
-                code="SETTING_WINDOW_INVERTED",
-                details={"key": f"meal_window_{meal}_end"},
-            )
+        for suffix, when in (("", "on weekdays"), ("_weekend", "at weekends")):
+            start_key = f"meal_window_{meal}_start{suffix}"
+            end_key = f"meal_window_{meal}_end{suffix}"
+            start_raw = effective.get(start_key)
+            end_raw = effective.get(end_key)
+            if start_raw is None or end_raw is None:
+                continue
+            start, end = _minutes(start_raw), _minutes(end_raw)
+            # A stored value could already be malformed from before this guard
+            # existed; do not block an edit that is on its way to fixing it.
+            if start is None or end is None:
+                continue
+            if start >= end:
+                raise ValidationException(
+                    message=(
+                        f"{meal.capitalize()} {when} would start at {start_raw} "
+                        f"and end at {end_raw}. The end must be after the start."
+                    ),
+                    code="SETTING_WINDOW_INVERTED",
+                    details={"key": end_key},
+                )

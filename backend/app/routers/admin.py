@@ -47,7 +47,7 @@ async def get_admin_dashboard(
 
     today = today_ist()
 
-    from app.services.meal_timing_service import DEFAULT_SETTINGS, MealTimingService
+    from app.services.meal_timing_service import DEFAULT_SETTINGS, MealTimingService, window_keys
 
     total_students = (await db.execute(
         select(func.count()).where(User.role == Role.STUDENT.value)
@@ -101,8 +101,11 @@ async def get_admin_dashboard(
             )
         )
         fined_count = fined_res.scalar_one()
-        start = setting_value(f"meal_window_{mt}_start")
-        end = setting_value(f"meal_window_{mt}_end")
+        # This dashboard is always about today, and weekends run to different
+        # times, so the keys are chosen by today's date rather than fixed.
+        start_key, end_key = window_keys(mt, today)
+        start = setting_value(start_key)
+        end = setting_value(end_key)
 
         today_stats[mt] = {
             "total": eligible_count,

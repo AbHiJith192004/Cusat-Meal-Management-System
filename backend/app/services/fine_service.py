@@ -43,7 +43,7 @@ class FineService:
         """Find CONFIRMED selections for target_date & meal_type without attendance, generate PENDING fines."""
         if meal_type not in {"BREAKFAST", "LUNCH", "DINNER"}:
             raise ValidationException(message="Invalid meal type.")
-        _, end_time = await MealTimingService(self.session).get_meal_window(meal_type)
+        _, end_time = await MealTimingService(self.session).get_meal_window(meal_type, target_date)
         if now_ist() <= datetime.combine(target_date, end_time, tzinfo=IST):
             raise ValidationException(message="Fines can only be reconciled after the meal service window closes.")
         await lock_open_period(self.session, target_date, exclusive=True)

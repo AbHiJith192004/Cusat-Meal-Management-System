@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { superAdminApi } from '../services/api';
-import { formatWindow, FALLBACK_WINDOWS, MEAL_ORDER, type MealKey } from '../utils/mealWindows';
+import { formatWindow, FALLBACK_WEEKDAY, FALLBACK_WEEKEND, MEAL_ORDER, type MealKey } from '../utils/mealWindows';
 
 /**
  * Serving windows, editable by the Super Admin.
@@ -95,8 +95,20 @@ const RULE_DEFAULTS: Array<[string, string]> = [
 
 type Draft = Record<string, string>;
 
-/** "12:00–14:30 IST" (what the API stores per key) -> "12:00". */
-const keyFor = (meal: MealKey, edge: 'start' | 'end') => `meal_window_${meal}_${edge}`;
+/**
+ * Weekdays and weekends keep separate windows, held in separate settings keys
+ * that differ only by a `_weekend` suffix. The backend's window_keys() decides
+ * which pair applies to a given date; this mirrors the naming.
+ */
+type Schedule = 'weekday' | 'weekend';
+
+const SCHEDULES: Array<{ id: Schedule; title: string; blurb: string }> = [
+  { id: 'weekday', title: 'Monday to Friday', blurb: 'The ordinary working week.' },
+  { id: 'weekend', title: 'Saturday and Sunday', blurb: 'The mess starts later at weekends.' },
+];
+
+const keyFor = (meal: MealKey, edge: 'start' | 'end', when: Schedule = 'weekday') =>
+  `meal_window_${meal}_${edge}${when === 'weekend' ? '_weekend' : ''}`;
 
 const CLOCK = /^([01]?\d|2[0-3]):([0-5]\d)$/;
 const minutes = (v: string) => {
@@ -123,10 +135,13 @@ export const SettingsView: React.FC = () => {
       // A window with no row yet is not an error: the server falls back to its
       // own defaults, and those are what the app is really using, so that is
       // what the field should show.
-      MEAL_ORDER.forEach(meal => {
-        const fallback = FALLBACK_WINDOWS[meal].replace(' IST', '').split('–');
-        if (!byKey[keyFor(meal, 'start')]) byKey[keyFor(meal, 'start')] = fallback[0];
-        if (!byKey[keyFor(meal, 'end')]) byKey[keyFor(meal, 'end')] = fallback[1];
+      SCHEDULES.forEach(({ id }) => {
+        const defaults = id === 'weekend' ? FALLBACK_WEEKEND : FALLBACK_WEEKDAY;
+        MEAL_ORDER.forEach(meal => {
+          const [from, to] = defaults[meal].replace(' IST', '').split('–');
+          if (!byKey[keyFor(meal, 'start', id)]) byKey[keyFor(meal, 'start', id)] = from;
+          if (!byKey[keyFor(meal, 'end', id)]) byKey[keyFor(meal, 'end', id)] = to;
+        });
       });
       // Same reasoning for the rules: these mirror the server's own
       // DEFAULT_SETTINGS, which is what it uses when the row is missing.
@@ -153,7 +168,8 @@ export const SettingsView: React.FC = () => {
   /** Only the settings that actually moved are sent. */
   const EDITABLE = useMemo(
     () => [
-      ...MEAL_ORDER.flatMap(m => [keyFor(m, 'start'), keyFor(m, 'end')]),
+      ...SCHEDULES.flatMap(({ id }) =>
+        MEAL_ORDER.flatMap(m => [keyFor(m, 'start', id), keyFor(m, 'end', id)])),
       ...RULE_FIELDS.map(f => f.key),
     ],
     [],
@@ -163,10 +179,10 @@ export const SettingsView: React.FC = () => {
     [EDITABLE, draft, stored],
   );
 
-  /** Per-meal complaint, or null. Mirrors what the server will say. */
-  const problemFor = (meal: MealKey): string | null => {
-    const start = draft[keyFor(meal, 'start')] ?? '';
-    const end = draft[keyFor(meal, 'end')] ?? '';
+  /** Per-meal complaint for one schedule, or null. Mirrors the server. */
+  const problemFor = (meal: MealKey, when: Schedule = 'weekday'): string | null => {
+    const start = draft[keyFor(meal, 'start', when)] ?? '';
+    const end = draft[keyFor(meal, 'end', when)] ?? '';
     const s = minutes(start), e = minutes(end);
     if (s === null) return `Start time must look like 12:00. Got "${start}".`;
     if (e === null) return `End time must look like 14:30. Got "${end}".`;
@@ -193,7 +209,7 @@ export const SettingsView: React.FC = () => {
   };
 
   const problems = [
-    ...MEAL_ORDER.map(m => problemFor(m)),
+    ...SCHEDULES.flatMap(({ id }) => MEAL_ORDER.map(m => problemFor(m, id))),
     ...RULE_FIELDS.map(f => ruleProblem(f)),
   ].filter(Boolean);
   const canSave = changed.length > 0 && problems.length === 0 && !saving;
@@ -213,8 +229,8 @@ export const SettingsView: React.FC = () => {
     }
   };
 
-  const preview = (meal: MealKey) => {
-    const s = draft[keyFor(meal, 'start')], e = draft[keyFor(meal, 'end')];
+  const preview = (meal: MealKey, when: Schedule = 'weekday') => {
+    const s = draft[keyFor(meal, 'start', when)], e = draft[keyFor(meal, 'end', when)];
     return formatWindow(`${s}–${e}`) ?? '—';
   };
 
@@ -257,80 +273,93 @@ export const SettingsView: React.FC = () => {
           </div>
         ) : (
           <>
-            <div className="flex flex-col gap-3">
-              {MEAL_ORDER.map(meal => {
-                const problem = problemFor(meal);
-                const moved = draft[keyFor(meal, 'start')] !== stored[keyFor(meal, 'start')]
-                  || draft[keyFor(meal, 'end')] !== stored[keyFor(meal, 'end')];
-                return (
-                  <div
-                    key={meal}
-                    className="rounded-xl p-4"
-                    style={{
-                      background: 'var(--orange-soft)',
-                      border: `1px solid ${problem ? '#F6C8C3' : 'var(--orange-light)'}`,
-                    }}
-                  >
-                    <div className="flex items-center justify-between mb-2.5 gap-2">
-                      <span
-                        className="font-display text-[15px] font-bold"
-                        style={{ color: 'var(--text-dark)' }}
-                      >
-                        {MEAL_LABEL[meal]}
-                      </span>
-                      <span
-                        className="text-[12px] font-bold"
-                        style={{ color: problem ? 'var(--red)' : 'var(--text-muted)' }}
-                      >
-                        {problem ? 'Check this' : preview(meal)}
-                        {!problem && moved ? ' · unsaved' : ''}
-                      </span>
-                    </div>
+            {SCHEDULES.map(({ id, title, blurb }) => (
+              <div key={id} className="mb-5 last:mb-0">
+                <div className="flex items-baseline gap-2 mb-2">
+                  <h3 className="font-display text-[15px] font-bold" style={{ color: 'var(--text-dark)' }}>
+                    {title}
+                  </h3>
+                  <span className="text-[12px] font-semibold" style={{ color: 'var(--text-muted)' }}>
+                    {blurb}
+                  </span>
+                </div>
 
-                    <div className="flex items-end gap-3">
-                      <label className="flex-1">
-                        <span
-                          className="block text-[12px] font-bold mb-1"
-                          style={{ color: 'var(--text-dark)' }}
-                        >
-                          Starts
-                        </span>
-                        <input
-                          type="time"
-                          value={draft[keyFor(meal, 'start')] ?? ''}
-                          onChange={e => set(keyFor(meal, 'start'), e.target.value)}
-                          className="stitch-input w-full"
-                          style={{ fontSize: '0.9rem' }}
-                          aria-label={`${MEAL_LABEL[meal]} start time`}
-                        />
-                      </label>
-                      <label className="flex-1">
-                        <span
-                          className="block text-[12px] font-bold mb-1"
-                          style={{ color: 'var(--text-dark)' }}
-                        >
-                          Ends
-                        </span>
-                        <input
-                          type="time"
-                          value={draft[keyFor(meal, 'end')] ?? ''}
-                          onChange={e => set(keyFor(meal, 'end'), e.target.value)}
-                          className="stitch-input w-full"
-                          style={{ fontSize: '0.9rem' }}
-                          aria-label={`${MEAL_LABEL[meal]} end time`}
-                        />
-                      </label>
-                    </div>
+                <div className="flex flex-col gap-3">
+                  {MEAL_ORDER.map(meal => {
+                    const problem = problemFor(meal, id);
+                    const moved = draft[keyFor(meal, 'start', id)] !== stored[keyFor(meal, 'start', id)]
+                      || draft[keyFor(meal, 'end', id)] !== stored[keyFor(meal, 'end', id)];
+                    return (
+                      <div
+                        key={meal}
+                        className="rounded-xl p-4"
+                        style={{
+                          background: 'var(--orange-soft)',
+                          border: `1px solid ${problem ? '#F6C8C3' : 'var(--orange-light)'}`,
+                        }}
+                      >
+                        <div className="flex items-center justify-between mb-2.5 gap-2">
+                          <span
+                            className="font-display text-[15px] font-bold"
+                            style={{ color: 'var(--text-dark)' }}
+                          >
+                            {MEAL_LABEL[meal]}
+                          </span>
+                          <span
+                            className="text-[12px] font-bold"
+                            style={{ color: problem ? 'var(--red)' : 'var(--text-muted)' }}
+                          >
+                            {problem ? 'Check this' : preview(meal, id)}
+                            {!problem && moved ? ' · unsaved' : ''}
+                          </span>
+                        </div>
 
-                    {problem && (
-                      <p className="text-[12px] font-bold mt-2" style={{ color: 'var(--red)' }}>
-                        {problem}
-                      </p>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                        <div className="flex items-end gap-3">
+                          <label className="flex-1">
+                            <span
+                              className="block text-[12px] font-bold mb-1"
+                              style={{ color: 'var(--text-dark)' }}
+                            >
+                              Starts
+                            </span>
+                            <input
+                              type="time"
+                              value={draft[keyFor(meal, 'start', id)] ?? ''}
+                              onChange={e => set(keyFor(meal, 'start', id), e.target.value)}
+                              className="stitch-input w-full"
+                              style={{ fontSize: '0.9rem' }}
+                              aria-label={`${MEAL_LABEL[meal]} start time, ${title}`}
+                            />
+                          </label>
+                          <label className="flex-1">
+                            <span
+                              className="block text-[12px] font-bold mb-1"
+                              style={{ color: 'var(--text-dark)' }}
+                            >
+                              Ends
+                            </span>
+                            <input
+                              type="time"
+                              value={draft[keyFor(meal, 'end', id)] ?? ''}
+                              onChange={e => set(keyFor(meal, 'end', id), e.target.value)}
+                              className="stitch-input w-full"
+                              style={{ fontSize: '0.9rem' }}
+                              aria-label={`${MEAL_LABEL[meal]} end time, ${title}`}
+                            />
+                          </label>
+                        </div>
+
+                        {problem && (
+                          <p className="text-[12px] font-bold mt-2" style={{ color: 'var(--red)' }}>
+                            {problem}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
 
             {/* ── Rules ─────────────────────────────────────────────── */}
             <div className="mt-6 pt-5" style={{ borderTop: '1px solid var(--card-border)' }}>

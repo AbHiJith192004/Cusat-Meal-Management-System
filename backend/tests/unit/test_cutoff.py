@@ -68,36 +68,85 @@ async def test_cutoff_crosses_a_month_boundary():
     assert cutoff.date() == date(2026, 8, 31)
 
 
+# 2026-08-10 is a Monday, 2026-08-08 a Saturday, 2026-08-09 a Sunday.
+MONDAY, SATURDAY, SUNDAY = date(2026, 8, 10), date(2026, 8, 8), date(2026, 8, 9)
+
+
 @pytest.mark.asyncio
 async def test_meal_window_uses_defaults_when_unconfigured():
-    start, end = await _service().get_meal_window('BREAKFAST')
-    assert (start, end) == (time(7, 0, tzinfo=IST), time(9, 30, tzinfo=IST))
-    assert DEFAULT_SETTINGS['meal_window_breakfast_start'] == '07:00'
+    start, end = await _service().get_meal_window('BREAKFAST', MONDAY)
+    assert (start, end) == (time(7, 15, tzinfo=IST), time(8, 30, tzinfo=IST))
+    assert DEFAULT_SETTINGS['meal_window_breakfast_start'] == '07:15'
+
+
+@pytest.mark.asyncio
+async def test_weekends_have_their_own_windows():
+    """Saturday and Sunday run later than the working week.
+
+    The date is not decoration on get_meal_window: pass the wrong day and it
+    silently returns the wrong hours, which is why it is a required argument.
+    """
+    service = _service()
+    assert await service.get_meal_window('BREAKFAST', MONDAY) == (
+        time(7, 15, tzinfo=IST), time(8, 30, tzinfo=IST))
+    assert await service.get_meal_window('BREAKFAST', SATURDAY) == (
+        time(8, 30, tzinfo=IST), time(9, 30, tzinfo=IST))
+    assert await service.get_meal_window('BREAKFAST', SUNDAY) == \
+        await service.get_meal_window('BREAKFAST', SATURDAY)
+
+    assert await service.get_meal_window('LUNCH', MONDAY) == (
+        time(12, 15, tzinfo=IST), time(13, 45, tzinfo=IST))
+    assert await service.get_meal_window('LUNCH', SATURDAY) == (
+        time(13, 0, tzinfo=IST), time(14, 0, tzinfo=IST))
+
+    # Dinner is the same on both days today, and still reads its own weekend
+    # keys, so the office can move one without the other later.
+    assert await service.get_meal_window('DINNER', MONDAY) == \
+        await service.get_meal_window('DINNER', SATURDAY) == (
+            time(19, 45, tzinfo=IST), time(20, 45, tzinfo=IST))
 
 
 @pytest.mark.asyncio
 async def test_meal_window_lookup_is_case_insensitive():
-    assert await _service().get_meal_window('lunch') == await _service().get_meal_window('LUNCH')
+    assert await _service().get_meal_window('lunch', MONDAY) == \
+        await _service().get_meal_window('LUNCH', MONDAY)
 
 
 @pytest.mark.asyncio
 async def test_within_window_only_on_the_meal_date_and_inside_the_hours():
     service = _service()
-    inside = make_ist(2026, 8, 9, 12, 30, 0)
-    assert await service.is_within_meal_window('LUNCH', date(2026, 8, 9), inside) is True
+    inside = make_ist(2026, 8, 10, 12, 30, 0)
+    assert await service.is_within_meal_window('LUNCH', MONDAY, inside) is True
     # Right time of day, wrong day: a QR from yesterday must not scan today.
-    assert await service.is_within_meal_window('LUNCH', date(2026, 8, 10), inside) is False
-    assert await service.is_within_meal_window('LUNCH', date(2026, 8, 9),
-                                               make_ist(2026, 8, 9, 11, 59, 0)) is False
-    assert await service.is_within_meal_window('LUNCH', date(2026, 8, 9),
-                                               make_ist(2026, 8, 9, 14, 31, 0)) is False
+    assert await service.is_within_meal_window('LUNCH', date(2026, 8, 11), inside) is False
+    assert await service.is_within_meal_window('LUNCH', MONDAY,
+                                               make_ist(2026, 8, 10, 12, 14, 0)) is False
+    assert await service.is_within_meal_window('LUNCH', MONDAY,
+                                               make_ist(2026, 8, 10, 13, 46, 0)) is False
+
+
+@pytest.mark.asyncio
+async def test_the_window_checked_is_the_one_for_that_day_of_the_week():
+    """12:30 is lunch on a Monday and too early for it on a Sunday."""
+    service = _service()
+    assert await service.is_within_meal_window(
+        'LUNCH', MONDAY, make_ist(2026, 8, 10, 12, 30, 0)) is True
+    assert await service.is_within_meal_window(
+        'LUNCH', SUNDAY, make_ist(2026, 8, 9, 12, 30, 0)) is False
+    # ...and 13:30 is lunch on the Sunday but past it on the Monday.
+    assert await service.is_within_meal_window(
+        'LUNCH', SUNDAY, make_ist(2026, 8, 9, 13, 30, 0)) is True
+    assert await service.is_within_meal_window(
+        'LUNCH', MONDAY, make_ist(2026, 8, 10, 13, 50, 0)) is False
 
 
 @pytest.mark.asyncio
 async def test_window_boundaries_are_inclusive_at_both_ends():
     service = _service()
-    for moment in (make_ist(2026, 8, 9, 12, 0, 0), make_ist(2026, 8, 9, 14, 30, 0)):
-        assert await service.is_within_meal_window('LUNCH', date(2026, 8, 9), moment) is True
+    for moment in (make_ist(2026, 8, 10, 12, 15, 0), make_ist(2026, 8, 10, 13, 45, 0)):
+        assert await service.is_within_meal_window('LUNCH', MONDAY, moment) is True
+    for moment in (make_ist(2026, 8, 9, 13, 0, 0), make_ist(2026, 8, 9, 14, 0, 0)):
+        assert await service.is_within_meal_window('LUNCH', SUNDAY, moment) is True
 
 
 @pytest.mark.asyncio
