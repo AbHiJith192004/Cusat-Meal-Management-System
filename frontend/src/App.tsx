@@ -244,7 +244,6 @@ export function App() {
         unreadAlertsCount={unreadAlertsCount}
         onLogout={handleLogout}
         canScan={canScan}
-        isSuperAdmin={isSuperAdmin}
       />
 
       <div className="app-main">
@@ -313,7 +312,7 @@ export function App() {
             {currentTab === 'admin-menu' && <WeeklyMenuView />}
             {currentTab === 'admin-ledger' && <LedgerView />}
             {currentTab === 'admin-payments' && <PaymentsView />}
-            {currentTab === 'admin-settings' && isSuperAdmin && <SettingsView />}
+            {currentTab === 'admin-settings' && <SettingsView />}
             {currentTab === 'alerts' && (
               <AlertsView onUnreadChange={setUnreadAlertsCount} />
             )}
@@ -338,7 +337,6 @@ export function App() {
           userRole={userRole}
           unreadAlertsCount={unreadAlertsCount}
           canScan={canScan}
-          isSuperAdmin={isSuperAdmin}
         />
       </div>
     </div>

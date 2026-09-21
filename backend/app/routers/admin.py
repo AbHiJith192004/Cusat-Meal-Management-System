@@ -14,6 +14,7 @@ from app.schemas.attendance import ManualAttendanceRequest
 from app.schemas.fine import WaiveFineRequest, ReconcileFinesRequest
 from app.schemas.meal import HolidayCreateRequest
 from app.schemas.common import success_response
+from app.schemas.super_admin import BatchUpdateSettingsRequest
 from app.schemas.user import CreateStudentRequest
 from app.schemas.meal_rate import (
     SetMealRateRequest,
@@ -540,6 +541,46 @@ async def trigger_reconciliation(
     return success_response(
         data={"message": f"Reconciliation completed for {body.target_date.isoformat()}.", "fines_created": total_created}
     )
+
+
+@router.get("/settings")
+async def get_system_settings(
+    admin_user: AdminUser,
+    db: AsyncSession = Depends(get_db, scope="function"),
+):
+    """The mess settings: serving windows, cutoff, fine, cut limit, pass life.
+
+    Any administrator, not only a Super Admin. These are the terms the mess
+    runs on and the mess office is who runs it; requiring the Super Admin for
+    a change of serving hours made the screen unreachable for the people whose
+    job it is. Every write is validated and audited with the actor, so who
+    changed what is still recoverable.
+    """
+    from app.services.super_admin_service import SuperAdminService
+    settings = await SuperAdminService(db).settings_repo.get_all_settings()
+    return success_response(data=[
+        {
+            "id": str(s.id),
+            "key": s.key,
+            "value": s.value,
+            "description": s.description,
+            "updated_at": s.updated_at.isoformat() if s.updated_at else None,
+        }
+        for s in settings
+    ])
+
+
+@router.put("/settings")
+async def update_system_settings(
+    body: BatchUpdateSettingsRequest,
+    admin_user: AdminUser,
+    db: AsyncSession = Depends(get_db, scope="function"),
+):
+    """Batch update the mess settings. Validated before the write, audited after."""
+    from app.services.super_admin_service import SuperAdminService
+    items = [{"key": s.key, "value": s.value} for s in body.settings]
+    updated = await SuperAdminService(db).update_settings(items, admin_user.id)
+    return success_response(data={"message": f"Updated {len(updated)} setting(s)."})
 
 
 @router.get("/holidays")

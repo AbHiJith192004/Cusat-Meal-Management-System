@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.schemas.common import success_response
-from app.schemas.super_admin import CreateAdminRequest, BatchUpdateSettingsRequest
+from app.schemas.super_admin import CreateAdminRequest
 from app.security.dependencies import SuperAdminUser
 from app.services.super_admin_service import SuperAdminService
 
@@ -63,35 +63,8 @@ async def create_admin_user(
     )
 
 
-@router.get("/settings")
-async def get_system_settings(
-    super_admin: SuperAdminUser,
-    db: AsyncSession = Depends(get_db, scope="function"),
-):
-    """Super Admin: Get all system settings."""
-    service = SuperAdminService(db)
-    settings = await service.settings_repo.get_all_settings()
-    data = [
-        {
-            "id": str(s.id),
-            "key": s.key,
-            "value": s.value,
-            "description": s.description,
-            "updated_at": s.updated_at.isoformat() if s.updated_at else None,
-        }
-        for s in settings
-    ]
-    return success_response(data=data)
-
-
-@router.put("/settings")
-async def update_system_settings(
-    body: BatchUpdateSettingsRequest,
-    super_admin: SuperAdminUser,
-    db: AsyncSession = Depends(get_db, scope="function"),
-):
-    """Super Admin: Batch update system settings."""
-    service = SuperAdminService(db)
-    items = [{"key": s.key, "value": s.value} for s in body.settings]
-    updated = await service.update_settings(items, super_admin.id)
-    return success_response(data={"message": f"Updated {len(updated)} setting(s)."})
+# The settings endpoints used to live here. They are the mess office's own
+# operating hours, fine amount and cut limit -- the work of running the mess,
+# not of administering the system -- so they now sit on the admin router where
+# every administrator can reach them. Creating admins and importing students
+# stay here, because those change who holds power rather than how the mess runs.

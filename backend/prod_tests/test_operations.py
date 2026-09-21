@@ -3,7 +3,7 @@ from datetime import date, datetime, timedelta
 from decimal import Decimal
 
 import pytest
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, true as sa_true
 
 from app.database import async_session_factory
 from app.models.attendance import Attendance
@@ -260,7 +260,7 @@ async def test_monthly_mess_cut_limit_is_driven_by_the_setting(client):
     day_one, day_two = first_of_next.replace(day=10), first_of_next.replace(day=11)
 
     async def set_limit(value: str):
-        return await client.put('/api/v1/super-admin/settings',
+        return await client.put('/api/v1/admin/settings',
                                 json={'settings': [{'key': 'max_monthly_mess_cuts', 'value': value}]},
                                 headers=headers(super_admin))
 
@@ -520,7 +520,7 @@ async def test_meal_window_settings_reject_anything_the_app_cannot_parse(client)
     h = headers(super_admin)
 
     def put(*pairs):
-        return client.put('/api/v1/super-admin/settings',
+        return client.put('/api/v1/admin/settings',
                           json={'settings': [{'key': k, 'value': v} for k, v in pairs]},
                           headers=h)
 
@@ -531,7 +531,7 @@ async def test_meal_window_settings_reject_anything_the_app_cannot_parse(client)
         # A good change is applied and readable back.
         ok = await put(('meal_window_lunch_start', '12:15'), ('meal_window_lunch_end', '14:45'))
         assert ok.status_code == 200, ok.text
-        listed = await client.get('/api/v1/super-admin/settings', headers=h)
+        listed = await client.get('/api/v1/admin/settings', headers=h)
         values = {s['key']: s['value'] for s in listed.json()['data']}
         assert values['meal_window_lunch_start'] == '12:15'
         assert values['meal_window_lunch_end'] == '14:45'
@@ -568,7 +568,7 @@ async def test_meal_window_settings_reject_anything_the_app_cannot_parse(client)
         assert both.status_code == 200, both.text
 
         # Nothing from a rejected batch is written: lunch start survived.
-        after = await client.get('/api/v1/super-admin/settings', headers=h)
+        after = await client.get('/api/v1/admin/settings', headers=h)
         assert {s['key']: s['value'] for s in after.json()['data']}['meal_window_lunch_start'] == '12:15'
 
         # The other parsed settings are guarded too.
@@ -596,12 +596,17 @@ async def test_meal_window_settings_reject_anything_the_app_cannot_parse(client)
         # A key this guard does not know is still passed through, as before.
         assert (await put(('some_future_setting', 'anything at all'))).status_code == 200
 
-        # An ordinary admin cannot reach any of it.
+        # Settings are no longer Super Admin only -- see
+        # test_settings_are_open_to_any_admin_but_not_to_students for that
+        # boundary. What this test guards is that WIDENING WHO MAY WRITE did
+        # not widen WHAT MAY BE WRITTEN: an ordinary admin gets the same
+        # validation, not a way round it.
         plain = await user('ADMIN')
-        refused = await client.put('/api/v1/super-admin/settings',
-                                   json={'settings': [{'key': 'fine_amount', 'value': '40.00'}]},
+        refused = await client.put('/api/v1/admin/settings',
+                                   json={'settings': [{'key': 'meal_window_lunch_start',
+                                                       'value': 'half twelve'}]},
                                    headers=headers(plain))
-        assert refused.status_code == 403
+        assert refused.status_code == 422, refused.text
     finally:
         async with async_session_factory() as db:
             for row in (await db.execute(select(SystemSetting))).scalars():
@@ -788,3 +793,70 @@ async def test_closing_the_mess_for_a_day_is_visible_cancellable_and_keeps_atten
     async with async_session_factory() as db:
         await db.execute(delete(MealSelection).where(MealSelection.meal_date == day))
         await db.commit()
+
+
+@pytest.mark.asyncio
+async def test_settings_are_open_to_any_admin_but_not_to_students(client):
+    """Settings moved off the Super Admin router, so prove the new line holds.
+
+    The screen was Super Admin only and so were the endpoints. Both were
+    widened together -- a button that 403s is worse than no button. What must
+    NOT widen with them is the rest of /super-admin: creating administrators
+    and importing students still decide who holds power.
+    """
+    from app.models.settings import SystemSetting
+    admin, student, super_admin = await user('ADMIN'), await user(), await user('SUPER_ADMIN')
+
+    async with async_session_factory() as db:
+        before = {s.key: s.value for s in (await db.execute(select(SystemSetting))).scalars()}
+
+    try:
+        # A plain admin can read them...
+        listed = await client.get('/api/v1/admin/settings', headers=headers(admin))
+        assert listed.status_code == 200, listed.text
+
+        # ...and write them, with the same validation everyone else gets.
+        written = await client.put('/api/v1/admin/settings', json={'settings': [
+            {'key': 'fine_amount', 'value': '35.00'}]}, headers=headers(admin))
+        assert written.status_code == 200, written.text
+        back = await client.get('/api/v1/admin/settings', headers=headers(admin))
+        assert {s['key']: s['value'] for s in back.json()['data']}['fine_amount'] == '35.00'
+
+        # The guard rails did not move with the door.
+        bad = await client.put('/api/v1/admin/settings', json={'settings': [
+            {'key': 'meal_window_lunch_start', 'value': 'noon'}]}, headers=headers(admin))
+        assert bad.status_code == 422, bad.text
+
+        # A student cannot reach either verb.
+        assert (await client.get('/api/v1/admin/settings',
+                                 headers=headers(student))).status_code == 403
+        assert (await client.put('/api/v1/admin/settings', json={'settings': [
+            {'key': 'fine_amount', 'value': '0.00'}]},
+            headers=headers(student))).status_code == 403
+
+        # The change is attributable: the audit names the admin who made it.
+        async with async_session_factory() as db:
+            logs = (await db.execute(select(AuditLog).where(
+                AuditLog.actor_id == admin.id))).scalars().all()
+        assert any('fine_amount' in (x.metadata_ or {}).get('updated_keys', []) for x in logs)
+
+        # Still Super Admin only, and still refused to a plain admin.
+        assert (await client.post('/api/v1/super-admin/admins', json={
+            'registration_number': 'NOTALLOWED' + uuid.uuid4().hex[:8].upper(),
+            'name': 'Should not be created', 'role': 'ADMIN'},
+            headers=headers(admin))).status_code == 403
+        assert (await client.post('/api/v1/admin/students', json={
+            'registration_number': 'NOPE' + uuid.uuid4().hex[:8].upper(),
+            'name': 'Should not be created', 'student_type': 'HOSTELLER',
+            'campus_location': 'MAIN_CAMPUS'},
+            headers=headers(admin))).status_code == 403
+    finally:
+        # Leave the shared database exactly as it was found.
+        restore = [{'key': k, 'value': v} for k, v in before.items()]
+        if restore:
+            await client.put('/api/v1/admin/settings', json={'settings': restore},
+                             headers=headers(super_admin))
+        async with async_session_factory() as db:
+            await db.execute(delete(SystemSetting).where(
+                SystemSetting.key.not_in(list(before)) if before else sa_true()))
+            await db.commit()

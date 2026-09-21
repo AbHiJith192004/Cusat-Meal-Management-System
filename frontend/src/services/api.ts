@@ -472,10 +472,13 @@ export const notificationsApi = {
 
 // Super Admin API
 export const superAdminApi = {
-  /** Every system setting, as stored. Super Admin only. */
+  /** Every system setting, as stored. Any administrator -- these are the
+   *  mess's operating terms, and the mess office is who sets them. The
+   *  endpoints moved to /admin for that reason; creating admins and
+   *  importing students stayed on /super-admin. */
   getSettings: () =>
     request<Array<{id: string; key: string; value: string; description: string | null;
-                   updated_at: string | null}>>('/super-admin/settings'),
+                   updated_at: string | null}>>('/admin/settings'),
 
   /**
    * Write settings as one batch. The server validates the whole batch and
@@ -483,7 +486,7 @@ export const superAdminApi = {
    * half-applied meal window cannot happen.
    */
   updateSettings: (settings: Array<{key: string; value: string}>) =>
-    request<{message: string}>('/super-admin/settings', {
+    request<{message: string}>('/admin/settings', {
       method: 'PUT', body: JSON.stringify({settings}),
     }),
 
