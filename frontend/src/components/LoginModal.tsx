@@ -9,6 +9,11 @@ interface LoginModalProps {
   onLoginSuccess: (role: 'student' | 'admin', name: string, regNo: string) => void;
 }
 
+/** Mirrors ActivateRequest/ActivateWithDobRequest in backend/app/schemas/auth.py.
+ *  Checked here too so the refusal is instant and says what to do, rather
+ *  than a round trip that comes back "Request validation failed." */
+const MIN_PASSWORD_LENGTH = 12;
+
 export const LoginModal: React.FC<LoginModalProps> = ({
   isOpen,
   isFullScreen = false,
@@ -64,6 +69,13 @@ export const LoginModal: React.FC<LoginModalProps> = ({
     setSuccessMsg(null);
     try {
       const trimmed = regNo.trim();
+      // Both password-setting modes, checked before the request so the
+      // answer is immediate and in our own words.
+      if (mode !== 'login' && password.length < MIN_PASSWORD_LENGTH) {
+        setErrorMsg(`Choose a password of at least ${MIN_PASSWORD_LENGTH} characters.`);
+        setLoading(false);
+        return;
+      }
       if (mode === 'reset') {
         if (password !== confirmPassword) {
           setErrorMsg('Passwords do not match.');
@@ -272,9 +284,25 @@ export const LoginModal: React.FC<LoginModalProps> = ({
               autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
               value={password}
               onChange={e => setPassword(e.target.value)}
-              placeholder="Enter password"
+              placeholder={mode === 'login' ? 'Enter password' : `At least ${MIN_PASSWORD_LENGTH} characters`}
               className="stitch-input"
+              aria-describedby={mode === 'login' ? undefined : 'login-pw-rule'}
             />
+            {/* The server has always required this and the form never said
+                so, so a student who chose a short password was refused with
+                no idea why. Shown only when choosing a password -- on the
+                sign-in form it would read as advice about the one they
+                already have. */}
+            {mode !== 'login' && (
+              <p
+                id="login-pw-rule"
+                className="text-[11px] font-semibold mt-1.5"
+                style={{ color: 'var(--text-muted)' }}
+              >
+                Use at least {MIN_PASSWORD_LENGTH} characters. A short phrase you will
+                remember works well.
+              </p>
+            )}
           </div>
 
           {mode === 'reset' && (

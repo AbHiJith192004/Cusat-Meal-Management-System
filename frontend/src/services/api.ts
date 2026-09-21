@@ -84,7 +84,17 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   }
   const json = await response.json().catch(() => null);
   if (!response.ok || !json?.success) {
-    throw new Error(`[${json?.error?.code || 'REQUEST_FAILED'}] ${json?.error?.message || `Request failed (HTTP ${response.status}).`}`);
+    // A 422 puts the useful part in `details` and leaves `message` as the
+    // generic "Request validation failed." Dropping the details meant a
+    // student who chose a short password was told only that something was
+    // wrong, with no way to find out what.
+    const details = json?.error?.details;
+    const fields = Array.isArray(details)
+      ? details.map((d: any) => d?.message).filter(Boolean).join(' ')
+      : '';
+    const message = [json?.error?.message || `Request failed (HTTP ${response.status}).`, fields]
+      .filter(Boolean).join(' ');
+    throw new Error(`[${json?.error?.code || 'REQUEST_FAILED'}] ${message}`);
   }
   return json.data as T;
 }
