@@ -123,9 +123,13 @@ export const LoginModal: React.FC<LoginModalProps> = ({
       onClose();
     } catch (err: any) {
       const msg = err.message || '';
+      // Matching still happens on the raw string, which carries the machine
+      // code as a "[CODE] " prefix; only what is shown has it removed. A
+      // student reading "[VALIDATION_ERROR]" learns nothing from it.
+      const plain = msg.replace(/^\[[A-Z0-9_]+\]\s*/, '');
       if (msg.includes('not yet activated')) setErrorMsg('This account is not activated yet — use "Activate your account" below.');
       else if (msg.includes('Invalid') || msg.includes('INVALID')) setErrorMsg('Wrong ID or password. Please try again.');
-      else setErrorMsg(msg || 'Sign in failed. Check your details.');
+      else setErrorMsg(plain || 'Sign in failed. Check your details.');
     } finally {
       setLoading(false);
     }

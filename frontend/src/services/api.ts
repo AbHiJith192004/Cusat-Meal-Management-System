@@ -63,6 +63,46 @@ export const restoreSession = (): Promise<boolean> => {
   return refreshInFlight;
 };
 
+/** Field names as a person would say them, for validation messages. */
+const FIELD_LABELS: Record<string, string> = {
+  password: 'Password',
+  setup_code: 'Setup code',
+  registration_number: 'Registration number',
+  date_of_birth: 'Date of birth',
+  reason: 'Reason',
+  amount: 'Amount',
+  utr: 'UTR',
+};
+
+/**
+ * Turn a 422's `details` into a sentence.
+ *
+ * The envelope puts a generic "Request validation failed." in `message` and
+ * the real complaint in `details`, as Pydantic phrased it: field
+ * "body.password", message "String should have at least 12 characters".
+ * Shown raw that is two non-sentences and the word "String"; shown as only
+ * the generic message -- which is what happened before -- it told the person
+ * nothing whatsoever. Both halves are rewritten into one plain line.
+ */
+function humanizeValidation(details: any[]): string {
+  return details
+    .map((d: any) => {
+      const raw = String(d?.message || '').trim();
+      const key = String(d?.field || '').split('.').pop() || '';
+      const label =
+        FIELD_LABELS[key] ||
+        (key ? key.replace(/_/g, ' ').replace(/^./, c => c.toUpperCase()) : 'That value');
+      const short = raw.match(/at least (\d+) character/i);
+      if (short) return `${label} must be at least ${short[1]} characters.`;
+      const long = raw.match(/at most (\d+) character/i);
+      if (long) return `${label} must be ${long[1]} characters or fewer.`;
+      if (/required/i.test(raw)) return `${label} is required.`;
+      return raw ? `${label}: ${raw}` : `${label} is not valid.`;
+    })
+    .filter(Boolean)
+    .join(' ');
+}
+
 async function request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const send = () => fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
@@ -84,16 +124,13 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   }
   const json = await response.json().catch(() => null);
   if (!response.ok || !json?.success) {
-    // A 422 puts the useful part in `details` and leaves `message` as the
-    // generic "Request validation failed." Dropping the details meant a
-    // student who chose a short password was told only that something was
-    // wrong, with no way to find out what.
+    // When a 422 says which field and why, that replaces the envelope's
+    // generic sentence rather than trailing after it -- "Request validation
+    // failed." adds nothing once the real reason is there to read.
     const details = json?.error?.details;
-    const fields = Array.isArray(details)
-      ? details.map((d: any) => d?.message).filter(Boolean).join(' ')
-      : '';
-    const message = [json?.error?.message || `Request failed (HTTP ${response.status}).`, fields]
-      .filter(Boolean).join(' ');
+    const specific = Array.isArray(details) && details.length ? humanizeValidation(details) : '';
+    const message =
+      specific || json?.error?.message || `Request failed (HTTP ${response.status}).`;
     throw new Error(`[${json?.error?.code || 'REQUEST_FAILED'}] ${message}`);
   }
   return json.data as T;
