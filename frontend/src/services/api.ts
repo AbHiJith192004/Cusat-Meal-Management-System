@@ -239,6 +239,19 @@ export const attendanceApi = {
 export const adminApi = {
   getDashboard: () => request<any>('/admin/dashboard'),
 
+  /** A window of history for the Overview's trend and summary rows.
+   *  /admin/dashboard is today only and cannot draw a line. */
+  getDashboardTrends: (days: number, meal: string) =>
+    request<{
+      days: number; meal: string; start: string; end: string;
+      series: Record<'served' | 'eaters' | 'joined' | 'fines',
+                     Array<{date: string; value: number}>>;
+      reach: {students: number; active: number; ate: number; cut: number;
+              fined: number; ate_rate: number};
+      volume: {served: number; cuts: number; fines: number;
+               fine_amount: string; closures: number};
+    }>(`/admin/dashboard/trends?days=${days}&meal=${meal}`),
+
   getStudentsByStatus: (mealType: string, category: string, mealDate?: string) => {
     const params = new URLSearchParams({ meal_type: mealType, category });
     if (mealDate) params.append('meal_date', mealDate);

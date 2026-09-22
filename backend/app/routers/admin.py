@@ -141,6 +141,142 @@ async def get_admin_dashboard(
     )
 
 
+@router.get("/dashboard/trends")
+async def get_dashboard_trends(
+    admin_user: AdminUser,
+    days: Annotated[int, Query(ge=1, le=90, description="Window length in days, ending today")] = 7,
+    meal: Annotated[str, Query(description="ALL, BREAKFAST, LUNCH or DINNER")] = "ALL",
+    db: AsyncSession = Depends(get_db, scope="function"),
+):
+    """A window of history, for the trend and summary rows on the Overview.
+
+    /dashboard answers "what is happening right now" and nothing else, so
+    there was no way to draw a line. This answers "what has been happening",
+    over the last `days` days up to and including today.
+
+    Every figure here is counted from the same tables the rest of the app
+    writes to -- attendance, meal_selections, fines, users. Nothing is
+    modelled or estimated, so a zero on this screen means a zero in the data.
+    """
+    from app.models.attendance import Attendance
+    from app.models.fine import Fine
+    from app.models.meal import MealSelection
+
+    meal = meal.upper()
+    if meal not in {"ALL", "BREAKFAST", "LUNCH", "DINNER"}:
+        from app.utils.exceptions import ValidationException
+        raise ValidationException(message="meal must be ALL, BREAKFAST, LUNCH or DINNER.")
+
+    end = today_ist()
+    start = end - timedelta(days=days - 1)
+    every_day = [start + timedelta(days=i) for i in range(days)]
+
+    def for_meal(stmt, column):
+        """Narrow a query to one sitting, or leave it across all three."""
+        return stmt if meal == "ALL" else stmt.where(column == meal)
+
+    async def by_day(stmt) -> dict:
+        return {row[0]: row[1] for row in (await db.execute(stmt)).all()}
+
+    # Meals actually eaten, and how many different students ate them.
+    served_rows = await by_day(for_meal(
+        select(Attendance.meal_date, func.count())
+        .where(Attendance.meal_date.between(start, end))
+        .group_by(Attendance.meal_date), Attendance.meal_type))
+    eaters_rows = await by_day(for_meal(
+        select(Attendance.meal_date, func.count(func.distinct(Attendance.student_id)))
+        .where(Attendance.meal_date.between(start, end))
+        .group_by(Attendance.meal_date), Attendance.meal_type))
+    # Mess cuts taken. A closure writes NO_SERVICE rather than SKIPPED, so
+    # this counts choices students made, not days the kitchen was shut.
+    cuts_rows = await by_day(for_meal(
+        select(MealSelection.meal_date, func.count())
+        .where(MealSelection.meal_date.between(start, end),
+               MealSelection.status == "SKIPPED")
+        .group_by(MealSelection.meal_date), MealSelection.meal_type))
+    fines_rows = await by_day(for_meal(
+        select(Fine.meal_date, func.count())
+        .where(Fine.meal_date.between(start, end), Fine.status != "WAIVED")
+        .group_by(Fine.meal_date), Fine.meal_type))
+
+    def series(rows: dict) -> list[dict]:
+        # Every day in the window appears, including the empty ones: a gap
+        # drawn as a missing point would flatten the line and hide a day
+        # nobody ate.
+        return [{"date": d.isoformat(), "value": int(rows.get(d, 0))} for d in every_day]
+
+    # Distinct students, over the whole window rather than per day.
+    async def distinct_students(stmt) -> int:
+        return int((await db.execute(stmt)).scalar_one() or 0)
+
+    ate = await distinct_students(for_meal(
+        select(func.count(func.distinct(Attendance.student_id)))
+        .where(Attendance.meal_date.between(start, end)), Attendance.meal_type))
+    cut = await distinct_students(for_meal(
+        select(func.count(func.distinct(MealSelection.student_id)))
+        .where(MealSelection.meal_date.between(start, end),
+               MealSelection.status == "SKIPPED"), MealSelection.meal_type))
+    fined = await distinct_students(for_meal(
+        select(func.count(func.distinct(Fine.student_id)))
+        .where(Fine.meal_date.between(start, end), Fine.status != "WAIVED"), Fine.meal_type))
+
+    total_students = int((await db.execute(select(func.count()).where(
+        User.role == Role.STUDENT.value))).scalar_one() or 0)
+    active_students = int((await db.execute(select(func.count()).where(
+        User.role == Role.STUDENT.value, User.account_status == "ACTIVE"))).scalar_one() or 0)
+
+    # Activations are a timestamp, so the day has to be read in IST or a
+    # student who activated at 02:00 IST lands on the previous date.
+    activated_day = func.date(func.timezone("Asia/Kolkata", User.activated_at))
+    joined_rows = {
+        row[0]: row[1] for row in (await db.execute(
+            select(activated_day, func.count())
+            .where(User.role == Role.STUDENT.value, User.activated_at.is_not(None),
+                   activated_day.between(start, end))
+            .group_by(activated_day)
+        )).all()
+    }
+
+    fine_total = (await db.execute(for_meal(
+        select(func.coalesce(func.sum(Fine.amount), 0))
+        .where(Fine.meal_date.between(start, end), Fine.status != "WAIVED"), Fine.meal_type))
+    ).scalar_one()
+
+    closures = int((await db.execute(select(func.count()).select_from(Holiday).where(
+        Holiday.holiday_date.between(start, end)))).scalar_one() or 0)
+
+    served_total = sum(served_rows.values())
+    return success_response(data={
+        "days": days,
+        "meal": meal,
+        "start": start.isoformat(),
+        "end": end.isoformat(),
+        "series": {
+            "served": series(served_rows),
+            "eaters": series(eaters_rows),
+            "joined": series(joined_rows),
+            "fines": series(fines_rows),
+        },
+        "reach": {
+            "students": total_students,
+            "active": active_students,
+            "ate": ate,
+            "cut": cut,
+            "fined": fined,
+            # Of the students who could have eaten, how many did. Guarded so
+            # an empty hostel reads as 0.0 rather than dividing by zero.
+            "ate_rate": round(ate * 100 / active_students, 1) if active_students else 0.0,
+        },
+        "volume": {
+            "served": int(served_total),
+            "cuts": int(sum(cuts_rows.values())),
+            "fines": int(sum(fines_rows.values())),
+            "fine_amount": str(fine_total),
+            "closures": closures,
+        },
+    })
+
+
 @router.get("/dashboard/students-by-status")
 async def get_students_by_status(
     admin_user: AdminUser,

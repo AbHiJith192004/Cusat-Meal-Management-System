@@ -860,3 +860,92 @@ async def test_settings_are_open_to_any_admin_but_not_to_students(client):
             await db.execute(delete(SystemSetting).where(
                 SystemSetting.key.not_in(list(before)) if before else sa_true()))
             await db.commit()
+
+
+@pytest.mark.asyncio
+async def test_dashboard_trends_window_is_contiguous_and_totals_agree(client):
+    """The history rows behind the Overview's trend card.
+
+    /dashboard answers only "right now", so this endpoint was added to answer
+    "over the last N days". The assertions are about shape and internal
+    agreement rather than fixed counts: the window always ends today, so it
+    sees whatever the rest of the suite has written, and hard-coding a total
+    here would make this test a hostage to test ordering.
+    """
+    from datetime import date as _date
+    from app.models.attendance import Attendance
+
+    admin, student = await user('ADMIN'), await user()
+    h = headers(admin)
+
+    got = await client.get('/api/v1/admin/dashboard/trends?days=7&meal=ALL', headers=h)
+    assert got.status_code == 200, got.text
+    body = got.json()['data']
+
+    # Every day in the window is present, in order, ending today -- a missing
+    # day would be drawn as a shorter line rather than as the zero it is.
+    served = body['series']['served']
+    assert len(served) == 7
+    days_listed = [_date.fromisoformat(p['date']) for p in served]
+    assert days_listed == sorted(days_listed)
+    assert days_listed[-1] == now_ist().date()
+    assert (days_listed[-1] - days_listed[0]).days == 6
+    assert body['end'] == days_listed[-1].isoformat()
+    assert body['start'] == days_listed[0].isoformat()
+    # All four lines cover the same days, or they cannot be read side by side.
+    for name in ('served', 'eaters', 'joined', 'fines'):
+        assert [p['date'] for p in body['series'][name]] == [p['date'] for p in served]
+
+    # The card totals are the series totals. If these drift apart the screen
+    # shows a line that disagrees with the number printed above it.
+    assert sum(p['value'] for p in served) == body['volume']['served']
+    assert sum(p['value'] for p in body['series']['fines']) == body['volume']['fines']
+
+    # Two meals in DIFFERENT sittings, recorded today, then exact deltas per
+    # filter. "<=" was not enough: a meal filter that silently did nothing
+    # still satisfies it, because the unfiltered figure bounds itself. Only
+    # asserting that DINNER moved by one while ALL moved by two can tell the
+    # difference.
+    url = '/api/v1/admin/dashboard/trends?days=7&meal='
+    async def read(meal: str) -> dict:
+        got = await client.get(url + meal, headers=h)
+        assert got.status_code == 200, got.text
+        return got.json()['data']
+
+    base = {m: await read(m) for m in ('ALL', 'BREAKFAST', 'DINNER', 'LUNCH')}
+    assert base['LUNCH']['meal'] == 'LUNCH'
+    async with async_session_factory() as db:
+        for sitting in ('BREAKFAST', 'DINNER'):
+            db.add(Attendance(id=uuid.uuid4(), student_id=student.id,
+                              meal_date=now_ist().date(), meal_type=sitting,
+                              attendance_type='MANUAL', recorded_by=admin.id,
+                              reason='Trends endpoint regression'))
+        await db.commit()
+    try:
+        now = {m: await read(m) for m in ('ALL', 'BREAKFAST', 'DINNER', 'LUNCH')}
+        for meal_name, moved in (('ALL', 2), ('BREAKFAST', 1), ('DINNER', 1), ('LUNCH', 0)):
+            a, b = now[meal_name], base[meal_name]
+            assert a['volume']['served'] == b['volume']['served'] + moved, meal_name
+            assert a['series']['served'][-1]['value'] == \
+                b['series']['served'][-1]['value'] + moved, meal_name
+            # Earlier days are untouched: a leaking date filter would move one.
+            assert [p['value'] for p in a['series']['served'][:-1]] == \
+                   [p['value'] for p in b['series']['served'][:-1]], meal_name
+            assert sum(p['value'] for p in a['series']['served']) == a['volume']['served']
+        # One new student ate, however many meals they took.
+        assert now['ALL']['reach']['ate'] == base['ALL']['reach']['ate'] + 1
+        assert now['LUNCH']['reach']['ate'] == base['LUNCH']['reach']['ate']
+    finally:
+        async with async_session_factory() as db:
+            await db.execute(delete(Attendance).where(Attendance.student_id == student.id))
+            await db.commit()
+
+    # Guards, and the door.
+    assert (await client.get('/api/v1/admin/dashboard/trends?days=7&meal=BRUNCH',
+                             headers=h)).status_code == 422
+    assert (await client.get('/api/v1/admin/dashboard/trends?days=0',
+                             headers=h)).status_code == 422
+    assert (await client.get('/api/v1/admin/dashboard/trends?days=400',
+                             headers=h)).status_code == 422
+    assert (await client.get('/api/v1/admin/dashboard/trends?days=7',
+                             headers=headers(student))).status_code == 403

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { adminApi, menuApi } from '../services/api';
 import { Modal } from '../components/Modal';
+import { DashboardSummary, type DashboardSummaryProps } from '../components/DashboardSummary';
 import { parseWindow, formatWindow } from '../utils/mealWindows';
 
 type MealKey = 'breakfast' | 'lunch' | 'dinner';
@@ -107,6 +108,15 @@ export function AdminOverviewView() {
   const [marking, setMarking] = useState(false);
   const [notice, setNotice] = useState<{ ok: boolean; text: string } | null>(null);
 
+  // The history rows carry their own window, and load separately from the
+  // live figures: changing the window must not blank out today's meal cards,
+  // and a failure in one must not hide the other.
+  const [days, setDays] = useState(7);
+  const [meal, setMeal] = useState('ALL');
+  const [trends, setTrends] = useState<DashboardSummaryProps['data']>(null);
+  const [trendsLoading, setTrendsLoading] = useState(true);
+  const [trendsError, setTrendsError] = useState('');
+
   const load = useCallback(async () => {
     setLoading(true);
     setError('');
@@ -134,6 +144,23 @@ export function AdminOverviewView() {
   }, []);
 
   useEffect(() => { void load(); }, [load]);
+
+  useEffect(() => {
+    let current = true;
+    setTrendsLoading(true);
+    setTrendsError('');
+    adminApi.getDashboardTrends(days, meal)
+      .then(res => { if (current) setTrends(res); })
+      .catch(err => {
+        if (!current) return;
+        setTrends(null);
+        setTrendsError(err instanceof Error ? err.message : 'Could not load the history rows.');
+      })
+      .finally(() => { if (current) setTrendsLoading(false); });
+    // A quick change of window would otherwise let a slow earlier response
+    // land last and show counts for a window nobody is looking at.
+    return () => { current = false; };
+  }, [days, meal]);
 
   const menuFor = (meal: MealKey) => {
     const row = menu.find((m: any) => String(m.meal_type).toLowerCase() === meal);
@@ -259,6 +286,17 @@ export function AdminOverviewView() {
             <span className="hidden sm:inline">Refresh</span>
           </button>
         </div>
+
+        {/* History first: the week is the context for today's numbers. */}
+        <DashboardSummary
+          days={days}
+          meal={meal}
+          onDaysChange={setDays}
+          onMealChange={setMeal}
+          loading={trendsLoading}
+          error={trendsError}
+          data={trends}
+        />
 
         <section className="space-y-6 animate-fade-in">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between bg-white p-4 rounded-2xl border border-[#EFDCB4] shadow-xs">
