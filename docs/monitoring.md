@@ -112,17 +112,27 @@ webhooks**. Check with:
 doctl apps list-alerts 8116d81b-48a2-45a5-b2e6-3f2ea1a2acd7
 ```
 
-Create an Incoming Webhook in Slack, then for each alert ID from that list:
+Create an Incoming Webhook in Slack, then:
 
 ```bash
+cp ops/alert-destinations.example.yaml ops/alert-destinations.yaml
+# paste the webhook URL in, and uncomment the slack_webhooks block
 doctl apps update-alert-destinations 8116d81b-48a2-45a5-b2e6-3f2ea1a2acd7 <alert-id> \
   --app-alert-destinations ops/alert-destinations.yaml
 ```
 
-`ops/alert-destinations.yaml` holds the addresses — fill in the webhook URL
-first. This command changes **only** the destinations and does not touch the
-app spec, which matters: `doctl apps update --spec .do/app.yaml` would push
-the repo's `SECRET` envs, which have no values on purpose, and wipe the live
+One call per alert ID.
+
+**The two filenames are not interchangeable.** `…example.yaml` is the
+committed template with a placeholder. `ops/alert-destinations.yaml` is the
+one you fill in, and it is **git-ignored** — a Slack webhook URL is a
+credential, anyone holding it can post into the channel, and this repository
+is public. Verified: with a webhook in the local file, `git add -A` stages
+only `.gitignore`.
+
+This command changes **only** the destinations and does not touch the app
+spec, which matters: `doctl apps update --spec .do/app.yaml` would push the
+repo's `SECRET` envs, which have no values on purpose, and wipe the live
 signing keys.
 
 ## What is deliberately not here

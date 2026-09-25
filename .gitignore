@@ -31,3 +31,8 @@ build/
 /.audit-private/
 /.audit-venv/
 ops/backups/
+
+# Alert destinations, filled in locally. The Slack webhook URL in it is a
+# credential -- anyone holding it can post into the channel -- and this repo
+# is public. The committed template is ops/alert-destinations.example.yaml.
+ops/alert-destinations.yaml
