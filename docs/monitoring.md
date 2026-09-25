@@ -1,0 +1,106 @@
+# Monitoring MessConnect in production
+
+App `8116d81b-48a2-45a5-b2e6-3f2ea1a2acd7`, live at
+https://messconnect-uyeus.ondigitalocean.app
+
+There is deliberately **no custom monitoring dashboard**. A dashboard is a
+pull mechanism, and the moment it matters most is 02:00, which is exactly
+when nobody is looking at one. It would also need its own auth, hosting and
+uptime, and then something to watch the watcher. What follows is push, plus
+the two screens that already exist.
+
+## What is already covered
+
+| Concern | Covered by |
+| --- | --- |
+| Is the process alive | `/health/live` — liveness probe, never touches the database |
+| Can it serve traffic | `/health` — readiness probe, checks Postgres |
+| Deploy broke | DO alert `DEPLOYMENT_FAILED` |
+| Domain/TLS broke | DO alert `DOMAIN_FAILED` |
+| Container wedged or thrashing | DO alerts CPU >85%/10m, MEM >85%/10m, `RESTART_COUNT` >3/10m |
+| What the app did | in-app audit log: fines, waivers, settings, suspensions, closures |
+| Whether the mess is being used | Overview → trend + reach + volume, 7/14/30 days |
+| Logs, metrics graphs, deploy history | the DO console |
+
+Liveness and readiness must stay split. Pointing liveness at `/health` means
+a database blip kills every container, and the restarts all reconnect at once
+against the pool that was already saturated.
+
+## The nightly job heartbeat
+
+`jobs[daily-reconciliation]` runs `python -m scripts.run_fine_reconciliation`
+at 01:00 IST and raises the missed-meal fines.
+
+**There is no DO alert rule for a scheduled job failing.** The five rules
+above are the complete set, and the utilisation ones are scoped to `web`.
+
+So the job records itself. Every run writes an audit row —
+`RECONCILIATION_COMPLETED` or `RECONCILIATION_FAILED`, `actor_id` null —
+and `GET /admin/dashboard` returns the latest as `last_reconciliation`. The
+Overview shows it above the trend card:
+
+- quiet grey line — ran, with the count of fines raised
+- red — the last run **failed**, with the error
+- red — the last success is **older than 26 hours**, so it has missed its
+  slot and fines are not being raised
+- grey — never reported (only before the first run after deploy)
+
+Before this, fines were audited one at a time, so a night with nothing due
+and a night the job never executed were identical in the database. The first
+visible symptom would have been a wrong monthly bill, weeks later.
+
+To check by hand, or to re-run a specific date:
+
+```bash
+doctl apps logs 8116d81b-48a2-45a5-b2e6-3f2ea1a2acd7 daily-reconciliation --type run
+```
+
+## Two things still to set up
+
+### 1. An external uptime check (10 minutes, no code)
+
+DO's health check is internal: it tells the platform to stop routing traffic
+to a sick container. It does not tell a person the app is unreachable, and
+`DEPLOYMENT_FAILED` does not fire for an app that is running but broken.
+
+Point any uptime service (UptimeRobot, Better Stack, Healthchecks.io — the
+free tiers are enough) at:
+
+```
+https://messconnect-uyeus.ondigitalocean.app/health
+```
+
+Every 5 minutes, alert after 2 consecutive failures, delivery to **phone
+push or SMS**, not email. `/health` returns 503 when Postgres is unreachable,
+so it catches a sick database as well as a dead app.
+
+### 2. Send the existing alerts somewhere you will see (2 minutes)
+
+All five alerts currently go to **one email address and zero Slack
+webhooks**. Check with:
+
+```bash
+doctl apps list-alerts 8116d81b-48a2-45a5-b2e6-3f2ea1a2acd7
+```
+
+Create an Incoming Webhook in Slack, then for each alert ID from that list:
+
+```bash
+doctl apps update-alert-destinations 8116d81b-48a2-45a5-b2e6-3f2ea1a2acd7 <alert-id> \
+  --app-alert-destinations ops/alert-destinations.yaml
+```
+
+`ops/alert-destinations.yaml` holds the addresses — fill in the webhook URL
+first. This command changes **only** the destinations and does not touch the
+app spec, which matters: `doctl apps update --spec .do/app.yaml` would push
+the repo's `SECRET` envs, which have no values on purpose, and wipe the live
+signing keys.
+
+## What is deliberately not here
+
+- **Error tracking (Sentry).** Worth adding once there are 500s that the
+  runtime logs cannot explain. Not before.
+- **Uptime/latency dashboards.** The DO console already draws them.
+- **Alerting on business metrics** (attendance dipped, fines spiked). These
+  move for real reasons — a holiday, an exam week — so they would mostly cry
+  wolf. The Overview is the right place to look at them.

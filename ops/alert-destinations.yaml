@@ -1,0 +1,17 @@
+# Destinations for the DigitalOcean alerts on the messconnect app.
+#
+# Apply per alert id (doctl apps list-alerts <app-id> lists them):
+#   doctl apps update-alert-destinations <app-id> <alert-id> \
+#     --app-alert-destinations ops/alert-destinations.yaml
+#
+# This touches ONLY the destinations. Do not reach for
+# `doctl apps update --spec .do/app.yaml` instead: the repo spec declares
+# SECRET envs with no value, on purpose, and pushing it wipes the live keys.
+emails:
+  - abhijithshaji@riafy.me
+# Create an Incoming Webhook in Slack and paste the URL below, then uncomment.
+# The URL is a credential: it lets anyone post to that channel, so keep the
+# real one out of git and pass a local copy of this file instead.
+# slack_webhooks:
+#   - channel: "#messconnect-alerts"
+#     url: "https://hooks.slack.com/services/REPLACE/WITH/YOUR-WEBHOOK"

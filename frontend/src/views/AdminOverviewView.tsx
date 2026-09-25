@@ -17,12 +17,57 @@ interface MealStats {
   time_window?: string;
 }
 
+interface Reconciliation {
+  status: 'COMPLETED' | 'FAILED';
+  ran_at: string | null;
+  target_date: string | null;
+  fines_created: number | null;
+  error: string | null;
+}
+
 interface DashboardData {
   date: string;
   total_students: number;
   pending_fines_count: number;
   today_stats: Record<MealKey, MealStats>;
+  /** Null until the nightly job has run once since this was deployed. */
+  last_reconciliation?: Reconciliation | null;
 }
+
+/**
+ * The nightly job raises the missed-meal fines. Nothing alerts on a
+ * scheduled job failing, so the only way to notice it had stopped was a
+ * wrong bill weeks later. A run older than ~26 hours means it has missed
+ * its 01:00 slot -- the hour of slack covers a late start without crying
+ * wolf every morning.
+ */
+const STALE_AFTER_HOURS = 26;
+
+const reconciliationState = (r: Reconciliation | null | undefined) => {
+  if (!r) return {
+    tone: 'unknown' as const,
+    text: 'The nightly fine run has not reported yet.',
+  };
+  const ranAt = r.ran_at ? new Date(r.ran_at) : null;
+  const when = ranAt
+    ? ranAt.toLocaleString('en-IN', {day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit'})
+    : 'an unknown time';
+  if (r.status === 'FAILED') return {
+    tone: 'bad' as const,
+    text: `The nightly fine run failed at ${when}. ${r.error || ''}`.trim(),
+  };
+  const hours = ranAt ? (Date.now() - ranAt.getTime()) / 3_600_000 : Infinity;
+  if (hours > STALE_AFTER_HOURS) return {
+    tone: 'bad' as const,
+    text: `The nightly fine run has not completed since ${when}. Fines are not being raised.`,
+  };
+  const count = r.fines_created;
+  return {
+    tone: 'good' as const,
+    text: `Nightly fine run completed ${when}`
+      + (count === null || count === undefined ? '.' : ` · ${count} fine${count === 1 ? '' : 's'} raised.`),
+  };
+};
 
 interface DrillDown {
   mealType: string;
@@ -286,6 +331,28 @@ export function AdminOverviewView() {
             <span className="hidden sm:inline">Refresh</span>
           </button>
         </div>
+
+        {/* Nightly job heartbeat. Quiet when it is healthy, loud when it is
+            not: a failed or stalled run means fines have stopped being
+            raised, and nothing else in the product would say so. */}
+        {data && (() => {
+          const recon = reconciliationState(data.last_reconciliation);
+          const tone = recon.tone === 'bad'
+            ? { background: '#FDECEA', borderColor: '#F6C8C3', color: 'var(--red)', icon: 'error' }
+            : recon.tone === 'unknown'
+            ? { background: 'var(--card)', borderColor: 'var(--card-border)', color: 'var(--text-muted)', icon: 'schedule' }
+            : { background: 'var(--card)', borderColor: 'var(--card-border)', color: 'var(--text-muted)', icon: 'task_alt' };
+          return (
+            <p
+              role={recon.tone === 'bad' ? 'alert' : 'status'}
+              className="flex items-start gap-2 px-3.5 py-2.5 rounded-xl text-[11.5px] font-bold"
+              style={{ background: tone.background, border: `1px solid ${tone.borderColor}`, color: tone.color }}
+            >
+              <span className="material-symbols-outlined shrink-0" style={{ fontSize: 16 }}>{tone.icon}</span>
+              <span className="flex-1">{recon.text}</span>
+            </p>
+          );
+        })()}
 
         {/* History first: the week is the context for today's numbers. */}
         <DashboardSummary

@@ -949,3 +949,80 @@ async def test_dashboard_trends_window_is_contiguous_and_totals_agree(client):
                              headers=h)).status_code == 422
     assert (await client.get('/api/v1/admin/dashboard/trends?days=7',
                              headers=headers(student))).status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_reconciliation_records_every_run_and_surfaces_on_the_dashboard(client):
+    """The nightly job leaves a trace, and a failure is not silent.
+
+    Fines are audited one at a time, so before this a night with nothing due
+    and a night the job never executed were identical in the database. The
+    platform has no alert rule for a scheduled job failing, which made that
+    the quietest way for the mess to stop charging anyone.
+    """
+    import scripts.run_fine_reconciliation as job
+
+    admin = await user('ADMIN')
+    yesterday = now_ist().date() - timedelta(days=1)
+
+    async with async_session_factory() as db:
+        before = set((await db.execute(select(AuditLog.id).where(
+            AuditLog.action.in_(['RECONCILIATION_COMPLETED', 'RECONCILIATION_FAILED'])
+        ))).scalars())
+
+    try:
+        # A real run of the script's own entry point, not a reimplementation.
+        await job.main()
+
+        async with async_session_factory() as db:
+            rows = (await db.execute(select(AuditLog).where(
+                AuditLog.action == 'RECONCILIATION_COMPLETED',
+                AuditLog.id.not_in(before) if before else sa_true(),
+            ).order_by(AuditLog.created_at.desc()))).scalars().all()
+        assert rows, 'a successful run wrote no record'
+        written = rows[0]
+        # A cron job is not a user; the column is nullable for exactly this.
+        assert written.actor_id is None
+        assert written.metadata_['target_date'] == yesterday.isoformat()
+        assert written.metadata_['fines_created'] == sum(written.metadata_['per_meal'].values())
+
+        # The screen an admin already opens reports it.
+        shown = (await client.get('/api/v1/admin/dashboard',
+                                  headers=headers(admin))).json()['data']['last_reconciliation']
+        assert shown['status'] == 'COMPLETED'
+        assert shown['target_date'] == yesterday.isoformat()
+        assert shown['fines_created'] == written.metadata_['fines_created']
+        assert shown['error'] is None
+
+        # A failure records too, and still exits non-zero so the platform can
+        # see it. Breaking the service is what a real outage would look like.
+        boom = RuntimeError('database is on fire')
+        original = job.FineService
+        job.FineService = lambda *a, **k: (_ for _ in ()).throw(boom)
+        try:
+            with pytest.raises(RuntimeError):
+                await job.main()
+        finally:
+            job.FineService = original
+
+        async with async_session_factory() as db:
+            failed = (await db.execute(select(AuditLog).where(
+                AuditLog.action == 'RECONCILIATION_FAILED'
+            ).order_by(AuditLog.created_at.desc()).limit(1))).scalars().first()
+        assert failed is not None
+        assert 'database is on fire' in failed.metadata_['error']
+
+        after_fail = (await client.get('/api/v1/admin/dashboard',
+                                       headers=headers(admin))).json()['data']['last_reconciliation']
+        assert after_fail['status'] == 'FAILED'
+        assert 'database is on fire' in after_fail['error']
+    finally:
+        # The records are the point of the feature, but they are noise for
+        # every other test reading the audit log, so this run cleans up after
+        # itself the way the closure test does.
+        async with async_session_factory() as db:
+            await db.execute(delete(AuditLog).where(
+                AuditLog.action.in_(['RECONCILIATION_COMPLETED', 'RECONCILIATION_FAILED']),
+                AuditLog.id.not_in(before) if before else sa_true(),
+            ))
+            await db.commit()

@@ -130,6 +130,27 @@ async def get_admin_dashboard(
     upcoming_holidays = (await db.execute(select(func.count()).select_from(Holiday).where(
         Holiday.holiday_date >= today))).scalar_one() or 0
 
+    # The nightly job's own record. Fines are audited one by one, so without
+    # this a night with nothing due and a night the job never ran look the
+    # same. Surfaced here because this is the screen an admin already opens,
+    # and a timestamp that has stopped moving is the symptom to notice.
+    last_run = (await db.execute(
+        select(AuditLog)
+        .where(AuditLog.action.in_(["RECONCILIATION_COMPLETED", "RECONCILIATION_FAILED"]))
+        .order_by(AuditLog.created_at.desc())
+        .limit(1)
+    )).scalars().first()
+    reconciliation = None
+    if last_run:
+        details = last_run.metadata_ or {}
+        reconciliation = {
+            "status": "FAILED" if last_run.action.endswith("FAILED") else "COMPLETED",
+            "ran_at": last_run.created_at.isoformat() if last_run.created_at else None,
+            "target_date": details.get("target_date"),
+            "fines_created": details.get("fines_created"),
+            "error": details.get("error"),
+        }
+
     return success_response(
         data={
             "date": today.isoformat(),
@@ -137,6 +158,8 @@ async def get_admin_dashboard(
             "today_stats": today_stats,
             "pending_fines_count": pending_fines_count,
             "active_holidays_count": upcoming_holidays,
+            # null until the job has run once with this code deployed.
+            "last_reconciliation": reconciliation,
         }
     )
 
