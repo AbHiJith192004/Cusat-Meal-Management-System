@@ -20,6 +20,8 @@ the two screens that already exist.
 | Container wedged or thrashing | DO alerts CPU >85%/10m, MEM >85%/10m, `RESTART_COUNT` >3/10m |
 | What the app did | in-app audit log: fines, waivers, settings, suspensions, closures |
 | Whether the mess is being used | Overview → trend + reach + volume, 7/14/30 days |
+| App unreachable from outside | DO Uptime check `messconnect-health` → `down_global` alert |
+| Nightly fines actually ran | Overview heartbeat, from the job's own audit row |
 | Logs, metrics graphs, deploy history | the DO console |
 
 Liveness and readiness must stay split. Pointing liveness at `/health` means
@@ -55,26 +57,53 @@ To check by hand, or to re-run a specific date:
 doctl apps logs 8116d81b-48a2-45a5-b2e6-3f2ea1a2acd7 daily-reconciliation --type run
 ```
 
-## Two things still to set up
+## The external uptime check
 
-### 1. An external uptime check (10 minutes, no code)
+DO's own health check is internal: it tells the platform to stop routing
+traffic to a sick container. It does not tell a person the app is
+unreachable, and `DEPLOYMENT_FAILED` does not fire for an app that is
+running but broken. So there is a DigitalOcean Uptime check watching from
+outside — no third-party service, same account, managed with `doctl`.
 
-DO's health check is internal: it tells the platform to stop routing traffic
-to a sick container. It does not tell a person the app is unreachable, and
-`DEPLOYMENT_FAILED` does not fire for an app that is running but broken.
+| | |
+| --- | --- |
+| Check | `messconnect-health` · `39c00aff-b870-46e4-a65f-25808634b7ec` |
+| Target | `https://messconnect-uyeus.ondigitalocean.app/health` |
+| Regions | `se_asia`, `eu_west`, `us_east` |
+| Alert | `MessConnect is down` · `96dd7c19-ed1a-466e-90a3-3b6335adc418` |
+| Fires when | `down_global` — unreachable from **all** regions for 2 minutes |
+| Goes to | the DO account email |
 
-Point any uptime service (UptimeRobot, Better Stack, Healthchecks.io — the
-free tiers are enough) at:
-
+```bash
+doctl monitoring uptime list
+doctl monitoring uptime alert list 39c00aff-b870-46e4-a65f-25808634b7ec
 ```
-https://messconnect-uyeus.ondigitalocean.app/health
+
+`down_global` rather than `down` on purpose: the app runs in one region
+(blr1), so if it is genuinely down it is down everywhere, and alerting when
+any single checker has a network blip would only teach you to ignore the
+alert.
+
+**A non-2xx response counts as DOWN.** This was measured, not assumed — the
+DO docs do not say. A temporary check was pointed at a URL on the same host
+that returns 401, and it registered `DOWN` within 45 seconds. That is what
+makes `/health` the right target: it answers 503 when Postgres is
+unreachable, so a sick database pages you even though the container is
+still serving.
+
+The check's live per-region status is not exposed by `doctl`; it is in the
+DO console, or:
+
+```bash
+curl -s -H "Authorization: Bearer $DO_TOKEN" \
+  https://api.digitalocean.com/v2/uptime/checks/39c00aff-b870-46e4-a65f-25808634b7ec/state
 ```
 
-Every 5 minutes, alert after 2 consecutive failures, delivery to **phone
-push or SMS**, not email. `/health` returns 503 when Postgres is unreachable,
-so it catches a sick database as well as a dead app.
+That endpoint also reports `days_to_ssl_expiry`, which is why there is no
+separate `ssl_expiry` alert: the certificate for `*.ondigitalocean.app` is
+DO-managed and renews itself. Add one if a custom domain is ever attached.
 
-### 2. Send the existing alerts somewhere you will see (2 minutes)
+## Still to set up: send the app alerts somewhere you will see (2 minutes)
 
 All five alerts currently go to **one email address and zero Slack
 webhooks**. Check with:
