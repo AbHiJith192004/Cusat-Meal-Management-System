@@ -212,11 +212,23 @@ async def get_dashboard_trends(
         .group_by(Attendance.meal_date), Attendance.meal_type))
     # Mess cuts taken. A closure writes NO_SERVICE rather than SKIPPED, so
     # this counts choices students made, not days the kitchen was shut.
-    cuts_rows = await by_day(for_meal(
-        select(MealSelection.meal_date, func.count())
+    #
+    # A cut is a whole DAY off -- all three sittings -- so this counts
+    # (student, date) pairs where all three are skipped, not rows. Counting
+    # rows reported every cut three times. It is also deliberately NOT
+    # narrowed by `meal`: a single sitting cannot be a mess cut, so the
+    # figure means the same thing whatever the filter says.
+    full_day_cuts = (
+        select(MealSelection.meal_date.label("d"), MealSelection.student_id.label("sid"))
         .where(MealSelection.meal_date.between(start, end),
                MealSelection.status == "SKIPPED")
-        .group_by(MealSelection.meal_date), MealSelection.meal_type))
+        .group_by(MealSelection.meal_date, MealSelection.student_id)
+        .having(func.count(func.distinct(MealSelection.meal_type)) == 3)
+        .subquery()
+    )
+    cuts_rows = {row[0]: row[1] for row in (await db.execute(
+        select(full_day_cuts.c.d, func.count()).group_by(full_day_cuts.c.d)
+    )).all()}
     fines_rows = await by_day(for_meal(
         select(Fine.meal_date, func.count())
         .where(Fine.meal_date.between(start, end), Fine.status != "WAIVED")

@@ -529,7 +529,15 @@ async def test_meal_window_settings_reject_anything_the_app_cannot_parse(client)
 
     try:
         # A good change is applied and readable back.
-        ok = await put(('meal_window_lunch_start', '12:15'), ('meal_window_lunch_end', '14:45'))
+        #
+        # BOTH pairs are set to the same hours on purpose. /api/v1/meals picks
+        # the weekday or weekend keys from the day of the week, so setting
+        # only the weekday pair made the assertion below fail every Saturday
+        # and Sunday -- it did, on Sat 3 Oct 2026, having been latent since
+        # weekend windows were introduced.
+        ok = await put(('meal_window_lunch_start', '12:15'), ('meal_window_lunch_end', '14:45'),
+                       ('meal_window_lunch_start_weekend', '12:15'),
+                       ('meal_window_lunch_end_weekend', '14:45'))
         assert ok.status_code == 200, ok.text
         listed = await client.get('/api/v1/admin/settings', headers=h)
         values = {s['key']: s['value'] for s in listed.json()['data']}
@@ -585,8 +593,13 @@ async def test_meal_window_settings_reject_anything_the_app_cannot_parse(client)
         # Lunch is opened to the whole day first: a pass is only issued inside
         # the serving window, and this must not pass or fail on the clock the
         # suite happens to run at. Both settings are restored in `finally`.
+        # Both pairs again: on a Saturday the weekend keys are the ones the
+        # pass is checked against, so opening only the weekday window leaves
+        # the request outside the serving hours and it is refused with 409.
         assert (await put(('meal_window_lunch_start', '00:00'),
                           ('meal_window_lunch_end', '23:59'),
+                          ('meal_window_lunch_start_weekend', '00:00'),
+                          ('meal_window_lunch_end_weekend', '23:59'),
                           ('qr_validity_seconds', '90'))).status_code == 200
         pass_now = await client.get('/api/v1/attendance/qr?meal_type=LUNCH',
                                     headers=headers(student))
@@ -1025,4 +1038,95 @@ async def test_reconciliation_records_every_run_and_surfaces_on_the_dashboard(cl
                 AuditLog.action.in_(['RECONCILIATION_COMPLETED', 'RECONCILIATION_FAILED']),
                 AuditLog.id.not_in(before) if before else sa_true(),
             ))
+            await db.commit()
+
+
+@pytest.mark.asyncio
+async def test_a_mess_cut_counts_as_one_day_not_three_meals(client):
+    """Three full-day cuts read as 3 everywhere, not 9.
+
+    A mess cut is a whole day off, so opting out writes three
+    meal_selections rows. Both admin-facing counts used count(*) over those
+    rows and reported every cut three times -- a student with three cuts was
+    shown nine, against a limit of ten that is counted in days. The limit
+    itself was always right; only the displays were wrong.
+
+    The two figures have DIFFERENT scopes -- the directory is the calendar
+    month, the Overview is a rolling window ending today -- so they get
+    separate dates and separate students. Sharing them hid a hole: dates
+    anchored to the start of the month fall in the FUTURE early in a month,
+    and a future date is never inside a window that ends today, so the
+    Overview assertions silently tested nothing.
+    """
+    from app.models.meal import MealSelection
+    from app.models.student import StudentProfile
+
+    admin = await user('ADMIN')
+    h = headers(admin)
+    today = now_ist().date()
+    month_start = today.replace(day=1)
+
+    def skips(student_id, day, meals):
+        return [MealSelection(id=uuid.uuid4(), student_id=student_id, meal_date=day,
+                              meal_type=m, status='SKIPPED') for m in meals]
+
+    async def profile_for(u):
+        async with async_session_factory() as db:
+            db.add(StudentProfile(id=uuid.uuid4(), user_id=u.id, date_of_birth=date(2004, 5, 5),
+                                  student_type='HOSTELLER', campus_location='MAIN_CAMPUS'))
+            await db.commit()
+
+    # ---- the directory figure: whole days cut, THIS CALENDAR MONTH --------
+    # Anchored to the first of the month, which always exists; these may be
+    # future dates, which the month-scoped count includes by design.
+    roster_student = await user()
+    await profile_for(roster_student)
+    cut_days = [month_start + timedelta(days=n) for n in (0, 1, 2)]
+    async with async_session_factory() as db:
+        for day in cut_days:
+            db.add_all(skips(roster_student.id, day, ('BREAKFAST', 'LUNCH', 'DINNER')))
+        # A single meal is not a cut.
+        db.add_all(skips(roster_student.id, month_start + timedelta(days=3), ('LUNCH',)))
+        await db.commit()
+
+    # ---- the Overview figure: whole days cut, in a window ENDING TODAY ----
+    # Strictly in the past so they are inside the window, and far enough
+    # back that they cannot collide with the month-anchored dates above.
+    trend_student = await user()
+    await profile_for(trend_student)
+    trend_cut_days = [today - timedelta(days=n) for n in (1, 2, 3)]
+    trend_single_day = today - timedelta(days=4)
+    url = '/api/v1/admin/dashboard/trends?days=7&meal=ALL'
+
+    try:
+        listed = await client.get(
+            f'/api/v1/admin/students?query={roster_student.registration_number}', headers=h)
+        assert listed.status_code == 200, listed.text
+        row = next(s for s in listed.json()['data']
+                   if s['registration_number'] == roster_student.registration_number)
+        # Ten skipped rows across four dates; three of those dates are cuts.
+        assert row['mess_cuts'] == 3, row
+        assert 'meals_skipped' not in row, 'the ambiguous meal count should be gone'
+
+        # Baseline BEFORE writing anything, so the delta is exact. Asserting
+        # ">= 3" against the shared database would pass for a row count too.
+        base = (await client.get(url, headers=h)).json()['data']['volume']['cuts']
+
+        async with async_session_factory() as db:
+            for day in trend_cut_days:
+                db.add_all(skips(trend_student.id, day, ('BREAKFAST', 'LUNCH', 'DINNER')))
+            await db.commit()
+        after_cuts = (await client.get(url, headers=h)).json()['data']['volume']['cuts']
+        assert after_cuts == base + 3, f'three full days should add three, got {after_cuts - base}'
+
+        # One more SINGLE meal, inside the same window, must not move it.
+        async with async_session_factory() as db:
+            db.add_all(skips(trend_student.id, trend_single_day, ('DINNER',)))
+            await db.commit()
+        final = (await client.get(url, headers=h)).json()['data']['volume']['cuts']
+        assert final == after_cuts, 'a single skipped meal was counted as a mess cut'
+    finally:
+        async with async_session_factory() as db:
+            await db.execute(delete(MealSelection).where(
+                MealSelection.student_id.in_([roster_student.id, trend_student.id])))
             await db.commit()

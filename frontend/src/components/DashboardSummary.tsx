@@ -248,7 +248,7 @@ export const DashboardSummary: React.FC<DashboardSummaryProps> = ({
               <StatCard label="Meals served" value={data.volume.served} sub="attendance records" />
               <StatCard label="Per day" value={(data.volume.served / data.days).toFixed(1)}
                         sub={`served ÷ ${data.days} days`} />
-              <StatCard label="Mess cuts" value={data.volume.cuts} sub="students opted out" />
+              <StatCard label="Mess cuts" value={data.volume.cuts} sub="whole days off, all sittings" />
               <StatCard label="Fines raised" value={data.volume.fines} sub="not waived" />
               <StatCard label="Fines value" value={money(data.volume.fine_amount)}
                         sub="not waived" />

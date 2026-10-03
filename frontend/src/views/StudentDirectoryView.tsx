@@ -103,7 +103,7 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({ isSu
           campusLocation: s.campus_location || 'MAIN_CAMPUS',
           phone: '',
           mealsDone: s.meals_done || 0,
-          mealsSkipped: s.meals_skipped || 0,
+          messCuts: s.mess_cuts || 0,
         }));
         setApiStudents(formatted);
       }
@@ -388,7 +388,9 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({ isSu
                   <th className="py-3.5 px-4">Category</th>
                   <th className="py-3.5 px-4">Campus</th>
                   <th className="py-3.5 px-4 text-center">Account</th>
-                  <th className="py-3.5 px-4 text-center">Meals done / cut</th>
+                  <th className="py-3.5 px-4 text-center" title="This month: meals eaten, and whole days cut">
+                    Meals / cuts<br /><span className="font-semibold normal-case opacity-70">this month</span>
+                  </th>
                   <th className="py-3.5 px-4 text-center">Action</th>
                 </tr>
               </thead>
@@ -437,7 +439,7 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({ isSu
                       <td className="py-3 px-4 text-center text-xs font-bold text-[#5C3D1E]" style={{ fontVariantNumeric: 'tabular-nums' }}>
                         <span className="text-[#16a34a]">{row.mealsDone ?? 0}</span>
                         <span className="text-[#BFA37A]"> / </span>
-                        <span className="text-[#dc2626]">{row.mealsSkipped ?? 0}</span>
+                        <span className="text-[#dc2626]">{row.messCuts ?? 0}</span>
                       </td>
                       <td className="py-3 px-4 text-center">
                         <button
@@ -506,7 +508,7 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({ isSu
               <div className="bg-[#16a34a]/5 p-3 rounded-xl border border-[#16a34a]/30">
                 <span className="text-[10px] font-extrabold uppercase text-[#16a34a] flex items-center gap-1">
                   <span className="material-symbols-outlined text-[14px]">check_circle</span>
-                  Meals done
+                  Meals eaten
                 </span>
                 <span className="text-xl font-black text-[#16a34a] block mt-0.5">{selectedStudent.mealsDone ?? 0}</span>
               </div>
@@ -515,7 +517,7 @@ export const StudentDirectoryView: React.FC<StudentDirectoryViewProps> = ({ isSu
                   <span className="material-symbols-outlined text-[14px]">cancel</span>
                   Mess cuts
                 </span>
-                <span className="text-xl font-black text-[#dc2626] block mt-0.5">{selectedStudent.mealsSkipped ?? 0}</span>
+                <span className="text-xl font-black text-[#dc2626] block mt-0.5">{selectedStudent.messCuts ?? 0}</span>
               </div>
             </div>
 

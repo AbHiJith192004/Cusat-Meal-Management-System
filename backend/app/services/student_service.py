@@ -57,11 +57,44 @@ class StudentService:
 
         from app.models.meal import MealSelection
         from app.models.attendance import Attendance
+        from app.utils.timezone import today_ist
+        import calendar as _calendar
+
         ids = [u.id for u in users]
+        # Both figures are for the CURRENT MONTH. They used to be all-time
+        # counts shown under a monthly heading, so they drifted further from
+        # the truth every month and could never be read against the monthly
+        # mess-cut limit they sit beside.
+        today = today_ist()
+        month_start = today.replace(day=1)
+        month_end = today.replace(day=_calendar.monthrange(today.year, today.month)[1])
+
         done = dict((await self.session.execute(select(Attendance.student_id, func.count()).where(
-            Attendance.student_id.in_(ids)).group_by(Attendance.student_id))).all()) if ids else {}
-        skipped = dict((await self.session.execute(select(MealSelection.student_id, func.count()).where(
-            MealSelection.student_id.in_(ids), MealSelection.status == "SKIPPED").group_by(MealSelection.student_id))).all()) if ids else {}
+            Attendance.student_id.in_(ids),
+            Attendance.meal_date.between(month_start, month_end),
+        ).group_by(Attendance.student_id))).all()) if ids else {}
+
+        # A MESS CUT IS A DAY, NOT A MEAL. Opting out of a whole day writes
+        # three meal_selections rows, so count(*) reported every cut three
+        # times -- a student with three cuts was shown nine. Count the dates
+        # on which all three sittings are skipped, which is exactly what
+        # MealRepository.count_student_monthly_mess_cuts enforces the limit
+        # with; this is its set-based form, so one query covers the page
+        # instead of one per student.
+        full_days = (
+            select(MealSelection.student_id.label("sid"), MealSelection.meal_date)
+            .where(
+                MealSelection.student_id.in_(ids),
+                MealSelection.status == "SKIPPED",
+                MealSelection.meal_date.between(month_start, month_end),
+            )
+            .group_by(MealSelection.student_id, MealSelection.meal_date)
+            .having(func.count(func.distinct(MealSelection.meal_type)) == 3)
+            .subquery()
+        )
+        skipped = dict((await self.session.execute(
+            select(full_days.c.sid, func.count()).group_by(full_days.c.sid)
+        )).all()) if ids else {}
         results = []
         for u in users:
             done_cnt, skipped_cnt = done.get(u.id, 0), skipped.get(u.id, 0)
@@ -75,8 +108,10 @@ class StudentService:
                 "student_type": u.profile.student_type if u.profile else None,
                 "campus_location": u.profile.campus_location if (u.profile and hasattr(u.profile, "campus_location")) else "MAIN_CAMPUS",
                 "photo_url": u.profile.photo_url if u.profile else None,
+                # Named for what they are: meals eaten, and whole days cut,
+                # both within the current month.
                 "meals_done": done_cnt,
-                "meals_skipped": skipped_cnt,
+                "mess_cuts": skipped_cnt,
             })
 
         return results, total

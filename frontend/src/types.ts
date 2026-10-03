@@ -40,7 +40,8 @@ export interface StudentRecord {
   category?: 'HOSTELLER' | 'DAY_SCHOLAR' | 'OUTMESS';
   campusLocation?: 'MAIN_CAMPUS' | 'LAKESIDE_CAMPUS';
   mealsDone?: number;
-  mealsSkipped?: number;
+  /** Whole DAYS cut this month, not meals: a cut is all three sittings. */
+  messCuts?: number;
   isCommitteeMember?: boolean;
   committeeDuration?: CommitteeDuration;
 }
