@@ -23,10 +23,15 @@ PGDATA=/tmp/messconnect-demo-pgdata
 PGSOCK=/tmp/mess-audit-pgsock
 PGPORT=55433
 APPPORT=8099
+# Who can reach the demo. Default is this machine only, as it always was.
+# DEMO_BIND=0.0.0.0 publishes it to the local network so a client can open it
+# on their own phone -- fake data and shared demo passwords, so only do that
+# on a trusted network and run `ops/demo.sh stop` afterwards.
+DEMO_BIND="${DEMO_BIND:-127.0.0.1}"
 LOG=/tmp/messconnect-demo
 
 stop() {
-  pkill -f "uvicorn app.main:app --host 127.0.0.1 --port $APPPORT" 2>/dev/null || true
+  pkill -f "uvicorn app.main:app --host .* --port $APPPORT" 2>/dev/null || true
   if [ -d "$PGDATA" ]; then
     LC_ALL=C LANG=C pg_ctl -D "$PGDATA" stop >/dev/null 2>&1 || true
     rm -rf "$PGDATA"
@@ -76,10 +81,10 @@ echo "==> seeding a month of demo data"
 echo "==> building the frontend"
 # VITE_API_BASE_URL matters: without it the bundle calls localhost:8000 for a
 # 127.0.0.1 host and every screen reports 'could not reach the server'.
-(cd frontend && VITE_API_BASE_URL=/api/v1 npm run build >/dev/null 2>&1)
+(cd frontend && VITE_API_BASE_URL=/api/v1 VITE_ORG_NAME="${VITE_ORG_NAME:-CUSAT}" npm run build >/dev/null 2>&1)
 
 echo "==> starting the app"
-(cd backend && nohup "$VENV/uvicorn" app.main:app --host 127.0.0.1 --port $APPPORT \
+(cd backend && nohup "$VENV/uvicorn" app.main:app --host $DEMO_BIND --port $APPPORT \
    > "$LOG-app.log" 2>&1 &)
 for _ in $(seq 1 30); do
   curl -s -m 1 -o /dev/null "http://127.0.0.1:$APPPORT/health" && break

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { paymentApi, studentApi } from '../services/api';
 import { ChefMascot } from '../components/FoodIllustrations';
+import { BRAND } from '../brand';
 
 interface FineLine {
   meal_date: string;
@@ -183,8 +184,8 @@ export const StudentBillView: React.FC = () => {
             <div className="bill-brand">
               <span className="bill-brand-mark">🍴</span>
               <div>
-                <p className="bill-brand-name">CUSAT MessConnect</p>
-                <p className="bill-brand-sub">Hostel Mess &middot; Cochin University of Science and Technology</p>
+                <p className="bill-brand-name">{BRAND.app}</p>
+                <p className="bill-brand-sub">Hostel Mess &middot; {BRAND.institution}</p>
               </div>
             </div>
             <div className="bill-meta">
@@ -264,7 +265,7 @@ export const StudentBillView: React.FC = () => {
           </div>
 
           <div className="bill-footer">
-            <p>This is a system-generated bill from CUSAT MessConnect. For queries, contact the mess office.</p>
+            <p>This is a system-generated bill from {BRAND.app}. For queries, contact the mess office.</p>
           </div>
         </div>
         <section className="no-print rounded-2xl p-5 mt-5" style={{background:'var(--card)',border:'1px solid var(--line)'}}>

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { authApi, studentApi } from '../services/api';
 import { ChefMascot, DosaCartoon } from './FoodIllustrations';
+import { BRAND } from '../brand';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -154,7 +155,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
           <ChefMascot size={68} />
         </div>
         <h1 className="font-display text-[22px] font-bold mt-2" style={{ color: 'var(--text-dark)' }}>
-          CUSAT MessConnect
+          {BRAND.app}
         </h1>
       </div>
 
@@ -411,7 +412,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
             🍴
           </div>
           <span className="font-display text-[16px] font-bold" style={{ color: 'var(--text-dark)' }}>
-            CUSAT MessConnect
+            {BRAND.app}
           </span>
         </div>
 
@@ -447,7 +448,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         </div>
 
         <p className="text-[12px] font-semibold" style={{ color: 'var(--text-muted)' }}>
-          Cochin University of Science and Technology · Hostel Mess
+          {BRAND.institution} · Hostel Mess
         </p>
         {/* Reachable signed out, which is the only way a privacy notice is
             any use to someone deciding whether to sign in. */}

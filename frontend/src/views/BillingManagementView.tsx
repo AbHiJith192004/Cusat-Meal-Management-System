@@ -2,6 +2,7 @@ import React, {useEffect, useMemo, useState} from 'react';
 import {adminApi} from '../services/api';
 import {Modal} from '../components/Modal';
 import {money, downloadCsv} from '../utils/format';
+import { BRAND } from '../brand';
 
 /**
  * The five figures the monthly rate is calculated from. The server computes
@@ -170,8 +171,8 @@ export const BillingManagementView: React.FC = () => {
   }), {messCut: 0, effectiveDays: 0, fine: 0, totalBill: 0}), [studentBilling]);
 
   const exportStudentBilling = () => {
-    downloadCsv(`CUSAT_Individual_Student_Billing_${MONTHS[month - 1]}_${year}.csv`, [
-      [`CUSAT Mess Individual Monthly Student Billing - ${periodLabel}`],
+    downloadCsv(`${BRAND.slug}_Individual_Student_Billing_${MONTHS[month - 1]}_${year}.csv`, [
+      [`${BRAND.org} Mess Individual Monthly Student Billing - ${periodLabel}`],
       [published ? `Published revision ${status.revision}` : 'DRAFT PREVIEW - not published'],
       [],
       ['Sl No', 'Mess ID', 'Reg No', 'Name', 'Category', 'Campus', 'Total Days', 'Mess Open',
@@ -189,7 +190,7 @@ export const BillingManagementView: React.FC = () => {
 
   const exportBreakdown = () => {
     const lines: string[][] = [
-      [`CUSAT Mess Breakdown Expenses Statement - ${periodLabel}`],
+      [`${BRAND.org} Mess Breakdown Expenses Statement - ${periodLabel}`],
       [published ? `Published revision ${status.revision}` : 'DRAFT PREVIEW - not published'],
       [],
     ];
@@ -206,7 +207,7 @@ export const BillingManagementView: React.FC = () => {
     lines.push(['Actual expenditure of month (1 + 2 - 3 + 4 + 5)', '', actualCost.toFixed(2)]);
     lines.push(['Chargeable days (opted-in student-days)', '', String(chargeableDays)]);
     lines.push(['Mess daily rate (INR / student / day)', '', dailyRate.toFixed(6)]);
-    downloadCsv(`CUSAT_Breakdown_Statement_${MONTHS[month - 1]}_${year}.csv`, lines);
+    downloadCsv(`${BRAND.slug}_Breakdown_Statement_${MONTHS[month - 1]}_${year}.csv`, lines);
   };
 
   const editable = Boolean(status) && !published && !busy;

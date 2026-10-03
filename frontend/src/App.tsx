@@ -23,6 +23,7 @@ import { authApi, notificationsApi, studentApi, getAuthToken, restoreSession } f
 
 import { PwaInstallPrompt } from './components/PwaInstallPrompt';
 import { LoginModal } from './components/LoginModal';
+import { BRAND } from './brand';
 
 
 /**
@@ -105,7 +106,7 @@ export function App() {
             ...prev,
             name: profile.name || prev.name,
             regNo: profile.registration_number || prev.regNo,
-            hostel: verifiedRole === 'admin' ? 'CUSAT Mess Administration' : prev.hostel,
+            hostel: verifiedRole === 'admin' ? BRAND.administration : prev.hostel,
           }));
           notificationsApi.getNotifications().then(rows => setUnreadAlertsCount(
             Array.isArray(rows) ? rows.filter((x:any) => !x.is_read).length : 0
@@ -149,14 +150,14 @@ export function App() {
         setStudentInfo({
           name: profile.name || name,
           regNo: profile.registration_number || regNo,
-          hostel: 'CUSAT Hostel Mess 1',
+          hostel: BRAND.mess,
           category: 'Hosteller',
         });
       } catch (e) {
         setStudentInfo({
           name: name,
           regNo: regNo,
-          hostel: 'CUSAT Hostel Mess 1',
+          hostel: BRAND.mess,
           category: 'Hosteller',
         });
       }
@@ -174,7 +175,7 @@ export function App() {
       setStudentInfo({
         name: adminDisplayName,
         regNo: regNo,
-        hostel: 'CUSAT Mess Administration',
+        hostel: BRAND.administration,
         category: 'Hosteller',
       });
       handleTabChange('admin-dashboard');

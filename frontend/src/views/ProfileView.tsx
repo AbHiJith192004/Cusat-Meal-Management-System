@@ -3,6 +3,7 @@ import { studentApi } from '../services/api';
 import { ART_CREDIT } from '../components/FoodIllustrations';
 import { Avatar } from '../components/Avatar';
 import { Modal } from '../components/Modal';
+import { BRAND } from '../brand';
 
 interface ProfileViewProps {
   studentName: string;
@@ -377,7 +378,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               <li>Bills are published monthly; pay and submit the bank UTR from My Bill.</li>
             </ul>
             <p className="mt-4 text-[12.5px] font-bold" style={{ color: 'var(--text-muted)' }}>
-              CUSAT Mess Office
+              {BRAND.office}
             </p>
             <button onClick={() => setShowSupport(false)} className="btn-secondary w-full mt-4">
               Close

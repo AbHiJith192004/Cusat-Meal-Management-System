@@ -2,6 +2,7 @@ import React, {useCallback, useEffect, useMemo, useState} from 'react';
 import {adminApi} from '../services/api';
 import { Modal } from '../components/Modal';
 import {money, downloadCsv} from '../utils/format';
+import { BRAND } from '../brand';
 
 type Status = 'PENDING' | 'VERIFIED' | 'REJECTED';
 
@@ -95,8 +96,8 @@ export const PaymentsView: React.FC = () => {
   }, [forPeriod, statusFilter, categoryFilter, search]);
 
   const exportSheet = () => {
-    downloadCsv(`CUSAT_Student_Payments_${MONTHS[month - 1]}_${year}.csv`, [
-      [`CUSAT Mess Student Monthly Payments - ${periodLabel}`],
+    downloadCsv(`${BRAND.slug}_Student_Payments_${MONTHS[month - 1]}_${year}.csv`, [
+      [`${BRAND.org} Mess Student Monthly Payments - ${periodLabel}`],
       [`${shown.length} of ${forPeriod.length} submissions (filters applied)`],
       [],
       ['Sl No', 'Mess ID', 'Reg No', 'Name', 'Category', 'Campus', 'Submitted',

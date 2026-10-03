@@ -1,6 +1,7 @@
 import React from 'react';
 import { ActiveTab, UserRole } from '../types';
 import { Avatar } from './Avatar';
+import { BRAND } from '../brand';
 
 interface HeaderProps {
   currentTab: ActiveTab;
@@ -45,7 +46,7 @@ export const Header: React.FC<HeaderProps> = ({
   const isHome = currentTab === 'home' || currentTab === 'admin-dashboard';
 
   // Mobile shows the brand on home, the page name elsewhere.
-  const mobileTitle = isHome ? 'CUSAT MessConnect' : meta.title;
+  const mobileTitle = isHome ? BRAND.app : meta.title;
 
   return (
     <header className="stitch-header">

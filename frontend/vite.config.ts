@@ -3,9 +3,28 @@ import react from '@vitejs/plugin-react';
 import path from 'path';
 import {defineConfig} from 'vite';
 
+/**
+ * Whose deployment this is. One word drives every visible name, in the page
+ * title and metadata here and through src/brand.ts in the app itself.
+ *
+ * The default matters: Vite's own %VAR% substitution leaves the literal
+ * "%VITE_ORG_NAME%" in index.html when the variable is unset, so a plain
+ * `npm run build` would ship a page titled "%VITE_ORG_NAME% MessConnect".
+ * Substituting here with a fallback means an unset environment produces
+ * exactly the strings the app has always shown.
+ */
+const ORG = process.env.VITE_ORG_NAME?.trim() || 'CUSAT';
+
 export default defineConfig(() => {
   return {
-    plugins: [react(), tailwindcss()],
+    plugins: [
+      react(),
+      tailwindcss(),
+      {
+        name: 'messconnect-brand-html',
+        transformIndexHtml: (html: string) => html.split('%VITE_ORG_NAME%').join(ORG),
+      },
+    ],
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

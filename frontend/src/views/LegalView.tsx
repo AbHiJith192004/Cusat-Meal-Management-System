@@ -1,4 +1,5 @@
 import React from 'react';
+import { BRAND } from '../brand';
 
 /**
  * Privacy Policy and Terms, served at /privacy and /terms.
@@ -42,9 +43,9 @@ const ContactBlock = () => (
     className="rounded-xl p-4 text-[13.5px]"
     style={{ background: 'var(--orange-soft)', border: '1px solid var(--orange-light)', color: 'var(--text-body)' }}
   >
-    <p className="font-bold" style={{ color: 'var(--text-dark)' }}>CUSAT Hostel Mess Office</p>
+    <p className="font-bold" style={{ color: 'var(--text-dark)' }}>{BRAND.hostelOffice}</p>
     <p className="mt-1">
-      Cochin University of Science and Technology, Kalamassery, Kochi, Kerala 682022, India.
+      {BRAND.address}
     </p>
     <p className="mt-1.5">
       For anything about your data, or to exercise the rights below, contact the mess office in
@@ -57,7 +58,7 @@ const Privacy = () => (
   <>
     <Section title="Who runs this app and who is responsible for your data">
       <p>
-        MessConnect is operated by the CUSAT hostel mess office to run the hostel dining service.
+        MessConnect is operated by the {BRAND.org} hostel mess office to run the hostel dining service.
         The mess office decides what is collected and why, and is the body accountable for it under
         India&rsquo;s Digital Personal Data Protection Act, 2023.
       </p>
@@ -167,7 +168,7 @@ const Terms = () => (
   <>
     <Section title="What this app is">
       <p>
-        MessConnect is the CUSAT hostel mess&rsquo;s own tool for planning meals, recording attendance
+        MessConnect is the {BRAND.org} hostel mess&rsquo;s own tool for planning meals, recording attendance
         and issuing monthly bills. Access is for enrolled students and mess office staff. It is
         provided as part of the hostel mess service, not as a commercial product.
       </p>
@@ -249,14 +250,14 @@ export const LegalView: React.FC<{ page: LegalPage }> = ({ page }) => {
           style={{ color: 'var(--orange-ink)' }}
         >
           <span className="material-symbols-outlined" style={{ fontSize: 18 }}>arrow_back</span>
-          Back to CUSAT MessConnect
+          Back to {BRAND.app}
         </a>
 
         <h1 className="font-display text-[28px] font-bold" style={{ color: 'var(--text-dark)' }}>
           {isPrivacy ? 'Privacy Policy' : 'Terms of Use'}
         </h1>
         <p className="text-[13px] font-semibold mt-1" style={{ color: 'var(--text-muted)' }}>
-          CUSAT Hostel Mess &middot; last updated {UPDATED}
+          {BRAND.hostelMess} &middot; last updated {UPDATED}
         </p>
 
         {isPrivacy ? <Privacy /> : <Terms />}

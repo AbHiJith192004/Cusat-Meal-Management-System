@@ -13,6 +13,7 @@ Driven by ops/demo.sh; not meant to be run directly.
 from __future__ import annotations
 
 import asyncio
+import os
 import random
 import sys
 import uuid
@@ -32,6 +33,44 @@ STUDENTS = [
     ("Joyal Joseph",      "26021007", "OUTMESS",     "Lakeside",  "04",  "Chemical Oceanography", True),
     ("Nikhil Raj",        "26021008", "HOSTELLER",   "Sanathana", "220", "Electronics", False),  # never activated
 ]
+
+# A second hostel evaluating the app wants to see it at their own size, not
+# at eight students. DEMO_STUDENT_COUNT tops the named list up with generated
+# ones; unset, the demo is exactly the eight above and nothing changes.
+#
+#     DEMO_STUDENT_COUNT=150 DEMO_HOSTELS="Block A,Block B" ops/demo.sh
+_FIRST = ("Aarav Aditya Akash Amal Ananya Anjali Arjun Aswin Devika Diya Fathima Gokul "
+          "Harish Irfan Jishnu Kavya Keerthi Lakshmi Manu Meera Nandana Naveen Nithin "
+          "Parvathy Praveen Rahul Reshma Rohit Sandeep Sanjay Saranya Shreya Sneha "
+          "Sreenath Surya Swathi Vaishnav Varun Vishnu Yadhu").split()
+_LAST = ("Nair Menon Pillai Kurup Varma Thomas Joseph Mathew George Kumar Raj Krishnan "
+         "Mohan Suresh Babu Das Sankar Unni Chandran Rajan").split()
+_DEPTS = ("Computer Science & Engineering", "Electronics", "Civil Engineering",
+          "Mechanical Engineering", "School of Management", "Physics",
+          "Marine Biology", "Computer Applications")
+
+
+def _topped_up(base):
+    """`base` plus generated students, up to DEMO_STUDENT_COUNT."""
+    want = int(os.environ.get("DEMO_STUDENT_COUNT", len(base)) or len(base))
+    hostels = [h.strip() for h in
+               os.environ.get("DEMO_HOSTELS", "Sanathana,Lakeside").split(",") if h.strip()]
+    out = list(base)
+    # Keep the named eight on their own hostels unless the caller named some.
+    if "DEMO_HOSTELS" in os.environ:
+        out = [(n, r, t, (hostels[i % len(hostels)] if h else None), room, d, a)
+               for i, (n, r, t, h, room, d, a) in enumerate(out)]
+    for i in range(len(base), max(want, len(base))):
+        reg = f"260220{i:03d}"
+        name = f"{_FIRST[i % len(_FIRST)]} {_LAST[(i // len(_FIRST)) % len(_LAST)]}"
+        out.append((name, reg, "HOSTELLER", hostels[i % len(hostels)],
+                    str(100 + (i % 180)), _DEPTS[i % len(_DEPTS)],
+                    # A tenth left un-activated, so the demo shows both states.
+                    i % 10 != 0))
+    return out
+
+
+STUDENTS = _topped_up(STUDENTS)
 
 WEEK_MENU = {
     0: [("Chapati / Porotta", "Veg Stew", "Egg Curry", "Tea"),
