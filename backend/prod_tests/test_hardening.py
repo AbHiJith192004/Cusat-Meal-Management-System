@@ -68,7 +68,27 @@ async def test_calendar_read_only_and_atomic_day_persistence(client):
         event.remove(engine.sync_engine, 'before_cursor_execute', count)
     assert response.status_code == 200, response.text
     assert len(response.json()['data']) == 7
-    assert len(statements) <= 5
+    # Budget raised 5 -> 6 on 2026-10-16: the response now also carries how
+    # many whole days the student has already cut this month. That is ONE
+    # extra statement however long the range is -- the guard exists to catch
+    # per-day or per-student work, and this does not scale with either.
+    assert len(statements) <= 6
+    # And the budget does not grow with the range. A 31 day window spanning a
+    # month boundary needs cut counts for TWO months; if that were a loop of
+    # per-month queries this would be 7, not 6.
+    wide_start = (now_ist().date().replace(day=1) - timedelta(days=5))
+    wide_end = wide_start + timedelta(days=30)
+    statements.clear()
+    event.listen(engine.sync_engine, 'before_cursor_execute', count)
+    try:
+        wide = await client.get(
+            f'/api/v1/meals?start_date={wide_start}&end_date={wide_end}', headers=headers(student))
+    finally:
+        event.remove(engine.sync_engine, 'before_cursor_execute', count)
+    assert wide.status_code == 200, wide.text
+    assert len({d['meal_date'][:7] for d in wide.json()['data']}) == 2, 'range should span two months'
+    assert len(statements) <= 6, f'cut counting scaled with the range: {len(statements)} statements'
+
     async with async_session_factory() as db:
         assert await db.scalar(select(func.count()).select_from(MealSelection)) == before
     response = await client.put(f'/api/v1/meals/{day}', json={'status': 'SKIPPED'}, headers=headers(student))

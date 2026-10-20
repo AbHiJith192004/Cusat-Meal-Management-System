@@ -38,7 +38,7 @@ async def get_my_meals(
     holidays = {(h.holiday_date, h.meal_type): h.reason for h in
                 await service.holiday_repo.get_in_range(start, end)}
     from app.models.operations import MenuPublication
-    from sqlalchemy import select
+    from sqlalchemy import func, select
     menus = {(m.menu_date, m.meal_type): m for m in (await db.execute(
         select(MenuPublication).where(MenuPublication.menu_date.between(start, end))
     )).scalars().all()}
@@ -61,6 +61,35 @@ async def get_my_meals(
         return f"{setting_value(start_key)}–{setting_value(end_key)} IST"
     from datetime import datetime
     from app.utils.timezone import IST, now_ist
+
+    # Mess cuts already taken, per calendar month the range touches. ONE
+    # query however many months that is: /api/v1/meals has a statement budget
+    # guarding against per-day work, and a loop of per-month counts would
+    # scale with the range. Same semantic as
+    # MealRepository.count_student_monthly_mess_cuts -- dates where all three
+    # sittings are skipped -- in its set-based form.
+    import calendar as _calendar
+    from sqlalchemy import extract as _extract
+    span_start = start.replace(day=1)
+    span_end = end.replace(day=_calendar.monthrange(end.year, end.month)[1])
+    from app.models.meal import MealSelection as _MS
+    full_days = (
+        select(_MS.meal_date)
+        .where(_MS.student_id == current_user.id, _MS.status == "SKIPPED",
+               _MS.meal_date.between(span_start, span_end))
+        .group_by(_MS.meal_date)
+        .having(func.count(func.distinct(_MS.meal_type)) == 3)
+        .subquery()
+    )
+    cuts_by_month = {
+        (int(y), int(m)): int(n) for y, m, n in (await db.execute(
+            select(_extract('year', full_days.c.meal_date),
+                   _extract('month', full_days.c.meal_date), func.count())
+            .group_by(_extract('year', full_days.c.meal_date),
+                      _extract('month', full_days.c.meal_date))
+        )).all()
+    }
+
     result_days = []
     curr = start
     while curr <= end:
@@ -70,7 +99,11 @@ async def get_my_meals(
         day = {"meal_date": curr.isoformat(), "locked": now_ist() >= cutoff, "cutoff_at": cutoff.isoformat(),
                # Global, but carried per day alongside the cutoff so the meal
                # planner can state the real limit instead of a hardcoded 10.
-               "max_monthly_mess_cuts": setting_value("max_monthly_mess_cuts")}
+               "max_monthly_mess_cuts": setting_value("max_monthly_mess_cuts"),
+               # How many whole days this student has already cut in the month
+               # THIS DAY falls in -- the limit is monthly, so a week spanning
+               # a month boundary needs the count for each side, not one.
+               "mess_cuts_taken": cuts_by_month.get((curr.year, curr.month), 0)}
         for mt in ("BREAKFAST", "LUNCH", "DINNER"):
             selection = selections.get((curr, mt))
             # A whole-day closure wins: if the kitchen is shut, that is the

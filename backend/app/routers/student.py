@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.repositories.user_repo import UserRepository
 from app.schemas.common import success_response
+from app.services.meal_timing_service import MealTimingService
 from typing import Annotated
 
 from fastapi import Query
@@ -88,9 +89,16 @@ async def get_student_dashboard(
         select(func.count()).where(MealSelection.student_id == current_user.id, MealSelection.status == "ATTENDED")
     )).scalar_one() or 0
 
-    skipped_cnt = (await db.execute(
-        select(func.count()).where(MealSelection.student_id == current_user.id, MealSelection.status == "SKIPPED")
-    )).scalar_one() or 0
+    # Mess cuts the student has taken THIS MONTH, counted in days. This was
+    # count(*) over SKIPPED rows and shown to the student under the label
+    # "Mess cuts", so a single cut read as three. The repository method is the
+    # same one the monthly limit is enforced with, so the number a student
+    # sees and the number that blocks them cannot drift apart.
+    from app.repositories.meal_repo import MealRepository
+    mess_cuts_taken = await MealRepository(db).count_student_monthly_mess_cuts(
+        current_user.id, today.year, today.month
+    )
+    mess_cut_limit = await MealTimingService(db).get_max_monthly_mess_cuts()
 
     booked_cnt = (await db.execute(
         select(func.count()).where(MealSelection.student_id == current_user.id, MealSelection.status == "CONFIRMED")
@@ -107,7 +115,9 @@ async def get_student_dashboard(
             },
             "overall_stats": {
                 "meals_done": done_cnt,
-                "meals_skipped": skipped_cnt,
+                # Whole days cut this month, and the limit they count against.
+                "mess_cuts_taken": mess_cuts_taken,
+                "mess_cut_limit": mess_cut_limit,
                 "meals_booked": booked_cnt,
             },
             "pending_fines_count": 0,

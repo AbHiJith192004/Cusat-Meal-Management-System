@@ -124,37 +124,53 @@ async def test_payment_is_bound_to_published_invoice_and_reviewed_once(client):
 
 
 @pytest.mark.asyncio
-async def test_two_meal_skip_rejected_but_one_and_three_allowed(client):
-    """The real rule is 0, 1 or 3 meals skipped - never exactly 2.
+async def test_a_mess_cut_is_the_whole_day_and_single_meals_are_refused(client):
+    """The rule is now 0 or 3 meals skipped. One used to be allowed.
 
-    A deleted unit test used to assert 'max 1 meal opt-out per day', which
-    contradicts the implementation: skipping all three is a full-day mess cut
-    and is explicitly allowed. It tested a locally defined stub, so it never
-    noticed.
+    Single-meal opt-outs were dropped because the mess cooks and counts by
+    the day: a student skipping only dinner still displaced a day of planning
+    without it counting as a cut. 1 and 2 are both refused now, and the only
+    way to skip is the whole-day route.
+
+    ATTENDANCE IS UNAFFECTED and that is the point of the last assertion: a
+    cut still writes three SKIPPED rows, so the scanner keeps refusing each
+    sitting separately exactly as before.
     """
     student = await user()
     day = (now_ist().date() + timedelta(days=6)).isoformat()
+    h = headers(student)
 
-    first = await client.put(f'/api/v1/meals/{day}/BREAKFAST', json={'status': 'SKIPPED'},
-                             headers=headers(student))
-    assert first.status_code == 200, first.text
+    # One meal alone is no longer a valid state.
+    one = await client.put(f'/api/v1/meals/{day}/BREAKFAST', json={'status': 'SKIPPED'}, headers=h)
+    assert one.status_code == 422, one.text
+    assert 'whole day' in one.json()['error']['message'].lower()
 
-    second = await client.put(f'/api/v1/meals/{day}/LUNCH', json={'status': 'SKIPPED'},
-                              headers=headers(student))
-    assert second.status_code == 422, second.text
+    # And nothing was written by the refusal.
+    async with async_session_factory() as db:
+        assert await db.scalar(select(func.count()).select_from(MealSelection).where(
+            MealSelection.student_id == student.id,
+            MealSelection.meal_date == date.fromisoformat(day),
+            MealSelection.status == 'SKIPPED')) == 0
 
-    # Three is a mess cut, and the whole-day route reaches it without ever
-    # passing through the invalid two-skip state.
-    whole = await client.put(f'/api/v1/meals/{day}', json={'status': 'SKIPPED'},
-                             headers=headers(student))
+    # The whole day is allowed, and is the only way through.
+    whole = await client.put(f'/api/v1/meals/{day}', json={'status': 'SKIPPED'}, headers=h)
     assert whole.status_code == 200, whole.text
 
     async with async_session_factory() as db:
-        skipped = await db.scalar(select(func.count()).select_from(MealSelection).where(
+        rows = (await db.execute(select(MealSelection.meal_type).where(
             MealSelection.student_id == student.id,
             MealSelection.meal_date == date.fromisoformat(day),
-            MealSelection.status == 'SKIPPED'))
-    assert skipped == 3
+            MealSelection.status == 'SKIPPED'))).scalars().all()
+    # Three rows, one per sitting: what the scanner and the fine job read.
+    assert sorted(rows) == ['BREAKFAST', 'DINNER', 'LUNCH']
+
+    # Opting ONE meal back in would leave two skipped, which is not a state.
+    back = await client.put(f'/api/v1/meals/{day}/LUNCH', json={'status': 'CONFIRMED'}, headers=h)
+    assert back.status_code == 422, back.text
+
+    # The whole day comes back in one move.
+    undo = await client.put(f'/api/v1/meals/{day}', json={'status': 'CONFIRMED'}, headers=h)
+    assert undo.status_code == 200, undo.text
 
 
 @pytest.mark.asyncio
@@ -732,9 +748,10 @@ async def test_closing_the_mess_for_a_day_is_visible_cancellable_and_keeps_atten
         await db.execute(delete(Holiday).where(Holiday.holiday_date == day))
         await db.commit()
 
-    # The student opts out of breakfast first, so the revert at the end has
-    # something to restore that is not just "CONFIRMED".
-    assert (await client.put(f'/api/v1/meals/{day}/BREAKFAST',
+    # The student takes a mess cut first, so the revert at the end has
+    # something to restore that is not just "CONFIRMED". A cut is the whole
+    # day now, so this is the whole-day route rather than one sitting.
+    assert (await client.put(f'/api/v1/meals/{day}',
                              json={'status': 'SKIPPED'}, headers=s)).status_code == 200
 
     declared = await client.post('/api/v1/admin/holidays', json={
@@ -784,7 +801,8 @@ async def test_closing_the_mess_for_a_day_is_visible_cancellable_and_keeps_atten
     reopened = (await client.get(f'/api/v1/meals?start_date={day}&end_date={day}',
                                  headers=s)).json()['data'][0]
     assert reopened['breakfast']['status'] == 'SKIPPED'
-    assert reopened['lunch']['status'] == 'CONFIRMED'
+    # The whole day was cut before the closure, so all three come back cut.
+    assert reopened['lunch']['status'] == 'SKIPPED'
     assert reopened['breakfast']['no_service_reason'] is None
     assert (await client.get(f'/api/v1/admin/holidays?start={day}&end={day}',
                              headers=h)).json()['data'] == []
@@ -797,7 +815,7 @@ async def test_closing_the_mess_for_a_day_is_visible_cancellable_and_keeps_atten
                                 headers=s)).json()['data'][0]
     assert partial['dinner']['status'] == 'NO_SERVICE'
     assert partial['dinner']['no_service_reason'] == 'Hostel day feast outside'
-    assert partial['lunch']['status'] == 'CONFIRMED'
+    assert partial['lunch']['status'] == 'SKIPPED'
     assert partial['breakfast']['status'] == 'SKIPPED'
 
     # Leave the shared database as it was found.

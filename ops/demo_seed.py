@@ -169,12 +169,19 @@ async def main() -> int:
         day = start
         while day < today:
             for u in eaters:
+                # A mess cut is the WHOLE day, so the decision to skip is made
+                # once per student per day and applies to all three sittings.
+                # Rolling per meal produced days with one or two meals skipped,
+                # which the app cannot reach any more and which made the demo
+                # show states a real student could never be in.
+                cut_today = random.random() < 0.08
                 for meal in meals:
-                    roll = random.random()
-                    if roll < 0.10:
+                    if cut_today:
                         db.add(MealSelection(id=uuid.uuid4(), student_id=u.id, meal_date=day,
                                              meal_type=meal, status="SKIPPED"))
-                    elif roll < 0.88:
+                        continue
+                    roll = random.random()
+                    if roll < 0.88:
                         db.add(Attendance(id=uuid.uuid4(), student_id=u.id, meal_date=day,
                                           meal_type=meal, attendance_type="QR_SCAN",
                                           recorded_at=now_ist(), recorded_by=admin.id))

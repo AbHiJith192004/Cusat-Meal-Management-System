@@ -250,7 +250,7 @@ export const StudentHomeView: React.FC<StudentHomeViewProps> = ({ studentName, o
               <span className="material-symbols-outlined" style={{ fontSize: 18, color: 'var(--text-muted)' }}>
                 event_available
               </span>
-              Opt out of a meal
+              Take a mess cut
             </button>
             <button
               onClick={() => onNavigate('alerts')}

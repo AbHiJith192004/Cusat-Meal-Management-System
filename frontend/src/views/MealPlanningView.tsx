@@ -30,12 +30,9 @@ const MEALS: MealKey[] = ['breakfast', 'lunch', 'dinner'];
 export const MealPlanningView: React.FC = () => {
   const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [mealPlans, setMealPlans] = useState<any[]>([]);
-  // WHICH control is waiting on the server, not WHETHER one is. A single
-  // shared boolean meant that saving one meal put every other meal into the
-  // locked state as well: all three toggles vanished, were replaced by the
-  // grey "Locked" chip, and came back when the request finished. Toggling
-  // breakfast made lunch and dinner flicker for no reason.
-  const [savingMeal, setSavingMeal] = useState<MealKey | null>(null);
+  // The only control on this screen. Per-meal toggles were removed when a
+  // mess cut became the whole day, so there is one thing that can be in
+  // flight and one flag for it.
   const [savingFullDay, setSavingFullDay] = useState(false);
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -72,33 +69,18 @@ export const MealPlanningView: React.FC = () => {
         .toUpperCase()
     : null;
   const messCutLimit = activePlan.max_monthly_mess_cuts ?? null;
+  // Whole days already cut in the month the selected day falls in, from the
+  // server -- the same count the monthly limit is enforced against.
+  const cutsTaken: number | null = activePlan.mess_cuts_taken ?? null;
+  const cutsLeft = messCutLimit !== null && cutsTaken !== null
+    ? Math.max(0, Number(messCutLimit) - cutsTaken) : null;
   const isLocked = loading || !activePlan.cutoff_at
     || Date.now() >= new Date(activePlan.cutoff_at).getTime();
-  // A full-day save rewrites all three rows and then reloads them, so while it
-  // runs the individual toggles really do have to hold still. A single meal's
-  // save does not touch the other two, so they stay live.
+  // A full-day save rewrites all three rows and then reloads them.
   const wholeDayBusy = savingFullDay;
 
-  const handleToggle = async (meal: MealKey) => {
-    if (isLocked || wholeDayBusy || savingMeal === meal) return;
-    setSavingMeal(meal);
-    const cur = activePlan[meal]?.status || 'CONFIRMED';
-    const next = cur === 'CONFIRMED' ? 'SKIPPED' : 'CONFIRMED';
-    try {
-      setErrorMsg(null);
-      await mealApi.updateMealSelection(selectedDate, meal.toUpperCase(), next);
-      setMealPlans(prev =>
-        prev.map(p =>
-          p.meal_date === selectedDate ? { ...p, [meal]: { ...p[meal], status: next } } : p
-        )
-      );
-    } catch (e: any) {
-      setErrorMsg(e.message || 'Could not save. The cutoff may have passed.');
-    } finally { setSavingMeal(null); }
-  };
-
   const handleFullDay = async () => {
-    if (isLocked || wholeDayBusy || savingMeal) return;
+    if (isLocked || wholeDayBusy) return;
     setSavingFullDay(true);
     const status = MEALS.every(m => activePlan[m]?.status === 'SKIPPED') ? 'CONFIRMED' : 'SKIPPED';
     try {
@@ -165,16 +147,28 @@ export const MealPlanningView: React.FC = () => {
             </span>
             <span className="text-[11px] sm:text-xs font-semibold block mt-0.5" style={{ color: 'var(--text-muted)' }}>
               {messCutLimit === null
-                ? 'Note: the monthly mess cut limit is set by the mess office.'
-                : <>Note: A student can take up to a maximum of <strong>{messCutLimit} mess cuts per month</strong>.</>}
+                ? 'A mess cut is a whole day off. The monthly limit is set by the mess office.'
+                : <>A mess cut is a <strong>whole day</strong> &mdash; all three meals. Up to <strong>{messCutLimit} per month</strong>.</>}
             </span>
           </div>
         </div>
-        <div className="flex items-center gap-2 self-start sm:self-auto px-3 py-1.5 rounded-xl border bg-[#FDF7EA] border-[#E3CB9B]">
-          <span className="text-[10px] font-black uppercase text-[#9B7B52]">Policy:</span>
-          <span className="text-xs font-black text-[#F47A35] font-mono">
-            {messCutLimit === null ? 'Monthly limit' : `Max ${messCutLimit} Cuts / Month`}
+        {/* What a student actually wants to know: how many they have used. */}
+        <div
+          className="flex items-center gap-2.5 self-start sm:self-auto px-3.5 py-2 rounded-xl border"
+          style={cutsLeft === 0
+            ? { background: '#FDECEA', borderColor: '#F6C8C3' }
+            : { background: '#FDF7EA', borderColor: '#E3CB9B' }}
+        >
+          <span className="text-[10px] font-black uppercase" style={{ color: '#9B7B52' }}>Used</span>
+          <span className="text-sm font-black font-mono"
+                style={{ color: cutsLeft === 0 ? 'var(--red)' : '#F47A35' }}>
+            {cutsTaken === null ? '\u2014' : `${cutsTaken} / ${messCutLimit ?? '\u2014'}`}
           </span>
+          {cutsLeft !== null && (
+            <span className="text-[10px] font-bold" style={{ color: 'var(--text-muted)' }}>
+              {cutsLeft === 0 ? 'none left' : `${cutsLeft} left`}
+            </span>
+          )}
         </div>
       </div>
 
@@ -288,7 +282,6 @@ export const MealPlanningView: React.FC = () => {
               <input
                 type="checkbox"
                 checked={isFullDayCut}
-                disabled={Boolean(savingMeal)}
                 onChange={handleFullDay}
                 aria-label="Full-Day Mess Cut Toggle"
               />
@@ -391,18 +384,7 @@ export const MealPlanningView: React.FC = () => {
                       {mealClosed ? 'Mess closed' : confirmed ? "I'm eating" : 'Skipping'}
                     </span>
 
-                    {savingMeal === meal ? (
-                      <span
-                        className="text-[11px] font-bold flex items-center gap-1"
-                        style={{ color: 'var(--text-muted)' }}
-                        role="status"
-                      >
-                        <span className="material-symbols-outlined animate-spin" style={{ fontSize: 15 }}>
-                          progress_activity
-                        </span>
-                        Saving…
-                      </span>
-                    ) : mealClosed ? (
+                    {mealClosed ? (
                       <span
                         className="px-2 py-0.5 text-[10px] font-black rounded-full uppercase tracking-wider"
                         style={{ background: '#FEE2E2', color: 'var(--red)' }}
@@ -417,19 +399,7 @@ export const MealPlanningView: React.FC = () => {
                         <span className="material-symbols-outlined" style={{ fontSize: 15 }}>lock</span>
                         Locked
                       </span>
-                    ) : (
-                      <label className="stitch-toggle" title={confirmed ? 'Opt out' : 'Opt in'}>
-                        <input
-                          type="checkbox"
-                          checked={confirmed}
-                          disabled={wholeDayBusy}
-                          onChange={() => handleToggle(meal)}
-                          aria-label={`${MEAL_LABELS[meal]} — ${confirmed ? 'eating' : 'skipping'}`}
-                        />
-                        <div className="stitch-toggle-track" />
-                        <div className="stitch-toggle-thumb" />
-                      </label>
-                    )}
+                    ) : null}
                   </div>
                 </section>
               );

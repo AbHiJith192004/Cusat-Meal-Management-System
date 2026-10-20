@@ -79,7 +79,9 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         if (dashboard?.overall_stats) {
           setStats({
             done: dashboard.overall_stats.meals_done ?? 0,
-            skipped: dashboard.overall_stats.meals_skipped ?? 0,
+            // Whole DAYS cut this month, not meals. This read meals_skipped,
+            // so one cut showed as three under a label saying "Mess cuts".
+            skipped: dashboard.overall_stats.mess_cuts_taken ?? 0,
             upcoming: dashboard.overall_stats.meals_booked ?? 0,
           });
         }
@@ -212,7 +214,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             >
               {[
                 { label: 'Attended', value: stats?.done },
-                { label: 'Mess cuts', value: stats?.skipped },
+                { label: 'Mess cuts this month', value: stats?.skipped },
                 { label: 'Upcoming', value: stats?.upcoming },
               ].map((s, i) => (
                 <div

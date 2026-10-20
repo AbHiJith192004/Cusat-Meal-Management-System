@@ -47,7 +47,19 @@ class MealService:
     async def update_meal_selection(
         self, student_id: uuid.UUID, meal_date: date, meal_type: str, target_status: str, actor_id: uuid.UUID, whole_day: bool = False
     ) -> MealSelection:
-        """Update meal selection status enforcing 9:00 PM cutoff, holiday checks, valid daily opt-out combinations (0, 1, or 3 meals), and max 10 mess cuts/month."""
+        """Update a selection, enforcing the cutoff, closures, the whole-day
+        opt-out rule and the monthly mess-cut limit.
+
+        A MESS CUT IS THE WHOLE DAY. A student opts out of all three sittings
+        or none: 0 or 3 skipped, never 1 and never 2. Single-meal opt-outs
+        used to be allowed and are not any more -- the mess cooks and counts
+        by the day, so a student skipping only dinner still displaced a day's
+        worth of planning without it counting as a cut.
+
+        This does not touch attendance. The scanner remains per sitting: a
+        student on a cut has all three marked SKIPPED and is refused at each,
+        exactly as before.
+        """
         from app.services.billing_lock import lock_open_period
         await lock_open_period(self.session, meal_date)
         # Lock the existing parent even when no selection rows exist yet.
@@ -83,11 +95,12 @@ class MealService:
         was_full_day_mess_cut = all(st == MealStatus.SKIPPED.value for st in current_map.values())
         is_now_full_day_mess_cut = (len(skipped_meals) == 3)
 
-        # Validation Rule A: 2 meals skipped is NOT allowed! (Must be 0, 1, or 3 meals)
-        if len(skipped_meals) == 2:
+        # Validation Rule A: a day is all in or all out. 1 and 2 skipped are
+        # both refused; only 0 or 3 are reachable states.
+        if len(skipped_meals) not in (0, 3):
             from app.utils.exceptions import ValidationException
             raise ValidationException(
-                message="Invalid selection. You can either opt out of 1 meal per day or opt out of the entire day for a mess cut."
+                message="A mess cut is for the whole day. Opt out of all three meals, or none."
             )
 
         # Validation Rule B: a Full Day Mess Cut (3 meals skipped) counts against
