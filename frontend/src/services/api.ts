@@ -208,6 +208,15 @@ export const mealApi = {
     return request<any[]>(`/meals${q ? `?${q}` : ''}`);
   },
 
+  // Whole days cut, month by month, with the dates behind each total. The
+  // planner only ever asks for the week ahead, so this is the only way a
+  // student can see a month that has already ended.
+  getMessCutHistory: (months = 6) =>
+    request<{ mess_cut_limit: number; months: Array<{
+      year: number; month: number; label: string; mess_cuts: number;
+      dates: string[]; is_current_month: boolean;
+    }> }>(`/meals/mess-cuts?months=${months}`),
+
   updateFullDay: (mealDate: string, status: 'CONFIRMED' | 'SKIPPED') =>
     request<any>(`/meals/${mealDate}`, { method: 'PUT', body: JSON.stringify({ status }) }),
 

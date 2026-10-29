@@ -124,6 +124,78 @@ async def get_my_meals(
     return success_response(data=result_days)
 
 
+@router.get("/mess-cuts")
+async def get_my_mess_cut_history(
+    current_user: CurrentUser,
+    months: Annotated[int, Query(ge=1, le=24, description="How many months back to include")] = 6,
+    db: AsyncSession = Depends(get_db, scope="function"),
+):
+    """A student's own mess-cut history, month by month, with the dates.
+
+    THE GAP THIS FILLS: GET /api/v1/meals defaults to today..today+6 and is
+    capped at 31 days, so the planner can only ever show the week ahead. A
+    student could see the running total for the current month but not which
+    days it came from, and nothing at all about a month that had ended. The
+    first question anyone asks a bill is "which days were these", and until
+    now the app could not answer it.
+
+    Whole days only, the same definition the limit is enforced with, so this
+    page and the number that blocks a fourth cut cannot disagree.
+
+    ONE QUERY for the whole span. The obvious shape -- loop the months and
+    call count_student_monthly_mess_cuts for each -- is N queries for N
+    months and would have put a per-month cost on a screen that exists to
+    show several at once.
+    """
+    import calendar as _calendar
+    from sqlalchemy import func, select
+    from app.models.meal import MealSelection
+    from app.services.meal_timing_service import MealTimingService
+
+    today = today_ist()
+    # First day of the earliest month in range. months=1 means this month only.
+    span_months = (today.year * 12 + today.month - 1) - (months - 1)
+    span_start = date(span_months // 12, span_months % 12 + 1, 1)
+    span_end = date(today.year, today.month,
+                    _calendar.monthrange(today.year, today.month)[1])
+
+    full_days = (
+        select(MealSelection.meal_date)
+        .where(MealSelection.student_id == current_user.id,
+               MealSelection.status == "SKIPPED",
+               MealSelection.meal_date.between(span_start, span_end))
+        .group_by(MealSelection.meal_date)
+        .having(func.count(func.distinct(MealSelection.meal_type)) == 3)
+        .subquery()
+    )
+    cut_dates = sorted((await db.execute(select(full_days.c.meal_date))).scalars().all())
+
+    limit = await MealTimingService(db).get_max_monthly_mess_cuts()
+
+    by_month: dict[tuple[int, int], list] = {}
+    for d in cut_dates:
+        by_month.setdefault((d.year, d.month), []).append(d)
+
+    # Every month in the span is returned, including empty ones. A month that
+    # is simply missing from the list reads as "no data recorded", which is a
+    # different claim from "you took no cuts", and only one of them is true.
+    out = []
+    for i in range(months):
+        idx = (today.year * 12 + today.month - 1) - i
+        y, m = idx // 12, idx % 12 + 1
+        days = by_month.get((y, m), [])
+        out.append({
+            "year": y,
+            "month": m,
+            "label": f"{_calendar.month_name[m]} {y}",
+            "mess_cuts": len(days),
+            "dates": [d.isoformat() for d in days],
+            "is_current_month": (y == today.year and m == today.month),
+        })
+
+    return success_response(data={"mess_cut_limit": limit, "months": out})
+
+
 @router.put("/{meal_date}/{meal_type}")
 async def update_meal_selection(
     meal_date: Annotated[date, Path(description="Meal date (YYYY-MM-DD)")],

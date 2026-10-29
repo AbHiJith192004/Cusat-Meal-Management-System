@@ -151,6 +151,54 @@ async def get_admin_dashboard(
             "error": details.get("error"),
         }
 
+    # HOW MANY ARE EATING TOMORROW AND THE DAY AFTER. Everything above this
+    # point is about today, which is no use for ordering food: by the time a
+    # cut shows up in today's figures the rice is already cooked. The cutoff
+    # is the night before, so tomorrow's number is firm by 9pm tonight and
+    # the day after is an early indication.
+    #
+    # A mess cut is a whole day, so this counts STUDENT-DAYS where all three
+    # sittings are SKIPPED -- the same definition the monthly limit uses --
+    # not skipped rows, which would treble every figure.
+    #
+    # One grouped query for both days rather than one per day. A closed day
+    # is reported as closed instead of as a day with no cuts, because those
+    # mean opposite things to someone deciding how much to buy.
+    horizon_start = today + timedelta(days=1)
+    horizon_end = today + timedelta(days=2)
+    cut_days = (
+        select(MealSelection.meal_date, MealSelection.student_id)
+        .where(MealSelection.status == "SKIPPED",
+               MealSelection.meal_date.between(horizon_start, horizon_end))
+        .group_by(MealSelection.meal_date, MealSelection.student_id)
+        .having(func.count(func.distinct(MealSelection.meal_type)) == 3)
+        .subquery()
+    )
+    cuts_by_date = {d: int(n) for d, n in (await db.execute(
+        select(cut_days.c.meal_date, func.count()).group_by(cut_days.c.meal_date)
+    )).all()}
+    # A whole-day closure is stored with meal_type NULL.
+    closed_dates = {h for (h,) in (await db.execute(
+        select(Holiday.holiday_date).where(
+            Holiday.holiday_date.between(horizon_start, horizon_end),
+            Holiday.meal_type.is_(None))
+    )).all()}
+
+    upcoming = []
+    for offset, label in ((1, "Tomorrow"), (2, "Day after")):
+        day = today + timedelta(days=offset)
+        cuts = cuts_by_date.get(day, 0)
+        closed = day in closed_dates
+        upcoming.append({
+            "date": day.isoformat(),
+            "label": label,
+            "closed": closed,
+            "mess_cuts": cuts,
+            # What to actually cook for. Zero when the mess is shut, rather
+            # than the whole active roll, which is the number that matters.
+            "expected_eaters": 0 if closed else max(0, active_students - cuts),
+        })
+
     return success_response(
         data={
             "date": today.isoformat(),
@@ -160,6 +208,9 @@ async def get_admin_dashboard(
             "active_holidays_count": upcoming_holidays,
             # null until the job has run once with this code deployed.
             "last_reconciliation": reconciliation,
+            # Forward-looking cut counts, so food can be ordered against the
+            # number who will actually eat rather than the roll.
+            "upcoming_mess_cuts": upcoming,
         }
     )
 

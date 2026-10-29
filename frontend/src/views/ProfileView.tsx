@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { studentApi } from '../services/api';
+import { mealApi, studentApi } from '../services/api';
 import { ART_CREDIT } from '../components/FoodIllustrations';
 import { Avatar } from '../components/Avatar';
 import { Modal } from '../components/Modal';
@@ -54,6 +54,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const [showSupport, setShowSupport] = useState(false);
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [stats, setStats] = useState<{ done: number; skipped: number; upcoming: number } | null>(null);
+  type CutHistory = Awaited<ReturnType<typeof mealApi.getMessCutHistory>>;
+  const [cutHistory, setCutHistory] = useState<CutHistory | null>(null);
   const [error, setError] = useState('');
 
   const isAdmin = userRole === 'admin' || userRole === 'super_admin';
@@ -72,10 +74,16 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     Promise.all([
       studentApi.getProfile(),
       isAdmin ? Promise.resolve(null) : studentApi.getDashboard(),
+      // Six months back. The figure above answers "how many this month";
+      // this answers "which days", which is what anyone checking a bill
+      // needs, and it is the only view of a month that has already ended.
+      // Failure here must not take the whole profile down with it.
+      isAdmin ? Promise.resolve(null) : mealApi.getMessCutHistory(6).catch(() => null),
     ])
-      .then(([identity, dashboard]) => {
+      .then(([identity, dashboard, history]) => {
         if (!active) return;
         setProfile(identity);
+        if (history) setCutHistory(history);
         if (dashboard?.overall_stats) {
           setStats({
             done: dashboard.overall_stats.meals_done ?? 0,
@@ -233,6 +241,72 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   </p>
                   <p className="text-[10.5px] font-bold" style={{ color: 'var(--text-muted)' }}>
                     {s.label}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* MESS CUT HISTORY. The planner can only show the week ahead, so
+              without this a student has no way to see which days a total is
+              made of, or anything at all about a month that has ended. */}
+          {!isAdmin && cutHistory && (
+            <div
+              className="mt-4 rounded-2xl overflow-hidden lg:rounded-lg"
+              style={{ border: '1px solid var(--line)', background: 'var(--bg)' }}
+            >
+              <div
+                className="flex items-baseline justify-between px-4 py-2.5"
+                style={{ borderBottom: '1px solid var(--line)' }}
+              >
+                <p className="text-[12px] font-black" style={{ color: 'var(--text-dark)' }}>
+                  Mess cut history
+                </p>
+                <p className="text-[10.5px] font-bold" style={{ color: 'var(--text-muted)' }}>
+                  {cutHistory.mess_cut_limit} allowed each month
+                </p>
+              </div>
+              {cutHistory.months.map(m => (
+                <div
+                  key={`${m.year}-${m.month}`}
+                  className="px-4 py-2.5"
+                  style={{ borderTop: '1px solid var(--line)' }}
+                >
+                  <div className="flex items-baseline justify-between">
+                    <p
+                      className="text-[12px]"
+                      style={{
+                        color: 'var(--text-body)',
+                        fontWeight: m.is_current_month ? 800 : 600,
+                      }}
+                    >
+                      {m.label}
+                      {m.is_current_month && (
+                        <span className="ml-1.5 text-[10px] font-bold" style={{ color: 'var(--text-muted)' }}>
+                          this month
+                        </span>
+                      )}
+                    </p>
+                    <p
+                      className="text-[12px] font-black"
+                      style={{
+                        color: m.mess_cuts >= cutHistory.mess_cut_limit ? 'var(--red)' : 'var(--text-dark)',
+                        fontVariantNumeric: 'tabular-nums',
+                      }}
+                    >
+                      {m.mess_cuts} / {cutHistory.mess_cut_limit}
+                    </p>
+                  </div>
+                  {/* The dates behind the number. A month with none says so
+                      in words rather than showing an empty row, which reads
+                      as missing data. */}
+                  <p className="mt-1 text-[10.5px]" style={{ color: 'var(--text-muted)' }}>
+                    {m.dates.length === 0
+                      ? 'No mess cuts'
+                      : m.dates
+                          .map(d => new Date(d + 'T00:00:00').toLocaleDateString(undefined,
+                            { day: 'numeric', month: 'short' }))
+                          .join(' · ')}
                   </p>
                 </div>
               ))}

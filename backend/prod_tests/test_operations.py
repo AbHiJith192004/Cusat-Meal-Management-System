@@ -1148,3 +1148,146 @@ async def test_a_mess_cut_counts_as_one_day_not_three_meals(client):
             await db.execute(delete(MealSelection).where(
                 MealSelection.student_id.in_([roster_student.id, trend_student.id])))
             await db.commit()
+
+
+async def _cut_whole_day(student_id, day):
+    """Write a whole-day mess cut straight to the table.
+
+    Goes around the API deliberately: the API refuses to edit a past date
+    (the cutoff has gone) and these tests need cuts in months that have
+    already ended.
+    """
+    async with async_session_factory() as db:
+        for mt in ('BREAKFAST', 'LUNCH', 'DINNER'):
+            db.add(MealSelection(id=uuid.uuid4(), student_id=student_id,
+                                 meal_date=day, meal_type=mt, status='SKIPPED'))
+        await db.commit()
+
+
+@pytest.mark.asyncio
+async def test_student_can_read_their_own_mess_cut_history_by_month(client):
+    """Which days were cut, in months that have already ended.
+
+    The planner only ever asks for today..today+6, so before this endpoint a
+    student could see a running total for the current month and nothing else
+    -- not the dates behind it, and nothing at all once a month closed. That
+    is the first thing anyone checks a bill against.
+    """
+    student = await user()
+    h = headers(student)
+    today = now_ist().date()
+
+    # Current month: two whole days cut, anchored to the 1st and 2nd so the
+    # test does not depend on how far into the month it runs.
+    this_month = today.replace(day=1)
+    await _cut_whole_day(student.id, this_month)
+    await _cut_whole_day(student.id, this_month + timedelta(days=1))
+
+    # Previous month: one whole day. Computed by stepping back from the 1st,
+    # which is correct across a year boundary where month-1 is not.
+    last_month_end = this_month - timedelta(days=1)
+    last_month_day = last_month_end.replace(day=9)
+    await _cut_whole_day(student.id, last_month_day)
+
+    # A SINGLE SKIPPED MEAL IS NOT A CUT. Without this the endpoint could be
+    # counting rows or part-days and every assertion below would still pass.
+    async with async_session_factory() as db:
+        db.add(MealSelection(id=uuid.uuid4(), student_id=student.id,
+                             meal_date=this_month + timedelta(days=4),
+                             meal_type='DINNER', status='SKIPPED'))
+        await db.commit()
+
+    res = await client.get('/api/v1/meals/mess-cuts?months=3', headers=h)
+    assert res.status_code == 200, res.text
+    data = res.json()['data']
+    months = data['months']
+
+    assert len(months) == 3, 'asked for three months and did not get three'
+    assert months[0]['is_current_month'] is True
+    assert [m['is_current_month'] for m in months] == [True, False, False]
+
+    # Exact counts, not ">= 1". The single DINNER skip must be invisible.
+    assert months[0]['mess_cuts'] == 2, months[0]
+    assert months[0]['dates'] == [this_month.isoformat(),
+                                  (this_month + timedelta(days=1)).isoformat()]
+    assert months[1]['mess_cuts'] == 1
+    assert months[1]['dates'] == [last_month_day.isoformat()]
+    assert months[1]['year'] == last_month_day.year
+    assert months[1]['month'] == last_month_day.month
+
+    # The month with nothing in it is RETURNED, reading zero, rather than
+    # omitted -- "no cuts" and "no data" are different claims.
+    assert months[2]['mess_cuts'] == 0 and months[2]['dates'] == []
+
+    # The limit comes from settings, so the history and the rule that blocks
+    # a further cut cannot disagree on screen.
+    assert int(data['mess_cut_limit']) > 0
+
+    # And the window is honoured: one month back excludes last month's cut.
+    narrow = await client.get('/api/v1/meals/mess-cuts?months=1', headers=h)
+    assert narrow.status_code == 200
+    assert len(narrow.json()['data']['months']) == 1
+    assert narrow.json()['data']['months'][0]['mess_cuts'] == 2
+
+
+@pytest.mark.asyncio
+async def test_admin_dashboard_counts_mess_cuts_for_the_next_two_days(client):
+    """Tomorrow and the day after, so food can be ordered against real numbers.
+
+    Everything else on that dashboard is about today, which is too late to
+    buy anything with. Asserted as exact DELTAS because the figures are
+    whole-hostel totals and this database is shared with every other test in
+    the suite -- an absolute number here would be meaningless.
+    """
+    admin = await user('ADMIN')
+    h = headers(admin)
+    # Both students exist BEFORE the first read, so active_students does not
+    # move between the two reads and the delta on expected_eaters is purely
+    # the cut.
+    a, b = await user(), await user()
+    today = now_ist().date()
+    tomorrow, day_after = today + timedelta(days=1), today + timedelta(days=2)
+
+    before = (await client.get('/api/v1/admin/dashboard', headers=h)).json()['data']
+    assert 'upcoming_mess_cuts' in before, 'dashboard has no forward-looking figures'
+    base = {d['date']: d for d in before['upcoming_mess_cuts']}
+    assert list(base) == [tomorrow.isoformat(), day_after.isoformat()]
+    assert [d['label'] for d in before['upcoming_mess_cuts']] == ['Tomorrow', 'Day after']
+
+    await _cut_whole_day(a.id, tomorrow)
+    await _cut_whole_day(b.id, day_after)
+    # One lone skipped meal tomorrow, which is NOT a cut and must not move
+    # the count. Without this the endpoint could be counting rows.
+    async with async_session_factory() as db:
+        db.add(MealSelection(id=uuid.uuid4(), student_id=b.id, meal_date=tomorrow,
+                             meal_type='LUNCH', status='SKIPPED'))
+        await db.commit()
+
+    after = {d['date']: d for d in
+             (await client.get('/api/v1/admin/dashboard', headers=h)).json()['data']['upcoming_mess_cuts']}
+
+    assert after[tomorrow.isoformat()]['mess_cuts'] == base[tomorrow.isoformat()]['mess_cuts'] + 1
+    assert after[day_after.isoformat()]['mess_cuts'] == base[day_after.isoformat()]['mess_cuts'] + 1
+    # One more person not eating tomorrow means one fewer to cook for.
+    assert (after[tomorrow.isoformat()]['expected_eaters']
+            == base[tomorrow.isoformat()]['expected_eaters'] - 1)
+
+    # A CLOSED DAY IS NOT A QUIET DAY. Shutting the mess must read as closed
+    # with nobody to cook for, not as a normal day that happens to have no
+    # cuts, because those two tell the kitchen opposite things.
+    declared = await client.post('/api/v1/admin/holidays', json={
+        'date': tomorrow.isoformat(), 'meal_type': None,
+        'reason': 'Synthetic closure for regression'},
+        headers=h)
+    assert declared.status_code == 200, declared.text
+    try:
+        closed = {d['date']: d for d in
+                  (await client.get('/api/v1/admin/dashboard', headers=h)).json()['data']['upcoming_mess_cuts']}
+        assert closed[tomorrow.isoformat()]['closed'] is True
+        assert closed[tomorrow.isoformat()]['expected_eaters'] == 0
+        assert closed[day_after.isoformat()]['closed'] is False
+    finally:
+        # Leave the shared database as it was found.
+        async with async_session_factory() as db:
+            await db.execute(delete(Holiday).where(Holiday.holiday_date == tomorrow))
+            await db.commit()

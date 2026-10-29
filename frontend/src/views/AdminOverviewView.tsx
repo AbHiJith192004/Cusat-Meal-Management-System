@@ -25,6 +25,15 @@ interface Reconciliation {
   error: string | null;
 }
 
+interface UpcomingDay {
+  date: string;
+  label: string;
+  closed: boolean;
+  mess_cuts: number;
+  /** Active students minus whole-day cuts; zero when the mess is shut. */
+  expected_eaters: number;
+}
+
 interface DashboardData {
   date: string;
   total_students: number;
@@ -32,6 +41,8 @@ interface DashboardData {
   today_stats: Record<MealKey, MealStats>;
   /** Null until the nightly job has run once since this was deployed. */
   last_reconciliation?: Reconciliation | null;
+  /** Tomorrow and the day after. Absent on an older backend. */
+  upcoming_mess_cuts?: UpcomingDay[];
 }
 
 /**
@@ -508,6 +519,52 @@ export function AdminOverviewView() {
               </div>
             );
           })}
+
+          {/* COOKING AHEAD. Every other figure on this screen is about
+              today, which is no use for ordering food -- by the time a cut
+              shows in today's numbers the rice is bought. The cutoff is the
+              night before, so tomorrow is firm and the day after is an
+              early read. */}
+          {data?.upcoming_mess_cuts && data.upcoming_mess_cuts.length > 0 && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              {data.upcoming_mess_cuts.map(day => (
+                <div
+                  key={day.date}
+                  className="rounded-2xl p-4"
+                  style={{ background: 'var(--card)', border: '1px solid var(--card-border)', boxShadow: 'var(--card-shadow)' }}
+                >
+                  <div className="flex items-baseline justify-between gap-2">
+                    <p className="text-[11px] font-bold uppercase tracking-wider" style={{ color: 'var(--text-muted)' }}>
+                      {day.label}
+                    </p>
+                    <p className="text-[11px] font-bold" style={{ color: 'var(--text-muted)' }}>
+                      {new Date(day.date + 'T00:00:00').toLocaleDateString(undefined,
+                        { weekday: 'short', day: 'numeric', month: 'short' })}
+                    </p>
+                  </div>
+                  {day.closed ? (
+                    // A closed day is not a quiet day. Showing "0 cuts" here
+                    // would tell the kitchen to cook for everyone.
+                    <p className="font-display text-[20px] font-bold leading-tight mt-1" style={{ color: 'var(--red)' }}>
+                      Mess closed
+                    </p>
+                  ) : (
+                    <>
+                      <p className="font-display text-[26px] font-bold leading-tight mt-1" style={{ color: 'var(--text-dark)', fontVariantNumeric: 'tabular-nums' }}>
+                        {day.expected_eaters.toLocaleString()}
+                        <span className="text-[13px] font-bold ml-1.5" style={{ color: 'var(--text-muted)' }}>
+                          eating
+                        </span>
+                      </p>
+                      <p className="text-[11.5px] font-bold mt-0.5" style={{ color: 'var(--text-muted)' }}>
+                        {day.mess_cuts.toLocaleString()} mess {day.mess_cuts === 1 ? 'cut' : 'cuts'} so far
+                      </p>
+                    </>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Things waiting on someone, rather than today's service */}
           {data && (
