@@ -16,6 +16,18 @@ class ActivateWithDobRequest(BaseModel):
     password: str = Field(min_length=12, max_length=128)
 
 
+class ResetPasswordWithDobRequest(BaseModel):
+    """Same shape as activation, kept as its own model on purpose.
+
+    They are identical today. Binding the reset to the activation model would
+    mean a later change to one silently changed the other, and these two have
+    different security weight.
+    """
+    registration_number: str = Field(min_length=1, max_length=50)
+    date_of_birth: str = Field(min_length=6, max_length=32)
+    password: str = Field(min_length=12, max_length=128)
+
+
 class LoginRequest(BaseModel):
     """Request body for login."""
     registration_number: str = Field(..., min_length=1, max_length=50)

@@ -145,14 +145,27 @@ export const authApi = {
     }),
 
   // First activation on id + date of birth. Works only while the account is
-  // PENDING; once it has a password this route refuses, and a forgotten
-  // password needs a staff-issued code instead.
+  // PENDING; once it has a password this route refuses and the student uses
+  // resetPasswordWithDob below instead.
   activateWithDob: (registration_number: string, date_of_birth: string, password: string) =>
     request<{ message: string }>('/auth/activate-with-dob', {
       method: 'POST',
       body: JSON.stringify({ registration_number, date_of_birth, password }),
     }),
 
+  // Resets a LIVE account from id + date of birth, so a student locked out
+  // of their own account does not have to reach an administrator. Separate
+  // endpoint from activation, with its own throttle; see the service method
+  // for the risk this accepts.
+  resetPasswordWithDob: (registration_number: string, date_of_birth: string, password: string) =>
+    request<{ message: string }>('/auth/reset-password-with-dob', {
+      method: 'POST',
+      body: JSON.stringify({ registration_number, date_of_birth, password }),
+    }),
+
+  // Staff-issued one-use code. Kept as the fallback for anyone whose date of
+  // birth is wrong or missing in the records, which the importer cannot rule
+  // out, and for staff accounts with no student profile at all.
   resetPasswordWithCode: (registration_number: string, setup_code: string, password: string) =>
     request<{ message: string }>('/auth/activate', {
       method: 'POST', body: JSON.stringify({ registration_number, setup_code, password }),

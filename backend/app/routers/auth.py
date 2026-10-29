@@ -8,6 +8,7 @@ from app.schemas.auth import (
     ActivateRequest,
     ActivateWithDobRequest,
     LoginRequest,
+    ResetPasswordWithDobRequest,
 )
 from app.schemas.common import success_response
 from app.config import get_settings
@@ -20,6 +21,7 @@ from app.security.rate_limiter import (
     REFRESH_RATE_LIMIT,
     SETUP_ACCOUNT_RATE_LIMIT,
     DOB_ACTIVATION_ACCOUNT_LIMIT,
+    DOB_RESET_ACCOUNT_LIMIT,
 )
 
 logger = logging.getLogger(__name__)
@@ -84,6 +86,36 @@ async def activate_account_with_dob(
     await check_shared_rate_limit(f"activate:{client_ip}", ACTIVATION_RATE_LIMIT)
     await check_shared_rate_limit(f"dob-activate:{reg}", DOB_ACTIVATION_ACCOUNT_LIMIT)
     result = await AuthService(db).activate_with_date_of_birth(
+        reg, parse_date_of_birth(body.date_of_birth), body.password,
+    )
+    return success_response(data=result)
+
+
+@router.post("/reset-password-with-dob", response_model=None)
+async def reset_password_with_dob(
+    request: Request,
+    body: ResetPasswordWithDobRequest,
+    db: AsyncSession = Depends(get_db, scope="function"),
+):
+    """Reset a LIVE account's password from student id plus date of birth.
+
+    Separate route from activate-with-dob rather than a flag on it, so the
+    two cannot share a rate-limit bucket. Sharing one would let activation
+    attempts spend the reset budget and vice versa, and the reset budget is
+    deliberately the smaller of the two.
+    """
+    from app.services.student_import import parse_date_of_birth
+
+    client_ip = get_client_ip(request)
+    reg = body.registration_number.strip().upper()
+    # ITS OWN PER-IP BUCKET, not the shared "activate:" one. A hostel is
+    # behind a single NAT address, so putting resets in the activation bucket
+    # would mean a crowd activating on day one locks everyone else out of
+    # resetting a password -- the two would eat each other's budget for no
+    # reason, and the reset path is the one a stuck student needs.
+    await check_shared_rate_limit(f"reset-password:{client_ip}", ACTIVATION_RATE_LIMIT)
+    await check_shared_rate_limit(f"dob-reset:{reg}", DOB_RESET_ACCOUNT_LIMIT)
+    result = await AuthService(db).reset_password_with_date_of_birth(
         reg, parse_date_of_birth(body.date_of_birth), body.password,
     )
     return success_response(data=result)

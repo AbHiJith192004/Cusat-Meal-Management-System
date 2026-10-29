@@ -490,7 +490,7 @@ async def test_dob_activation_works_once_and_can_never_reset_a_live_account(clie
         wrong = await attempt('2004-04-20')
         assert wrong.status_code == 401, wrong.text
         missing = await own.post('/api/v1/auth/activate-with-dob',
-                                 json={'registration_number': 'NOSUCHSTUDENT',
+                                 json={'registration_number': 'NOSUCH' + uuid.uuid4().hex[:10].upper(),
                                        'date_of_birth': '2004-04-19',
                                        'password': 'student-chosen-passphrase'})
         assert missing.status_code == 401
@@ -511,10 +511,13 @@ async def test_dob_activation_works_once_and_can_never_reset_a_live_account(clie
                                          'password': 'student-chosen-passphrase'})
         assert signed_in.status_code == 200, signed_in.text
 
-        # THE IMPORTANT ASSERTION. The same correct date must not be able to
-        # replace the password now that one exists.
+        # THIS ENDPOINT stays PENDING-only. A live account is reset through
+        # /auth/reset-password-with-dob instead, which has its own throttle
+        # and its own audit action -- see the reset test below. Do not read
+        # this assertion as "date of birth cannot reset an account"; since
+        # 2026-10-29 it can, just not here.
         again = await attempt('2004-04-19', password='attacker-chosen-passphrase')
-        assert again.status_code == 401, 'date of birth reset a live account'
+        assert again.status_code == 401, 'the activation path reset a live account'
         still_theirs = await own.post('/api/v1/auth/login',
                                       json={'registration_number': reg,
                                             'password': 'student-chosen-passphrase'})
@@ -600,3 +603,134 @@ async def test_liveness_never_depends_on_the_database(client, monkeypatch):
     still_alive = await client.get('/health/live')
     assert still_alive.status_code == 200
     assert still_alive.json()['data']['status'] == 'alive'
+
+
+@pytest.mark.asyncio
+async def test_dob_resets_a_live_account_kills_its_sessions_and_is_audited(client):   # noqa: ARG001 - fixture sets up the engine
+    """Self-service reset: student id plus date of birth, on a LIVE account.
+
+    Added 2026-10-29. The owner lifted the standing rule that id plus date of
+    birth must never reset an account, because a student locked out of their
+    own account had to reach an administrator over WhatsApp to get back in.
+    The weakness of the secret did not change, so what this test pins down is
+    not that the reset works -- that is the easy half -- but the three things
+    that make it survivable:
+
+      1. it is refused on a PENDING account, which belongs to the activation
+         path, and on a SUSPENDED one, which is an administrative decision
+         that must not be undone from the login screen;
+      2. every session dies, so a victim is logged out rather than left to
+         believe nothing happened;
+      3. it is written to the audit log under its own action, distinct from
+         a first activation, so a disputed takeover can be traced.
+
+    Own client address: the per-IP activation throttle is shared with the
+    activation tests above, and 429 would make this pass for the wrong reason.
+    """
+    from app.models.student import StudentProfile
+    from app.models.audit import AuditLog
+    from datetime import date
+
+    dob = date(2003, 7, 11)
+
+    async def make(status):
+        reg = 'RST' + uuid.uuid4().hex[:10].upper()
+        async with async_session_factory() as db:
+            u = User(id=uuid.uuid4(), registration_number=reg, name='Synthetic reset user',
+                     role='STUDENT', account_status=status)
+            db.add(u)
+            await db.flush()
+            db.add(StudentProfile(id=uuid.uuid4(), user_id=u.id, date_of_birth=dob,
+                                  student_type='HOSTELLER', campus_location='MAIN_CAMPUS'))
+            await db.commit()
+            return reg, u.id
+
+    # Starts PENDING and is made live by activating below, which is how a
+    # real account reaches ACTIVE and is what gives it a password to replace.
+    live_reg, live_id = await make('PENDING')
+    pending_reg, _ = await make('PENDING')
+    suspended_reg, _ = await make('SUSPENDED')
+
+    # A FRESH SOURCE ADDRESS PER RUN. Rate limits live in Postgres with a
+    # fixed window, so a hardcoded address makes the second run of this test
+    # inside that window fail on 429 rather than on anything it asserts.
+    src = f'10.78.{uuid.uuid4().int % 251}.{uuid.uuid4().int % 251}'
+    async with AsyncClient(transport=ASGITransport(app=create_app(), raise_app_exceptions=False,
+                                                  client=(src, 5571)),
+                           base_url='https://testserver') as own:
+        async def reset(reg, dob_text, password='student-chosen-passphrase'):
+            return await own.post('/api/v1/auth/reset-password-with-dob',
+                                  json={'registration_number': reg,
+                                        'date_of_birth': dob_text, 'password': password})
+
+        # Give the live account a password and a session to lose.
+        assert (await own.post('/api/v1/auth/activate-with-dob',
+                               json={'registration_number': live_reg, 'date_of_birth': '2003-07-11',
+                                     'password': 'the-original-passphrase'})).status_code == 200
+        signed_in = await own.post('/api/v1/auth/login',
+                                   json={'registration_number': live_reg,
+                                         'password': 'the-original-passphrase'})
+        assert signed_in.status_code == 200, signed_in.text
+        old_token = signed_in.json()['data']['access_token']
+        auth = {'Authorization': 'Bearer ' + old_token}
+        assert (await own.get('/api/v1/me/dashboard', headers=auth)).status_code == 200
+
+        async with async_session_factory() as db:
+            resets_before = await db.scalar(select(func.count()).select_from(AuditLog).where(
+                AuditLog.action == 'PASSWORD_RESET_WITH_DATE_OF_BIRTH',
+                AuditLog.target_id == live_id))
+        assert resets_before == 0
+
+        # A wrong date is refused, with the same message as an id that does
+        # not exist, so this cannot be used to test which ids are real.
+        wrong = await reset(live_reg, '2003-07-12')
+        assert wrong.status_code == 401, wrong.text
+        # A FRESH NAME EACH RUN, for the same reason as the source address:
+        # the per-account throttle is keyed on the registration number, so a
+        # literal here builds up a bucket across runs and eventually returns
+        # 429 where the test expects 401. At 5 per SIX HOURS that bucket does
+        # not drain between runs the way a per-minute one does.
+        missing = await reset('NOSUCH' + uuid.uuid4().hex[:10].upper(), '2003-07-11')
+        assert missing.status_code == 401
+        assert wrong.json()['error']['message'] == missing.json()['error']['message']
+
+        # 1. REFUSED on the states that are not a live student account.
+        assert (await reset(pending_reg, '2003-07-11')).status_code == 401, \
+            'reset worked on a PENDING account; that belongs to activation'
+        assert (await reset(suspended_reg, '2003-07-11')).status_code == 401, \
+            'reset lifted a suspension from the login screen'
+
+        # The real date, on the live account, with a new password.
+        done = await reset(live_reg, '11/07/2003', password='the-replacement-passphrase')
+        assert done.status_code == 200, done.text
+
+        # The new password works and the old one does not.
+        assert (await own.post('/api/v1/auth/login',
+                               json={'registration_number': live_reg,
+                                     'password': 'the-replacement-passphrase'})).status_code == 200
+        assert (await own.post('/api/v1/auth/login',
+                               json={'registration_number': live_reg,
+                                     'password': 'the-original-passphrase'})).status_code == 401
+
+        # 2. EVERY SESSION DIES. The token minted before the reset is dead,
+        # which is the difference between a victim being logged out and a
+        # victim carrying on unaware beside the attacker.
+        assert (await own.get('/api/v1/me/dashboard', headers=auth)).status_code == 401, \
+            'a session issued before the reset survived it'
+
+        # 3. AUDITED under its own action, not as a first activation.
+        async with async_session_factory() as db:
+            assert await db.scalar(select(func.count()).select_from(AuditLog).where(
+                AuditLog.action == 'PASSWORD_RESET_WITH_DATE_OF_BIRTH',
+                AuditLog.target_id == live_id)) == 1
+            # The row the account was created with is the activation; the
+            # reset must not have been logged as another one of those.
+            assert await db.scalar(select(func.count()).select_from(AuditLog).where(
+                AuditLog.action == 'PASSWORD_SET_WITH_DATE_OF_BIRTH',
+                AuditLog.target_id == live_id)) == 1
+
+        # The account is still ACTIVE and was not rewound to PENDING.
+        async with async_session_factory() as db:
+            row = await db.scalar(select(User).where(User.id == live_id))
+            assert row.account_status == 'ACTIVE'
+            assert row.activated_at is not None

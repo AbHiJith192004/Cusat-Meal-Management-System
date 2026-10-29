@@ -147,15 +147,19 @@ class AuthService:
                                          password: str) -> dict:
         """First activation using the student's own id and date of birth.
 
-        THE ONE RULE THAT MAKES THIS TOLERABLE: it works only while the
-        account is PENDING. Date of birth is a weak secret -- 141 of 143
-        student ids on the live sheet are 2602 plus four digits, and a
-        hostel-mate does not guess a birthday, they know it -- so it must
-        never be able to take an account that already has a password. That
-        would be a reset, and the standing decision is that ids and dates of
-        birth do not suffice for a reset. After activation this path is
-        permanently closed for that account and only a staff-issued code
-        works, which is set_password_with_code above.
+        SCOPE: PENDING accounts only. A live account is reset through
+        reset_password_with_date_of_birth below, which is a separate method
+        with its own throttle and its own audit action so the two are
+        distinguishable forever in the log.
+
+        Date of birth is a weak secret -- 141 of 143 student ids on the live
+        sheet are 2602 plus four digits, and a hostel-mate does not guess a
+        birthday, they know it. This method used to carry the rule that ids
+        and dates of birth must never suffice for a RESET. That rule was
+        lifted by the owner on 2026-10-29 after students locked out of their
+        accounts had to reach an administrator over WhatsApp to get back in.
+        The weakness of the secret has not changed, only the decision about
+        what to accept; see the reset method for the accepted risk.
 
         Chosen over activation links because sending 139 students their own
         individual link by hand was not workable, and the links cannot be
@@ -208,6 +212,76 @@ class AuthService:
         await self.audit_repo.log(actor_id=user.id, action="PASSWORD_SET_WITH_DATE_OF_BIRTH",
                                   target_type="user", target_id=user.id)
         return {"message": "Password saved. Sign in with your new password."}
+
+    async def reset_password_with_date_of_birth(self, registration_number: str,
+                                                date_of_birth, password: str) -> dict:
+        """Reset a LIVE account's password from student id plus date of birth.
+
+        WHY THIS EXISTS, and what it costs. Until 2026-10-29 a student who
+        forgot their password, or who was signed out and could not get back
+        in, had to ask an administrator to put the account back to PENDING.
+        That round trip ran over WhatsApp and was the single most common
+        support request. The owner chose, with the trade-off stated, to let
+        id plus date of birth reset a live account directly.
+
+        THE ACCEPTED RISK, recorded so nobody later mistakes this for an
+        oversight: a student id is enumerable and a date of birth is known to
+        anyone who shares a hostel with the student. Whoever has both can
+        take the account, and the rightful owner will find their password no
+        longer works. This is not mitigated by the throttle; the throttle
+        only stops a stranger GUESSING an unknown birthday.
+
+        What makes it survivable rather than silent:
+          * every reset is written to the audit log under its own action, so
+            a disputed takeover can be traced to a time and an address;
+          * every existing session for that account dies immediately, so the
+            victim is logged out rather than left believing all is well;
+          * the per-account throttle is six-hourly, not hourly.
+
+        SUSPENDED and other non-live states are refused. A suspension is an
+        administrative decision and must not be undone from the login screen.
+        """
+        from app.utils.exceptions import ValidationException
+        from app.models.student import StudentProfile
+
+        if date_of_birth is None:
+            raise ValidationException(message="A valid date of birth is required.")
+
+        row = (await self.db.execute(
+            select(User, StudentProfile)
+            .outerjoin(StudentProfile, StudentProfile.user_id == User.id)
+            .where(User.registration_number == registration_number.strip().upper())
+            .with_for_update(of=User)
+        )).first()
+
+        # Same single refusal as activation, for the same reason: splitting
+        # "no such student" from "wrong date" would turn this into an oracle
+        # for which ids exist and which birthdays are right.
+        refusal = InvalidCredentialsException(
+            message="We could not match those details. Check your student id and "
+                    "date of birth, or ask mess staff for a setup code.")
+
+        if row is None:
+            raise refusal
+        user, profile = row
+        if (user.role != "STUDENT"
+                or user.account_status != AccountStatus.ACTIVE.value
+                or profile is None
+                or profile.date_of_birth != date_of_birth):
+            raise refusal
+
+        user.password_hash = await run_in_threadpool(hash_password, password)
+        # Status is already ACTIVE and activated_at is already set; neither is
+        # touched, so a reset cannot be mistaken for a first activation when
+        # reading the user row later.
+        user.setup_code_hash = None
+        user.setup_code_expires_at = None
+        # Kills every issued access token as well as the refresh tokens below.
+        user.session_version += 1
+        await self.token_repo.revoke_all_user_tokens(user.id)
+        await self.audit_repo.log(actor_id=user.id, action="PASSWORD_RESET_WITH_DATE_OF_BIRTH",
+                                  target_type="user", target_id=user.id)
+        return {"message": "Password reset. Sign in with your new password."}
 
     async def login(
         self, registration_number: str, password: str

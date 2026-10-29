@@ -31,6 +31,12 @@ export const LoginModal: React.FC<LoginModalProps> = ({
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [fromLink, setFromLink] = useState(false);
   const [dob, setDob] = useState('');
+  // How a RESET proves identity. Date of birth is the default because the
+  // whole point of the change was that a locked-out student should not have
+  // to reach an administrator; the staff code stays reachable for anyone
+  // whose recorded date of birth is wrong, and for staff with no student
+  // profile to check against.
+  const [resetBy, setResetBy] = useState<'dob' | 'code'>('dob');
 
   // An activation link carries the student id and the one-use code in the
   // query string: /activate?id=26021658&code=<43 chars>. The code is
@@ -83,7 +89,9 @@ export const LoginModal: React.FC<LoginModalProps> = ({
           setLoading(false);
           return;
         }
-        const res = await authApi.resetPasswordWithCode(trimmed, setupCode, password);
+        const res = resetBy === 'dob'
+          ? await authApi.resetPasswordWithDob(trimmed, dob, password)
+          : await authApi.resetPasswordWithCode(trimmed, setupCode, password);
         setSuccessMsg(res.message || 'Password reset. Please sign in.');
         setMode('login');
         setPassword('');
@@ -140,7 +148,9 @@ export const LoginModal: React.FC<LoginModalProps> = ({
     mode === 'reset' ? 'Reset your password' : mode === 'activate' ? 'Activate your account' : 'Sign in';
   const blurb =
     mode === 'reset'
-      ? 'Enter the one-use setup code provided by mess staff.'
+      ? resetBy === 'dob'
+        ? 'Confirm your date of birth and choose a new password.'
+        : 'Enter the one-use setup code provided by mess staff.'
       : mode === 'activate'
       ? fromLink
         ? 'Your account is ready. Choose a password to finish.'
@@ -249,21 +259,41 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
           {mode === 'reset' && (
             <div>
-              <label
-                htmlFor="login-setup-code"
-                className="block text-[12px] font-black mb-1.5"
-                style={{ color: 'var(--text-body)' }}
-              >
-                Setup code from mess staff
-              </label>
-              <input
-                id="login-setup-code"
-                type="text"
-                required
-                value={setupCode}
-                onChange={e => setSetupCode(e.target.value)}
-                className="stitch-input"
-              />
+              <div className="flex items-center justify-between mb-1.5">
+                <label
+                  htmlFor={resetBy === 'dob' ? 'login-reset-dob' : 'login-setup-code'}
+                  className="text-[12px] font-black"
+                  style={{ color: 'var(--text-body)' }}
+                >
+                  {resetBy === 'dob' ? 'Date of birth' : 'Setup code from mess staff'}
+                </label>
+                <button
+                  type="button"
+                  onClick={() => { setResetBy(resetBy === 'dob' ? 'code' : 'dob'); setErrorMsg(null); }}
+                  className="btn-link text-[12px]"
+                >
+                  {resetBy === 'dob' ? 'Use a staff code' : 'Use date of birth'}
+                </button>
+              </div>
+              {resetBy === 'dob' ? (
+                <input
+                  id="login-reset-dob"
+                  type="date"
+                  required
+                  value={dob}
+                  onChange={e => setDob(e.target.value)}
+                  className="stitch-input"
+                />
+              ) : (
+                <input
+                  id="login-setup-code"
+                  type="text"
+                  required
+                  value={setupCode}
+                  onChange={e => setSetupCode(e.target.value)}
+                  className="stitch-input"
+                />
+              )}
             </div>
           )}
 

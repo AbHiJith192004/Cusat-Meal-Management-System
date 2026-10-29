@@ -77,6 +77,17 @@ SETUP_ACCOUNT_RATE_LIMIT = RateLimitConfig(max_requests=5, window_seconds=900)
 # guessing of an unknown one.
 DOB_ACTIVATION_ACCOUNT_LIMIT = RateLimitConfig(max_requests=5, window_seconds=3600)
 
+# Per-account limit for RESETTING a live account by date of birth. Tighter
+# than the activation limit above, deliberately, because the blast radius is
+# different: activation takes an account nobody is using yet, a reset takes
+# one somebody is using. Same ~1,100 candidate dates; 5 per six hours puts a
+# blind search at roughly 55 days per account instead of nine.
+#
+# This cannot make a KNOWN birthday safe -- a hostel-mate knows it, and that
+# residual risk is accepted (see reset_password_with_date_of_birth). It only
+# bounds the guessing of an unknown one.
+DOB_RESET_ACCOUNT_LIMIT = RateLimitConfig(max_requests=5, window_seconds=21600)
+
 
 # Per-account ceiling on QR pass issuance. The Mess Pass screen asks for a
 # fresh token every 60 seconds, so a student sitting on that screen for a whole
