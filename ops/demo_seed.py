@@ -122,9 +122,22 @@ async def main() -> int:
     today = date.today()
     monday = today - timedelta(days=today.weekday())
     password = hash_password("demo-password-2026")
-    start = today.replace(day=1)                       # this month, for activity
+    start = today.replace(day=1)                       # the 1st, anchors the books
     last_month_end = start - timedelta(days=1)
     last_month_start = last_month_end.replace(day=1)   # the month we bill
+
+    # THE ACTIVITY WINDOW IS NOT THE CALENDAR MONTH. It used to be `start`,
+    # i.e. the 1st, and the loop below is `while day < today` -- so on the 1st
+    # of any month it ran ZERO times and the demo came up with no attendance,
+    # no fines, no mess cuts and nothing on any screen. Found on 1 November
+    # 2026, when the demo was needed to look at exactly those screens. The
+    # same off-by-a-month-boundary shape has now bitten this repo three times.
+    #
+    # 28 days ending yesterday always yields a full month of behaviour and
+    # never depends on where in the month the demo is run. It deliberately
+    # reaches back into the billed month; the published bill is an immutable
+    # snapshot taken at seed time, so later rows cannot alter it.
+    activity_start = today - timedelta(days=28)
 
     async with async_session_factory() as db:
         # --- people ----------------------------------------------------
@@ -166,8 +179,22 @@ async def main() -> int:
         # Attendance for most students most days, a scatter of mess cuts, and
         # fines where someone opted in and never scanned.
         eaters = [u for u, stype, active in students if active and stype != "OUTMESS"]
-        day = start
+        # DAYS THE SCANNER WAS NEVER SWITCHED ON. This is not decoration: it
+        # is the single most common shape in the real data, and the demo hid
+        # it by scanning every student every day. On these days there is no
+        # attendance AND no fine, because since 2026-11-01 a meal with no
+        # attendance at all fines nobody -- the absence of a scan says the
+        # scanner was off, not that 142 people skipped dinner.
+        #
+        # Two whole days plus one lone evening, so the demo also shows that
+        # the rule is per MEAL: dinner on that day is unscanned and unfined
+        # while its own breakfast and lunch are normal.
+        scanner_off_days = {activity_start + timedelta(days=9),
+                            activity_start + timedelta(days=17)}
+        dinner_off_day = activity_start + timedelta(days=12)
+        day = activity_start
         while day < today:
+            scanner_off = day in scanner_off_days
             for u in eaters:
                 # A mess cut is the WHOLE day, so the decision to skip is made
                 # once per student per day and applies to all three sittings.
@@ -179,6 +206,10 @@ async def main() -> int:
                     if cut_today:
                         db.add(MealSelection(id=uuid.uuid4(), student_id=u.id, meal_date=day,
                                              meal_type=meal, status="SKIPPED"))
+                        continue
+                    # Nobody scanned this sitting, so there is nothing to
+                    # record and nobody to fine. The students still ate.
+                    if scanner_off or (day == dinner_off_day and meal == "DINNER"):
                         continue
                     roll = random.random()
                     if roll < 0.88:

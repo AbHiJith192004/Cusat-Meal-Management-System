@@ -22,6 +22,7 @@ from app.models.meal import MealSelection
 from app.models.holiday import Holiday
 from app.models.fine import Fine
 from app.models.attendance import Attendance
+from app.models.audit import AuditLog
 from app.models.billing import StudentBillSnapshot
 from app.models.student import StudentProfile
 from app.services.billing_service import BillingService
@@ -64,6 +65,38 @@ async def database():
     async with owner.begin() as conn:
         await conn.execute(text(f'DROP SCHEMA {schema} CASCADE'))
     await owner.dispose()
+
+
+async def scanner_was_used(factory, day, meal_type='LUNCH'):
+    """Record one scan by a throwaway student for this meal.
+
+    Since 2026-11-01 reconcile_missed_meals refuses to fine ANYONE for a
+    meal with no attendance at all, because that means the scanner was not
+    switched on rather than that the hostel skipped dinner. Every test that
+    expects fines therefore has to establish that the scanner ran, which is
+    also what the real situation looks like: a no-show is only a no-show
+    among people who were being scanned.
+
+    The scanner is its own OUTMESS student, chosen so the helper cannot
+    perturb what the calling test measures: outmess accounts are already
+    excluded from fines (they never booked the meal) and from the bill, so
+    adding one changes neither a fine count nor a student list. A plain
+    hosteller here would quietly appear on every bill these tests assert.
+    """
+    async with factory() as db:
+        enrolled = datetime(2024, 5, 1, tzinfo=IST)
+        scanner = User(id=uuid.uuid4(), registration_number='SCAN-' + uuid.uuid4().hex[:8].upper(),
+                       name='Student who did scan', role='STUDENT', account_status='ACTIVE',
+                       created_at=enrolled, activated_at=enrolled)
+        db.add(scanner)
+        await db.flush()
+        db.add(StudentProfile(id=uuid.uuid4(), user_id=scanner.id, date_of_birth=date(2004, 3, 3),
+                              student_type='OUTMESS', campus_location='MAIN_CAMPUS'))
+        db.add(Attendance(id=uuid.uuid4(), student_id=scanner.id, meal_date=day,
+                          meal_type=meal_type, attendance_type='QR_SCAN',
+                          recorded_at=enrolled, recorded_by=scanner.id))
+        await db.commit()
+        return scanner
 
 
 async def preview_publish(factory, admin, figures=None):
@@ -163,6 +196,8 @@ async def test_concurrent_publish_and_cent_allocation(database):
 @pytest.mark.asyncio
 async def test_fines_use_implicit_optin_and_block_premature_reconciliation(database):
     factory, (a, b, admin) = database
+    # Somebody scanned, so a missing row for A and B really is a no-show.
+    await scanner_was_used(factory, date(YEAR, MONTH, 2))
     async with factory() as db:
         service = FineService(db)
         with pytest.raises(ValidationException):
@@ -274,6 +309,7 @@ async def test_outmess_students_are_billed_nothing_and_do_not_dilute_the_rate(da
     # Fines first: publishing freezes the period against further changes.
     # A meal they never booked is not a meal they missed, so the count is the
     # two real students and no Fine row names the outmess account.
+    await scanner_was_used(factory, date(YEAR, MONTH, 2))
     async with factory() as db:
         assert await FineService(db).reconcile_missed_meals(date(YEAR, MONTH, 2), 'LUNCH', admin.id) == 2
         await db.commit()
@@ -296,3 +332,58 @@ async def test_outmess_students_are_billed_nothing_and_do_not_dilute_the_rate(da
         assert await db.scalar(
             select(func.count()).select_from(StudentBillSnapshot)
             .where(StudentBillSnapshot.student_id == outmess.id)) == 0
+
+
+@pytest.mark.asyncio
+async def test_a_meal_nobody_scanned_fines_nobody_and_says_so(database):
+    """The scanner-fines defect, pinned down.
+
+    reconcile_missed_meals infers "did not eat" from "has no attendance
+    row". That inference holds only while the scanner is actually in use. In
+    production it was not: fines were raised 330-400 a night on days with
+    zero scans, reaching 2,566 chargeable fines worth 76,980 rupees against
+    all 142 students, none of it evidence of anything. Reported as "the
+    scanner is not working for <two students>"; it was neither the scanner
+    nor those two.
+
+    The rule now: no attendance AT ALL for a meal means the scanner was not
+    switched on, so nobody is a no-show. One single scan is enough to prove
+    it ran, and then the ordinary behaviour applies to everyone else.
+    """
+    factory, (a, b, admin) = database
+    day = date(YEAR, MONTH, 6)
+
+    # 1. NOBODY SCANNED -> nobody is fined, and no Fine row is written at all
+    #    (a zero return with rows behind it would be worse than the bug).
+    async with factory() as db:
+        assert await FineService(db).reconcile_missed_meals(day, 'LUNCH', admin.id) == 0
+        await db.commit()
+    async with factory() as db:
+        assert await db.scalar(select(func.count()).select_from(Fine)
+                               .where(Fine.meal_date == day, Fine.meal_type == 'LUNCH')) == 0
+        # AND IT IS NOT SILENT. A night the job skipped, a night it fined
+        # nobody because everyone turned up, and a night it never ran must
+        # stay three distinguishable things.
+        skipped = await db.scalar(select(AuditLog).where(
+            AuditLog.action == 'FINES_SKIPPED_NO_ATTENDANCE'))
+        assert skipped is not None, 'the skip was not recorded anywhere'
+        assert skipped.metadata_['meal_date'] == day.isoformat()
+        assert skipped.metadata_['meal_type'] == 'LUNCH'
+
+    # 2. ONE SCAN BY ANYONE and the rule reverts: A and B, who did not scan,
+    #    are now genuine no-shows and are fined.
+    await scanner_was_used(factory, day)
+    async with factory() as db:
+        assert await FineService(db).reconcile_missed_meals(day, 'LUNCH', admin.id) == 2
+        await db.commit()
+
+    # 3. THE GUARD IS PER MEAL, NOT PER DAY. The scan above was LUNCH; dinner
+    #    that same evening was never scanned and must still be skipped.
+    #    Getting this wrong by keying on the date would quietly re-fine two
+    #    thirds of the sittings this is meant to protect.
+    async with factory() as db:
+        assert await FineService(db).reconcile_missed_meals(day, 'DINNER', admin.id) == 0
+        await db.commit()
+    async with factory() as db:
+        assert await db.scalar(select(func.count()).select_from(Fine)
+                               .where(Fine.meal_date == day, Fine.meal_type == 'DINNER')) == 0

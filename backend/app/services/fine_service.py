@@ -49,6 +49,44 @@ class FineService:
         await lock_open_period(self.session, target_date, exclusive=True)
         if await HolidayRepository(self.session).get_for_date(target_date, meal_type):
             return 0
+
+        # NOBODY SCANNED, SO NOBODY IS A NO-SHOW.
+        #
+        # This job infers "did not eat" from "has no attendance row". That
+        # inference only holds while the scanner is actually being used. It
+        # was not: measured on 2026-11-01, production had attendance on a
+        # handful of days and fines on EVERY day, 330-400 a night, because a
+        # meal nobody scanned looks identical to a meal nobody attended. The
+        # result was 2,566 chargeable fines worth 76,980 rupees against all
+        # 142 students, none of them evidence of anything.
+        #
+        # Zero is the only honest threshold here. One scan proves the scanner
+        # ran, so everyone else without a row really did miss the meal and
+        # the old behaviour is correct. Zero scans across an entire hostel
+        # proves only that nobody was scanning -- in a mess of 142 students a
+        # genuinely empty sitting does not happen, and if it ever did, not
+        # fining is the cheaper mistake. Anything in between would be a tuned
+        # guess dressed up as a rule.
+        scans = await self.session.scalar(
+            select(func.count()).select_from(Attendance).where(
+                and_(Attendance.meal_date == target_date, Attendance.meal_type == meal_type)))
+        if not scans:
+            # Logged, not silent. docs/monitoring.md exists because a night
+            # the job did nothing and a night it never ran used to look the
+            # same, and this adds a third case that must stay distinguishable
+            # from both.
+            await self.audit_repo.log(
+                actor_id=actor_id,
+                action="FINES_SKIPPED_NO_ATTENDANCE",
+                target_type="fine",
+                metadata={
+                    "meal_date": target_date.isoformat(),
+                    "meal_type": meal_type,
+                    "reason": "no attendance recorded for this meal; the scanner was not used",
+                },
+            )
+            return 0
+
         fine_amount = await self.get_fine_amount()
         if not fine_amount.is_finite() or fine_amount < 0:
             raise ValidationException(message="Configured fine amount is invalid.")
