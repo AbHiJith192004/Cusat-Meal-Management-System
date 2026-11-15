@@ -1,0 +1,190 @@
+# Production stack for a self-managed VPS (Hostinger, Hetzner, anywhere with
+# a public IP and Docker). It replaces DigitalOcean App Platform + managed
+# PostgreSQL with four containers on one box.
+#
+# This is NOT ../docker-compose.yml. That file is the development stack: it
+# runs the Vite dev server as a separate container and builds the backend
+# from backend/Dockerfile, which contains no frontend at all. Deploying it
+# would serve an API with no user interface. Production uses the ROOT
+# Dockerfile, which compiles the React build into the API image and serves
+# both from one origin -- so there is no CORS hop, no second container, and
+# no second TLS name to buy.
+#
+# Run everything through deploy.sh. It takes a backup first, runs the
+# migration as its own step, and refuses to leave a broken release running.
+#
+#   cd deploy && ./deploy.sh
+#
+# Connection budget against this Postgres (default max_connections = 100):
+#   app    2 workers x (8 pool + 8 overflow) = 32
+#   migrate, run once per deploy             =  4
+#   reconcile, once a night                  =  4
+#   total                                    = 40, out of 100.
+# On DigitalOcean the same 40 sat against a ceiling of 47 and was the reason
+# the database plan could not be made smaller. Here the ceiling is a
+# Postgres setting, not a price. Do not carry the old 2 GiB sizing over as
+# though it were a memory requirement -- it never was.
+
+name: messconnect
+
+# Docker keeps container logs forever by default. On a single VPS that is a
+# slow disk-full outage with no warning, so every service caps its own.
+x-logging: &logging
+  logging:
+    driver: json-file
+    options:
+      max-size: "10m"
+      max-file: "5"
+
+# One image serves the web process, the migration and the nightly job, the
+# same way one image did on App Platform. Building it three times costs
+# nothing: the second and third builds are entirely cache hits.
+x-app-image: &app-image
+  build:
+    context: ..
+    dockerfile: Dockerfile
+  image: messconnect-app:latest
+
+# Settings every process shares. Names match backend/app/config.py exactly;
+# a typo here is silently ignored and the default is used instead.
+x-app-env: &app-env
+  # Plain postgresql:// is rewritten to +asyncpg by config.py, but being
+  # explicit keeps the intent readable. No sslmode: this never leaves the
+  # Docker network, and the database publishes no host port.
+  DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:?set POSTGRES_USER in deploy/.env}:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env}@db:5432/${POSTGRES_DB:?set POSTGRES_DB in deploy/.env}
+  APP_ENV: production
+  ALLOW_TEST_MODE: "false"
+  LOG_LEVEL: ${LOG_LEVEL:-INFO}
+  JWT_SECRET_KEY: ${JWT_SECRET_KEY:?set JWT_SECRET_KEY in deploy/.env}
+  QR_SECRET_KEY: ${QR_SECRET_KEY:?set QR_SECRET_KEY in deploy/.env}
+  JWT_ALGORITHM: HS256
+  ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-15}
+  REFRESH_TOKEN_EXPIRE_DAYS: ${REFRESH_TOKEN_EXPIRE_DAYS:-7}
+  QR_VALIDITY_SECONDS: ${QR_VALIDITY_SECONDS:-60}
+  # Exact origin, no wildcard: allow_credentials is on, so anything listed
+  # here can read authenticated responses. The frontend is served from this
+  # same origin, so in practice this list exists to stay valid, not to
+  # permit a cross-origin caller.
+  CORS_ORIGINS: https://${MESS_DOMAIN:?set MESS_DOMAIN in deploy/.env}
+  CORS_ALLOW_CREDENTIALS: "true"
+  AUTH_MAX_FAILED_ATTEMPTS: ${AUTH_MAX_FAILED_ATTEMPTS:-5}
+  AUTH_LOCKOUT_MINUTES: ${AUTH_LOCKOUT_MINUTES:-15}
+  TZ: Asia/Kolkata
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    <<: *logging
+    # Deliberately no `ports:`. Postgres is reachable only from this compose
+    # network. Reach it with `docker compose exec db psql -U ... -d ...`.
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:?set POSTGRES_USER in deploy/.env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in deploy/.env}
+      POSTGRES_DB: ${POSTGRES_DB:?set POSTGRES_DB in deploy/.env}
+      TZ: Asia/Kolkata
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    # Postgres needs long enough to finish a checkpoint. The default 10s can
+    # cut it short and force crash recovery on the next boot.
+    stop_grace_period: 60s
+
+  app:
+    <<: [*app-image, *logging]
+    restart: unless-stopped
+    environment:
+      <<: *app-env
+      PORT: "8080"
+      WEB_CONCURRENCY: ${WEB_CONCURRENCY:-2}
+      DB_POOL_SIZE: ${DB_POOL_SIZE:-8}
+      DB_MAX_OVERFLOW: ${DB_MAX_OVERFLOW:-8}
+      # Safe here, and ONLY here, because this service publishes no host
+      # port: every request arrives through Caddy, which overwrites
+      # X-Forwarded-For with the address it actually accepted the connection
+      # from. Publish a port on this service and a caller can forge that
+      # header straight past the per-IP rate limits -- then this must go
+      # back to "false". See backend/app/security/rate_limiter.py.
+      TRUST_PROXY_HEADERS: "true"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      # The image has no curl; it does have Python. /health/live on purpose:
+      # it touches nothing but the process. Wiring a restart-triggering
+      # probe to /health, which answers 503 while Postgres is unreachable,
+      # means a database blip restarts the app -- which cannot help the
+      # database and reconnects the whole pool at once when it comes back.
+      test: ["CMD", "python", "-c", "import sys,urllib.request; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/health/live', timeout=3).status == 200 else 1)"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 45s
+    # The entrypoint asks uvicorn for a 25s graceful shutdown; give it 30.
+    stop_grace_period: 30s
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    <<: *logging
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      MESS_DOMAIN: ${MESS_DOMAIN:?set MESS_DOMAIN in deploy/.env}
+      ACME_EMAIL: ${ACME_EMAIL:?set ACME_EMAIL in deploy/.env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      # The TLS certificate and the ACME account key live in caddy_data.
+      # Deleting this volume is not a free retry: Let's Encrypt rate-limits
+      # new certificates per domain per week, so a few careless recreations
+      # can leave the site without HTTPS for days.
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+  # Run explicitly, never by `up`. deploy.sh runs it between building the
+  # image and starting the new app, which is what App Platform's PRE_DEPLOY
+  # job did. Keeping it out of `up` means a restart of the box can never
+  # quietly run a migration nobody watched.
+  migrate:
+    <<: [*app-image, *logging]
+    profiles: ["tools"]
+    restart: "no"
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      <<: *app-env
+      DB_POOL_SIZE: "2"
+      DB_MAX_OVERFLOW: "2"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # The nightly fine reconciliation. cron calls reconcile.sh, which calls
+  # this. It writes an audit row whether it succeeds or fails -- that row is
+  # the only evidence the run happened, and a night it silently skipped
+  # first becomes visible as a wrong monthly bill weeks later.
+  reconcile:
+    <<: [*app-image, *logging]
+    profiles: ["tools"]
+    restart: "no"
+    command: ["python", "-m", "scripts.run_fine_reconciliation"]
+    environment:
+      <<: *app-env
+      DB_POOL_SIZE: "2"
+      DB_MAX_OVERFLOW: "2"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:

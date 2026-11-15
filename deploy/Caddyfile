@@ -1,0 +1,83 @@
+# TLS termination and the only door into the box.
+#
+# Caddy obtains and renews a Let's Encrypt certificate on its own, and
+# redirects http to https without being told to. There is no certbot step,
+# no renewal cron and no nginx config to keep in sync -- which is the whole
+# reason it is here rather than nginx.
+#
+# Two preconditions, both outside this file:
+#   1. MESS_DOMAIN must already have an A record pointing at this server.
+#      Caddy proves control of the name over port 80; if DNS is not pointed
+#      yet, issuance fails and the site serves nothing.
+#   2. Ports 80 and 443 must be open in the firewall. bootstrap.sh does it.
+
+{
+	# Let's Encrypt emails this address before a certificate expires
+	# unrenewed. It is the last warning before a browser-level outage.
+	email {$ACME_EMAIL}
+
+	# The admin API is a local-only control socket with no authentication.
+	# Nothing here uses it, so it should not be listening.
+	admin off
+}
+
+{$MESS_DOMAIN} {
+	encode zstd gzip
+
+	# The student import accepts a 5 MB file and the app rejects anything
+	# past that itself, with a clean 413. This is the outer bound that stops
+	# an oversized body being read into memory before the app ever sees it.
+	request_body {
+		max_size 6MB
+	}
+
+	reverse_proxy app:8080 {
+		# Both headers are SET, not appended, and that is the point.
+		#
+		# Caddy's default is to append to whatever X-Forwarded-For the
+		# client sent. The app reads the FIRST entry of that list
+		# (rate_limiter.get_client_ip), so a client that sends its own
+		# X-Forwarded-For would have the forged value read as its address
+		# and could walk straight past the per-IP login rate limit --
+		# which is the one thing standing between a scripted guess and a
+		# student account protected by a date of birth.
+		#
+		# Writing {remote_host} discards anything the client claimed and
+		# substitutes the address Caddy actually accepted the connection
+		# from. Same reasoning for the scheme, which decides whether the
+		# app emits HSTS.
+		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-Proto {scheme}
+	}
+
+	# The app sets its own CSP, HSTS, nosniff and frame-ancestors on every
+	# response, including the static build (see app/middleware/security.py
+	# and app/static.py). Setting them again here would send each twice,
+	# and browsers resolve a duplicated CSP by applying the INTERSECTION --
+	# so a well-meaning copy here can break the frontend in a way that only
+	# shows up in the console. Leave security headers to the app.
+
+	# One line per request, to the container log, where the 10 MB cap in
+	# docker-compose.prod.yml applies.
+	log {
+		output stdout
+		format json
+	}
+
+	handle_errors {
+		@gateway expression {err.status_code} in [502, 503, 504]
+		handle @gateway {
+			header Content-Type "text/html; charset=utf-8"
+			header Cache-Control "no-store"
+			respond <<HTML
+				<!doctype html><meta charset=utf-8>
+				<meta name=viewport content="width=device-width,initial-scale=1">
+				<title>Mess app is restarting</title>
+				<style>body{font-family:system-ui,sans-serif;max-width:32rem;margin:20vh auto;padding:0 1.5rem;line-height:1.6}</style>
+				<h1>Back in a moment</h1>
+				<p>The mess app is restarting. Scanning and meal selection will work again shortly. Please try once more in a minute.</p>
+				HTML 503
+		}
+		respond "{err.status_code} {err.status_text}" {err.status_code}
+	}
+}

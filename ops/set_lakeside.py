@@ -20,11 +20,14 @@ from __future__ import annotations
 
 import getpass
 import json
+import os
 import sys
 import urllib.error
 import urllib.request
 
-BASE = "https://messconnect-uyeus.ondigitalocean.app/api/v1"
+# See the note in ops/import_students.py: no default, on purpose.
+_ROOT = os.environ.get("MESSCONNECT_BASE", "").rstrip("/")
+BASE = _ROOT + "/api/v1" if _ROOT else ""
 REASON = "Campus corrected from the CUSAT registration sheet's Lakeside column"
 
 
@@ -79,6 +82,10 @@ def lakeside_ids_from_sheet(path: str) -> tuple[dict[str, str], int]:
 def main() -> int:
     if len(sys.argv) < 2:
         raise SystemExit(__doc__)
+    if not _ROOT:
+        raise SystemExit(
+            "No app URL. Set MESSCONNECT_BASE=https://your.domain\n"
+            "The old DigitalOcean host no longer exists.")
     sheet = sys.argv[1]
     apply = "--apply" in sys.argv
 

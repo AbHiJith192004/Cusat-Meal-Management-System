@@ -29,7 +29,10 @@ import urllib.request
 import uuid
 from pathlib import Path
 
-BASE = "https://messconnect-uyeus.ondigitalocean.app"
+# The DigitalOcean host this used to default to was destroyed on 9 November
+# 2026. There is deliberately no default any more: a dead URL as a default
+# fails looking like a network fault, which is the slowest kind of wrong.
+BASE = os.environ.get("MESSCONNECT_BASE", "").rstrip("/")
 MAX_BYTES = 5 * 1024 * 1024
 
 
@@ -63,8 +66,13 @@ def multipart(path: Path):
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("spreadsheet", help="path to the .xlsx intake sheet")
-    ap.add_argument("--base", default=BASE)
+    ap.add_argument("--base", default=BASE or None,
+                    help="app base URL, e.g. https://mess.example.edu (default: $MESSCONNECT_BASE)")
     args = ap.parse_args()
+    if not args.base:
+        raise SystemExit(
+            "No app URL. Set MESSCONNECT_BASE=https://your.domain, or pass --base.\n"
+            "The old DigitalOcean host no longer exists.")
 
     path = Path(os.path.expanduser(args.spreadsheet)).resolve()
     if not path.is_file():

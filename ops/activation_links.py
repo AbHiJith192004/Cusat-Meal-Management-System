@@ -33,13 +33,17 @@ import argparse
 import csv
 import getpass
 import json
+import os
 import sys
 import urllib.error
 import urllib.request
 from datetime import datetime
 from pathlib import Path
 
-BASE = "https://messconnect-uyeus.ondigitalocean.app"
+# The DigitalOcean host this used to default to was destroyed on 9 November
+# 2026. There is deliberately no default any more: a dead URL as a default
+# fails looking like a network fault, which is the slowest kind of wrong.
+BASE = os.environ.get("MESSCONNECT_BASE", "").rstrip("/")
 
 
 def call(url: str, payload: dict | None, token: str | None = None) -> dict:
@@ -60,10 +64,15 @@ def call(url: str, payload: dict | None, token: str | None = None) -> dict:
 
 def main() -> int:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--base", default=BASE, help="app URL (default: production)")
+    ap.add_argument("--base", default=BASE or None,
+                    help="app base URL, e.g. https://mess.example.edu (default: $MESSCONNECT_BASE)")
     ap.add_argument("--reissue", action="store_true",
                     help="replace codes that are still live, invalidating links already sent")
     args = ap.parse_args()
+    if not args.base:
+        raise SystemExit(
+            "No app URL. Set MESSCONNECT_BASE=https://your.domain, or pass --base.\n"
+            "The old DigitalOcean host no longer exists.")
 
     reg = input("Super-admin ID: ").strip().upper()
     password = getpass.getpass("Password: ")

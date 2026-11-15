@@ -1,5 +1,16 @@
 # Monitoring MessConnect in production
 
+> **HISTORICAL as of 11 November 2026.** Every arrangement below lived on
+> DigitalOcean App Platform. That app and its database were destroyed on or
+> about 9 November 2026 over an unpaid October invoice, so the app id and
+> the URL in the next paragraph no longer resolve, and the uptime check and
+> alert rules went with them. Nothing is watching the application right now.
+> This file is kept as the specification of what needs rebuilding — see
+> "What stops watching" in [vps-deployment.md](vps-deployment.md) — and
+> should be rewritten once a replacement monitor actually exists, not
+> before. A monitoring document describing a monitor nobody configured is
+> worse than none.
+
 App `8116d81b-48a2-45a5-b2e6-3f2ea1a2acd7`, live at
 https://messconnect-uyeus.ondigitalocean.app
 

@@ -1,0 +1,45 @@
+# MessConnect scheduled work. Install for the deploy user, not root:
+#
+#   crontab -e          # then paste everything below
+#   crontab -l          # confirm it took
+#
+# Adjust /opt/messconnect if the checkout lives somewhere else.
+#
+# These two lines replace what the hosting platform used to do: the
+# SCHEDULED job in .do/app.yaml, and the managed database's automatic
+# backups. Nothing schedules itself on a VPS. If these lines are not
+# installed, fines are never reconciled and nothing is ever backed up, and
+# both failures are silent for weeks.
+
+# bootstrap.sh sets the server clock to Asia/Kolkata, so these times are
+# already IST. CRON_TZ is belt and braces for a server that was set up
+# another way; Debian/Ubuntu cron honours it.
+CRON_TZ=Asia/Kolkata
+
+# Cron mails output to the local user by default, where nobody reads it.
+# Everything is logged to a file instead -- see the logrotate note below.
+MAILTO=""
+
+# Yesterday's fines, at 01:00 IST. Same hour the App Platform job used.
+0 1 * * * /opt/messconnect/deploy/reconcile.sh >> /var/log/messconnect/reconcile.log 2>&1
+
+# Database dump at 02:30 IST, after reconciliation has written its fines, so
+# the dump contains a settled day rather than one mid-calculation.
+30 2 * * * /opt/messconnect/deploy/backup.sh >> /var/log/messconnect/backup.log 2>&1
+
+# Renewing the TLS certificate needs NO cron entry. Caddy does it itself,
+# in-process, around 30 days before expiry. This is the main reason it is
+# here instead of nginx + certbot.
+#
+# ---------------------------------------------------------------------------
+# Rotate these logs, or they grow without limit and eventually fill the disk
+# that Postgres is writing to. Create /etc/logrotate.d/messconnect as root:
+#
+#   /var/log/messconnect/*.log {
+#       weekly
+#       rotate 8
+#       compress
+#       missingok
+#       notifempty
+#       copytruncate
+#   }
